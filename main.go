@@ -83,7 +83,7 @@ func main() {
 
 		text, err := sms.GetText()
 		if err != nil {
-			slog.Error("Failed to get SMS text", "error", err)
+			slog.Error("failed to get SMS text", "error", err)
 			return
 		}
 
