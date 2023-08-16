@@ -37,7 +37,7 @@ func NewModem() (Modem, error) {
 	}
 
 	if len(modems) == 0 {
-		return nil, errors.New("No modems found")
+		return nil, errors.New("no modems found")
 	}
 
 	// Only support one modem for now
@@ -48,7 +48,7 @@ func NewModem() (Modem, error) {
 	}
 	if state == modemmanager.MmModemStateDisabled {
 		if err := modem.Enable(); err != nil {
-			slog.Error("Failed to enable modem", "error", err)
+			slog.Error("failed to enable modem", "error", err)
 			return nil, err
 		}
 	}
@@ -121,20 +121,20 @@ func (m *mm) SendSMS(number, message string) error {
 func (m *mm) SMSRecevied(callback SMSReceviedFunc) error {
 	messaging, err := m.modem.GetMessaging()
 	if err != nil {
-		slog.Error("Failed to get messaging", "error", err)
+		slog.Error("failed to get messaging", "error", err)
 	}
 
 	for {
 		smsSignal := <-messaging.SubscribeAdded()
 		sms, _, err := messaging.ParseAdded(smsSignal)
 		if err != nil {
-			slog.Error("Failed to parse SMS", "error", err)
+			slog.Error("failed to parse SMS", "error", err)
 			continue
 		}
 
 		state, err := sms.GetState()
 		if err != nil {
-			slog.Error("Failed to get SMS state", "error", err)
+			slog.Error("failed to get SMS state", "error", err)
 			continue
 		}
 
