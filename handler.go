@@ -9,7 +9,7 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-type HandlerFunc = func(message *tgbotapi.Message, modem Modem) error
+type HandlerFunc = func(message *tgbotapi.Message) error
 
 type Handler struct {
 	chatId int64
@@ -36,29 +36,29 @@ func (h *Handler) RegisterCommand(command string, handler HandlerFunc) {
 
 func (h *Handler) Run(command string, message *tgbotapi.Message) error {
 	if handler, ok := h.commands[command]; ok {
-		return handler(message, h.modem)
+		return handler(message)
 	}
 
 	return errors.New("command not found")
 }
 
-func (h *Handler) ChatId(message *tgbotapi.Message, modem Modem) error {
+func (h *Handler) ChatId(message *tgbotapi.Message) error {
 	return h.sendText(message.Chat.ID, fmt.Sprintf("%d", message.Chat.ID))
 }
 
-func (h *Handler) Sim(message *tgbotapi.Message, modem Modem) error {
+func (h *Handler) Sim(message *tgbotapi.Message) error {
 	if err := h.checkChatId(message.Chat.ID); err != nil {
 		return err
 	}
 
-	iccid, _ := modem.GetIccid()
-	imei, _ := modem.GetImei()
-	signalQuality, _ := modem.GetSignalQuality()
+	iccid, _ := h.modem.GetIccid()
+	imei, _ := h.modem.GetImei()
+	signalQuality, _ := h.modem.GetSignalQuality()
 
 	return h.sendText(message.Chat.ID, h.formatText(fmt.Sprintf("ICCID: %s\nIMEI: %s\nSignal Quality: %d", iccid, imei, signalQuality)))
 }
 
-func (h *Handler) RunUSSDCommand(message *tgbotapi.Message, modem Modem) error {
+func (h *Handler) RunUSSDCommand(message *tgbotapi.Message) error {
 	if err := h.checkChatId(message.Chat.ID); err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (h *Handler) RunUSSDCommand(message *tgbotapi.Message, modem Modem) error {
 	return h.sendText(message.Chat.ID, h.formatText(result))
 }
 
-func (h *Handler) SendSms(message *tgbotapi.Message, modem Modem) error {
+func (h *Handler) SendSms(message *tgbotapi.Message) error {
 	if err := h.checkChatId(message.Chat.ID); err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (h *Handler) SendSms(message *tgbotapi.Message, modem Modem) error {
 		return err
 	}
 
-	if err := modem.SendSMS(arguments[1], strings.Join(arguments[2:], " ")); err != nil {
+	if err := h.modem.SendSMS(arguments[1], strings.Join(arguments[2:], " ")); err != nil {
 		return h.sendText(message.Chat.ID, h.formatText(err.Error()))
 	}
 
