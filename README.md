@@ -59,3 +59,11 @@ sudo systemctl start telegram-messenger
 ```bash
 sudo systemctl enable telegram-messenger
 ```
+
+## Supported Commands
+
+* /ussd YourSIMId command - Send a USSD command to your SIM card
+* /sim Retrieve information about your SIM cards
+* /send YourSIMId number message - Send an SMS to a phone number
+* /chatid - Retrieve your Telegram chat ID
+
