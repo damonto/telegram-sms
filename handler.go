@@ -68,8 +68,8 @@ func (h *Handler) RunUSSDCommand(message *tgbotapi.Message, modem Modem) error {
 		return errors.New("invalid arguments")
 	}
 
-	if h.sim != sim {
-		return errors.New("ignore running this command.")
+	if err := h.checkSIM(arguments[0]); err != nil {
+		return err
 	}
 
 	result, err := h.modem.RunUSSDCommand(arguments[1])
@@ -90,8 +90,8 @@ func (h *Handler) SendSms(message *tgbotapi.Message, modem Modem) error {
 		return errors.New("invalid arguments")
 	}
 
-	if h.sim != sim {
-		return errors.New("ignore running this command.")
+	if err := h.checkSIM(arguments[0]); err != nil {
+		return err
 	}
 
 	if err := modem.SendSMS(arguments[1], strings.Join(arguments[2:], " ")); err != nil {
@@ -99,6 +99,14 @@ func (h *Handler) SendSms(message *tgbotapi.Message, modem Modem) error {
 	}
 
 	return nil
+}
+
+func (h *Handler) checkSIM(sim string) error {
+	if h.sim == sim {
+		return nil
+	}
+
+	return errors.New("sim does not match")
 }
 
 func (h *Handler) checkChatId(chatId int64) error {
