@@ -8,4 +8,4 @@ require (
 	golang.org/x/exp v0.0.0-20230811145659-89c5cff77bcb
 )
 
-require github.com/godbus/dbus/v5 v5.0.3 // indirect
+require github.com/godbus/dbus/v5 v5.0.3
