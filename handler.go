@@ -6,24 +6,21 @@ import (
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"golang.org/x/exp/slog"
 )
 
 type HandlerFunc = func(message *tgbotapi.Message) error
 
 type Handler struct {
 	chatId int64
-	sim    string
 	tgbot  *tgbotapi.BotAPI
 	modem  Modem
 
 	commands map[string]HandlerFunc
 }
 
-func NewHandler(sim string, chatId int64, tgbot *tgbotapi.BotAPI, modem Modem) *Handler {
+func NewHandler(chatId int64, tgbot *tgbotapi.BotAPI, modem Modem) *Handler {
 	return &Handler{
 		chatId:   chatId,
-		sim:      sim,
 		tgbot:    tgbot,
 		modem:    modem,
 		commands: make(map[string]HandlerFunc, 1),
@@ -55,7 +52,7 @@ func (h *Handler) Sim(message *tgbotapi.Message) error {
 	imei, _ := h.modem.GetImei()
 	signalQuality, _ := h.modem.GetSignalQuality()
 
-	return h.sendText(message.Chat.ID, h.formatText(fmt.Sprintf("ICCID: %s\nIMEI: %s\nSignal Quality: %d", iccid, imei, signalQuality)))
+	return h.sendText(message.Chat.ID, fmt.Sprintf("ICCID: %s\nIMEI: %s\nSignal Quality: %d", iccid, imei, signalQuality))
 }
 
 func (h *Handler) RunUSSDCommand(message *tgbotapi.Message) error {
@@ -68,16 +65,12 @@ func (h *Handler) RunUSSDCommand(message *tgbotapi.Message) error {
 		return errors.New("invalid arguments")
 	}
 
-	if err := h.checkSIM(arguments[0]); err != nil {
-		return err
-	}
-
 	result, err := h.modem.RunUSSDCommand(arguments[1])
 	if err != nil {
 		return err
 	}
 
-	return h.sendText(message.Chat.ID, h.formatText(result))
+	return h.sendText(message.Chat.ID, result)
 }
 
 func (h *Handler) SendSms(message *tgbotapi.Message) error {
@@ -90,23 +83,11 @@ func (h *Handler) SendSms(message *tgbotapi.Message) error {
 		return errors.New("invalid arguments")
 	}
 
-	if err := h.checkSIM(arguments[0]); err != nil {
-		return err
-	}
-
 	if err := h.modem.SendSMS(arguments[1], strings.Join(arguments[2:], " ")); err != nil {
-		return h.sendText(message.Chat.ID, h.formatText(err.Error()))
+		return h.sendText(message.Chat.ID, err.Error())
 	}
 
 	return nil
-}
-
-func (h *Handler) checkSIM(sim string) error {
-	if h.sim == sim {
-		return nil
-	}
-
-	return errors.New("sim does not match")
 }
 
 func (h *Handler) checkChatId(chatId int64) error {
@@ -115,16 +96,6 @@ func (h *Handler) checkChatId(chatId int64) error {
 	}
 
 	return errors.New("chat id does not match")
-}
-
-func (h *Handler) formatText(text string) string {
-	carrier, err := h.modem.GetCarrier()
-	if err != nil {
-		slog.Error("failed to get carrier name", "error", err)
-		return text
-	}
-
-	return fmt.Sprintf("[%s] %s\n%s", h.sim, carrier, text)
 }
 
 func (h *Handler) sendText(chatId int64, message string) error {

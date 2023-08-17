@@ -24,7 +24,7 @@ chmod +x telegram-messenger
 Once done, you can run the program with root privileges:
 
 ```bash
-sudo ./telegram-messenger -token=YourTelegramToken -chat-id=YourTelegramChatID -sim=YourSIMId
+sudo ./telegram-messenger -token=YourTelegramToken -chat-id=YourTelegramChatID
 ```
 
 If you wish to run the program in the background, you can utilize the `systemctl` command. Here is an example of how to achieve this:
@@ -40,7 +40,7 @@ After=network.target
 Type=simple
 User=root
 Restart=on-failure
-ExecStart=/your/binary/path/here/telegram-messenger -token=YourTelegramToken -chat-id=YourTelegramChatID -sim=YourSIMId
+ExecStart=/your/binary/path/here/telegram-messenger -token=YourTelegramToken -chat-id=YourTelegramChatID
 RestartSec=10s
 TimeoutStopSec=30s
 
@@ -62,8 +62,8 @@ sudo systemctl enable telegram-messenger
 
 ## Supported Commands
 
-* /ussd YourSIMId command - Send a USSD command to your SIM card (/ussd lycamobile *132#)
+* /ussd command - Send a USSD command to your SIM card (/ussd lycamobile *132#)
 * /sim Retrieve information about your SIM cards
-* /send YourSIMId number message - Send an SMS to a phone number (/send lycamobile 911 Abandon)
+* /send number message - Send an SMS to a phone number (/send lycamobile 911 Abandon)
 * /chatid - Retrieve your Telegram chat ID
 

@@ -12,14 +12,12 @@ import (
 
 var (
 	token  string
-	sim    string
 	chatId int64
 	debug  bool
 )
 
 func init() {
 	flag.StringVar(&token, "token", "", "Telegram API token")
-	flag.StringVar(&sim, "sim", "", "A unqiue Id of a SIM")
 	flag.Int64Var(&chatId, "chat-id", 0, "Your telegram chat id")
 	flag.BoolVar(&debug, "debug", false, "Show verbose info")
 	flag.Parse()
@@ -54,7 +52,7 @@ func main() {
 		updateConfig := tgbotapi.NewUpdate(0)
 		updateConfig.Timeout = 30
 		updates := bot.GetUpdatesChan(updateConfig)
-		handler := NewHandler(sim, chatId, bot, modem)
+		handler := NewHandler(chatId, bot, modem)
 
 		for update := range updates {
 			if update.Message == nil || !update.Message.IsCommand() {
@@ -87,19 +85,9 @@ func main() {
 			return
 		}
 
-		msg := tgbotapi.NewMessage(chatId, formatText(fmt.Sprintf("From: %s\n%s", form, text), modem))
+		msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("From: %s\n%s", form, text))
 		if _, err := bot.Send(msg); err != nil {
 			slog.Error("failed to send message", "text", msg.Text)
 		}
 	})
-}
-
-func formatText(text string, modem Modem) string {
-	carrier, err := modem.GetCarrier()
-	if err != nil {
-		slog.Error("failed to get carrier name", "error", err)
-		return text
-	}
-
-	return fmt.Sprintf("[%s] %s\n%s", sim, carrier, text)
 }
