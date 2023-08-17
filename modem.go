@@ -156,7 +156,7 @@ func (m *mm) SMSRecevied(callback SMSReceviedFunc) error {
 	}
 }
 
-func (m *mm) ParseDatetime(path dbus.ObjectPath) (string, error) {
+func (m *mm) parseSMSDatetime(path dbus.ObjectPath) (string, error) {
 	dbusConn, err := dbus.SystemBus()
 	if err != nil {
 		return "", err
