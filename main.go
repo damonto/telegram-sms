@@ -67,6 +67,7 @@ func main() {
 			slog.Info("command received", "command", update.Message.Command(), "raw", update.Message.Text)
 			if err := handler.Run(update.Message.Command(), update.Message); err != nil {
 				slog.Error("failed to run command", "error", err)
+				
 				continue
 			}
 		}
@@ -85,7 +86,7 @@ func main() {
 			return
 		}
 
-		msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("From: %s\n%s", form, text))
+		msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("%s\n%s", form, text))
 		if _, err := bot.Send(msg); err != nil {
 			slog.Error("failed to send message", "text", msg.Text)
 		}

@@ -62,8 +62,8 @@ sudo systemctl enable telegram-messenger
 
 ## Supported Commands
 
-* /ussd command - Send a USSD command to your SIM card (/ussd lycamobile *132#)
-* /sim Retrieve information about your SIM cards
-* /send number message - Send an SMS to a phone number (/send lycamobile 911 Abandon)
+* /ussd command - Send a USSD command to your SIM card (/ussd *132#)
+* /sim Retrieve information about your SIM card
+* /send number message - Send an SMS to a phone number (/send 911 Abandon)
 * /chatid - Retrieve your Telegram chat ID
 
