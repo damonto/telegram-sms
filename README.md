@@ -8,7 +8,7 @@ I have thoroughly tested this program and found it to work well. However, its co
 
 ## Tested Devices
 
-* Qualcomm 410 WiFi Stick
+* Qualcomm 410 WiFi Stick (Doesn't support USSD commands)
 * Quectel EM12-G
 
 ## Installation & Usage
@@ -33,7 +33,7 @@ If you wish to run the program in the background, you can utilize the `systemctl
 
 ```plaintext
 [Unit]
-Description=Telegram Messenger SMS Manager
+Description=Telegram SMS Manager
 After=network.target
 
 [Service]
