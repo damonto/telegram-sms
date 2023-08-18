@@ -1,4 +1,4 @@
-# Telegram Messenger
+# Telegram SMS
 
 ## Introduction
 
@@ -13,23 +13,23 @@ I have thoroughly tested this program and found it to work well. However, its co
 
 ## Installation & Usage
 
-You can obtain the latest release from the [releases page](https://github.com/damonto/telegram-messenger/releases).
+You can obtain the latest release from the [releases page](https://github.com/damonto/telegram-sms/releases).
 
 Sometimes, you might need to set executable permissions for the binary file using the following command:
 
 ```bash
-chmod +x telegram-messenger
+chmod +x telegram-sms
 ```
 
 Once done, you can run the program with root privileges:
 
 ```bash
-sudo ./telegram-messenger -token=YourTelegramToken -chat-id=YourTelegramChatID
+sudo ./telegram-sms -token=YourTelegramToken -chat-id=YourTelegramChatID
 ```
 
 If you wish to run the program in the background, you can utilize the `systemctl` command. Here is an example of how to achieve this:
 
-1. Start by creating a service file in the `/etc/systemd/system` directory. For instance, you can name the file `telegram-messenger.service` and include the following content:
+1. Start by creating a service file in the `/etc/systemd/system` directory. For instance, you can name the file `telegram-sms.service` and include the following content:
 
 ```plaintext
 [Unit]
@@ -40,7 +40,7 @@ After=network.target
 Type=simple
 User=root
 Restart=on-failure
-ExecStart=/your/binary/path/here/telegram-messenger -token=YourTelegramToken -chat-id=YourTelegramChatID
+ExecStart=/your/binary/path/here/telegram-sms -token=YourTelegramToken -chat-id=YourTelegramChatID
 RestartSec=10s
 TimeoutStopSec=30s
 
@@ -51,13 +51,13 @@ WantedBy=multi-user.target
 2. Then, use the following command to start the service:
 
 ```bash
-sudo systemctl start telegram-messenger
+sudo systemctl start telegram-sms
 ```
 
 3. If you want the service to start automatically upon system boot, use the following command:
 
 ```bash
-sudo systemctl enable telegram-messenger
+sudo systemctl enable telegram-sms
 ```
 
 ## Supported Commands

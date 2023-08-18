@@ -31,7 +31,7 @@ func main() {
 	}
 
 	if user.Username != "root" {
-		slog.Error("telegram messenger must be running as the root user")
+		slog.Error("telegram sms must be running as the root user")
 		return
 	}
 
@@ -67,7 +67,7 @@ func main() {
 			slog.Info("command received", "command", update.Message.Command(), "raw", update.Message.Text)
 			if err := handler.Run(update.Message.Command(), update.Message); err != nil {
 				slog.Error("failed to run command", "error", err)
-				
+
 				continue
 			}
 		}
