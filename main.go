@@ -31,7 +31,7 @@ func main() {
 	}
 
 	if user.Username != "root" {
-		slog.Error("telegram sms must be running as the root user")
+		slog.Error("must be running as the root user")
 		return
 	}
 
