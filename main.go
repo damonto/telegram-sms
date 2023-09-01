@@ -74,7 +74,7 @@ func main() {
 	}(bot, modem)
 
 	modem.SMSRecevied(func(sms modemmanager.Sms) {
-		form, err := sms.GetNumber()
+		from, err := sms.GetNumber()
 		if err != nil {
 			slog.Error("failed to get phone number", "error", err)
 			return
@@ -86,8 +86,7 @@ func main() {
 			return
 		}
 
-		msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("*%s*\n%s", form, text))
-		msg.ParseMode = "markdownV2"
+		msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("%s\n%s", from, text))
 		if _, err := bot.Send(msg); err != nil {
 			slog.Error("failed to send message", "text", msg.Text, "error", err)
 		}

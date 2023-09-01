@@ -65,7 +65,7 @@ func (h *Handler) RunUSSDCommand(message *tgbotapi.Message) error {
 		return errors.New("invalid arguments")
 	}
 
-	result, err := h.modem.RunUSSDCommand(arguments[1])
+	result, err := h.modem.RunUSSDCommand(arguments[0])
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (h *Handler) SendSms(message *tgbotapi.Message) error {
 		return errors.New("invalid arguments")
 	}
 
-	if err := h.modem.SendSMS(arguments[1], strings.Join(arguments[2:], " ")); err != nil {
+	if err := h.modem.SendSMS(arguments[0], strings.Join(arguments[1:], " ")); err != nil {
 		return h.sendText(message.Chat.ID, err.Error())
 	}
 
