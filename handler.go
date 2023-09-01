@@ -61,7 +61,7 @@ func (h *Handler) RunUSSDCommand(message *tgbotapi.Message) error {
 	}
 
 	arguments := strings.Split(message.CommandArguments(), " ")
-	if len(arguments) < 2 {
+	if len(arguments) < 1 {
 		return errors.New("invalid arguments")
 	}
 
