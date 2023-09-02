@@ -26,9 +26,9 @@ type Modem interface {
 }
 
 type mm struct {
-	mmgr          modemmanager.ModemManager
-	modem         modemmanager.Modem
-	smsSubscriber SMSSubscriber
+	mmgr               modemmanager.ModemManager
+	modem              modemmanager.Modem
+	smsResubscribeChan chan struct{}
 }
 
 var (
@@ -45,7 +45,8 @@ func NewModem() (Modem, error) {
 	}
 	mmgr.SetLogging(modemmanager.MMLoggingLevelWarning)
 	m := &mm{
-		mmgr: mmgr,
+		mmgr:               mmgr,
+		smsResubscribeChan: make(chan struct{}, 1),
 	}
 	m.modem, err = m.initModemManager()
 	return m, err
@@ -144,13 +145,6 @@ func (m *mm) SetPrimarySimSlot(simSlot uint32) error {
 		return nil
 	}
 
-	messaging, err := m.modem.GetMessaging()
-	if err != nil {
-		return err
-	}
-	slog.Info("unsubscribe sms")
-	messaging.Unsubscribe()
-
 	if err := m.callMethod(m.modem.GetObjectPath(), modemSetPrimarySimSlot, uint32(simSlot)); err != nil {
 		return err
 	}
@@ -178,12 +172,12 @@ func (m *mm) SetPrimarySimSlot(simSlot uint32) error {
 					}
 				}
 				m.modem = modem
+				m.smsResubscribeChan <- struct{}{}
 				break
 			}
 		}
 	}
 
-	go m.SubscribeSMS(m.smsSubscriber)
 	return nil
 }
 
@@ -245,41 +239,46 @@ func (m *mm) SendSMS(number, message string) error {
 }
 
 func (m *mm) SubscribeSMS(subscriber SMSSubscriber) error {
-	slog.Info("subscriber sms")
-	m.smsSubscriber = subscriber
+Subscribe:
 	messaging, err := m.modem.GetMessaging()
 	if err != nil {
 		slog.Error("failed to get messaging", "error", err)
 	}
 
 	for {
-		smsSignal := <-messaging.SubscribeAdded()
-		sms, _, err := messaging.ParseAdded(smsSignal)
-		if err != nil {
-			slog.Error("failed to parse SMS", "error", err)
-			continue
-		}
+		select {
+		case smsSignal := <-messaging.SubscribeAdded():
+			sms, _, err := messaging.ParseAdded(smsSignal)
+			if err != nil {
+				slog.Error("failed to parse SMS", "error", err)
+				continue
+			}
 
-		state, err := sms.GetState()
-		if err != nil {
-			slog.Error("failed to get SMS state", "error", err)
-			continue
-		}
+			state, err := sms.GetState()
+			if err != nil {
+				slog.Error("failed to get SMS state", "error", err)
+				continue
+			}
 
-		if state == modemmanager.MmSmsStateReceiving {
-			for {
-				time.Sleep(1 * time.Second)
-				if state, err := sms.GetState(); state == modemmanager.MmSmsStateReceived && err == nil {
-					subscriber(sms)
-					break
+			if state == modemmanager.MmSmsStateReceiving {
+				for {
+					time.Sleep(1 * time.Second)
+					if state, err := sms.GetState(); state == modemmanager.MmSmsStateReceived && err == nil {
+						subscriber(sms)
+						break
+					}
 				}
 			}
-		}
 
-		if state == modemmanager.MmSmsStateReceived {
-			subscriber(sms)
-		} else {
-			continue
+			if state == modemmanager.MmSmsStateReceived {
+				subscriber(sms)
+			} else {
+				continue
+			}
+		case <-m.smsResubscribeChan:
+			slog.Info("SIM slot has been changed, unsubscribe and subscribe again")
+			messaging.Unsubscribe()
+			goto Subscribe
 		}
 	}
 }

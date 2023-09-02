@@ -16,7 +16,7 @@ type CallbackFunc = func(callback *tgbotapi.CallbackQuery, value string) error
 type Handler interface {
 	RegisterCommands() error
 	HandleCommand(command string, message *tgbotapi.Message) error
-	handleCallback(callback *tgbotapi.CallbackQuery) error
+	HandleCallback(callback *tgbotapi.CallbackQuery) error
 }
 
 type handler struct {
@@ -44,12 +44,12 @@ func NewHandler(chatId int64, tgbot *tgbotapi.BotAPI, modem Modem) Handler {
 
 func (h *handler) RegisterCommands() error {
 	h.commands = map[string]command{
-		"chatid":        {command: "chatid", description: "Retrieve Chat id", handler: h.handleChatIdCommand},
+		"chatid":        {command: "chatid", description: "Obtain your chat id", handler: h.handleChatIdCommand},
 		"sim":           {command: "sim", description: "SIM card info", handler: h.handleSimCommand},
 		"switchsimslot": {command: "switchsimslot", description: "Switch to another SIM slot", handler: h.handleSwitchSlotCommand, callback: h.handleSwitchSlotCallback},
-		"sms":           {command: "sms", description: "Send SMS", handler: h.handleSimCommand},
+		"sms":           {command: "sms", description: "Send SMS", handler: h.handleSendSmsCommand},
 		"ussd":          {command: "ussd", description: "Run ussd command", handler: h.handleUSSDCommand},
-		"ussdresponed":  {command: "ussd", description: "Respond the last ussd command", handler: h.handleUSSDRespondCommand},
+		"ussdresponed":  {command: "ussdresponed", description: "Respond the last ussd command", handler: h.handleUSSDRespondCommand},
 	}
 	botCommands := []tgbotapi.BotCommand{}
 	for _, c := range h.commands {
@@ -83,7 +83,7 @@ func (h *handler) HandleCommand(command string, message *tgbotapi.Message) error
 	return errors.New("command not found")
 }
 
-func (h *handler) handleCallback(callback *tgbotapi.CallbackQuery) error {
+func (h *handler) HandleCallback(callback *tgbotapi.CallbackQuery) error {
 	button := strings.Split(callback.Data, ":")
 
 	if command, ok := h.commands[button[0]]; ok {
@@ -95,7 +95,7 @@ func (h *handler) handleCallback(callback *tgbotapi.CallbackQuery) error {
 func (h *handler) handleStartCommand(message *tgbotapi.Message) error {
 	greeting := "Welcome to using this bot. You can control the bot using these commands:\n\n"
 	for _, c := range h.commands {
-		greeting += fmt.Sprintf("/%s %s\n", c.command, c.description)
+		greeting += fmt.Sprintf("/%s - %s\n", c.command, c.description)
 	}
 
 	greeting = strings.TrimRight(greeting, "\n")
@@ -126,7 +126,8 @@ func (h *handler) handleSwitchSlotCommand(message *tgbotapi.Message) error {
 		}
 	}
 
-	msg := tgbotapi.NewMessage(h.chatId, "Which SIM slot do you want to use?")
+	msg := tgbotapi.NewMessage(h.chatId, "*Which SIM slot do you want to use?*\nThis action may take some time\\.")
+	msg.ParseMode = "markdownV2"
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(buttons...))
 	msg.ReplyMarkup = keyboard
 	if _, err := h.tgbot.Send(msg); err != nil {
@@ -146,11 +147,11 @@ func (h *handler) handleSwitchSlotCallback(callback *tgbotapi.CallbackQuery, val
 		return err
 	}
 
-	if _, err = h.tgbot.Request(tgbotapi.NewCallback(callback.ID, "SIM slot has been changed")); err != nil {
+	if _, err = h.tgbot.Request(tgbotapi.NewCallback(callback.ID, "Success!")); err != nil {
 		return err
 	}
 
-	return nil
+	return h.sendText(callback.Message.Chat.ID, "Success! SIM slot has been changed.")
 }
 
 func (h *handler) handleSimCommand(message *tgbotapi.Message) error {
@@ -164,7 +165,7 @@ func (h *handler) handleSimCommand(message *tgbotapi.Message) error {
 	imei, _ := h.modem.GetImei()
 	signalQuality, _ := h.modem.GetSignalQuality()
 
-	return h.sendText(message.Chat.ID, fmt.Sprintf("SIM Slot: %d\nOperator: %s\nICCID: %s\nIMEI: %s\nSignal Quality: %d", slot, operator, iccid, imei, signalQuality))
+	return h.sendText(message.Chat.ID, fmt.Sprintf("SIM Slot: %d\nOperator: %s\nICCID: %s\nIMEI: %s\nSignal Quality: %d%s", slot, operator, iccid, imei, signalQuality, "%"))
 }
 
 func (h *handler) handleUSSDCommand(message *tgbotapi.Message) error {

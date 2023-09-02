@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os/user"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/maltegrosse/go-modemmanager"
@@ -71,7 +72,7 @@ func main() {
 
 			if update.CallbackQuery != nil {
 				slog.Info("command callback received", "button", update.CallbackQuery.Data)
-				if err := handler.handleCallback(update.CallbackQuery); err != nil {
+				if err := handler.HandleCallback(update.CallbackQuery); err != nil {
 					slog.Error("failed to handle callback", "error", err)
 					msg := tgbotapi.NewMessage(chatId, err.Error())
 					if _, err := bot.Send(msg); err != nil {
@@ -83,7 +84,7 @@ func main() {
 		}
 	}(bot, modem)
 
-	go modem.SubscribeSMS(func(sms modemmanager.Sms) {
+	modem.SubscribeSMS(func(sms modemmanager.Sms) {
 		sender, err := sms.GetNumber()
 		if err != nil {
 			slog.Error("failed to get phone number", "error", err)
@@ -102,11 +103,14 @@ func main() {
 			return
 		}
 
-		msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("[%s] %s\n%s", operator, sender, text))
+		replacements := []string{"_", "*", "[", "]", "(", ")", "~", "`", ">", "#", "+", "-", "=", "|", "{", "}", ".", "!"}
+		for _, replacement := range replacements {
+			text = strings.ReplaceAll(text, replacement, "\\"+replacement)
+		}
+		msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("*\\[%s\\] %s*\n%s", operator, sender, text))
+		msg.ParseMode = "markdownV2"
 		if _, err := bot.Send(msg); err != nil {
 			slog.Error("failed to send message", "text", msg.Text, "error", err)
 		}
 	})
-
-	select {}
 }
