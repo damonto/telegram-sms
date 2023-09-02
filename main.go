@@ -48,35 +48,51 @@ func main() {
 		panic(err)
 	}
 
+	handler := NewHandler(chatId, bot, modem)
+	handler.RegisterCommands()
+
 	go func(bot *tgbotapi.BotAPI, modem Modem) {
 		updateConfig := tgbotapi.NewUpdate(0)
 		updateConfig.Timeout = 30
 		updates := bot.GetUpdatesChan(updateConfig)
-		handler := NewHandler(chatId, bot, modem)
 
 		for update := range updates {
-			if update.Message == nil || !update.Message.IsCommand() {
-				continue
+			if update.Message != nil && update.Message.IsCommand() {
+				slog.Info("command received", "command", update.Message.Command(), "raw", update.Message.Text)
+				if err := handler.HandleCommand(update.Message.Command(), update.Message); err != nil {
+					slog.Error("failed to handle command", "error", err)
+					msg := tgbotapi.NewMessage(chatId, err.Error())
+					if _, err := bot.Send(msg); err != nil {
+						slog.Error("failed to send message", "text", msg.Text, "error", err)
+					}
+					continue
+				}
 			}
 
-			handler.RegisterCommand("sim", handler.Sim)
-			handler.RegisterCommand("chatid", handler.ChatId)
-			handler.RegisterCommand("send", handler.SendSms)
-			handler.RegisterCommand("ussd", handler.RunUSSDCommand)
-
-			slog.Info("command received", "command", update.Message.Command(), "raw", update.Message.Text)
-			if err := handler.Run(update.Message.Command(), update.Message); err != nil {
-				slog.Error("failed to run command", "error", err)
-
-				continue
+			if update.CallbackQuery != nil {
+				slog.Info("command callback received", "button", update.CallbackQuery.Data)
+				if err := handler.handleCallback(update.CallbackQuery); err != nil {
+					slog.Error("failed to handle callback", "error", err)
+					msg := tgbotapi.NewMessage(chatId, err.Error())
+					if _, err := bot.Send(msg); err != nil {
+						slog.Error("failed to send message", "text", msg.Text, "error", err)
+					}
+					continue
+				}
 			}
 		}
 	}(bot, modem)
 
-	modem.SMSRecevied(func(sms modemmanager.Sms) {
-		from, err := sms.GetNumber()
+	go modem.SubscribeSMS(func(sms modemmanager.Sms) {
+		sender, err := sms.GetNumber()
 		if err != nil {
 			slog.Error("failed to get phone number", "error", err)
+			return
+		}
+
+		operator, err := modem.GetOperatorName()
+		if err != nil {
+			slog.Error("failed to get operator name", "error", err)
 			return
 		}
 
@@ -86,9 +102,11 @@ func main() {
 			return
 		}
 
-		msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("%s\n%s", from, text))
+		msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("[%s] %s\n%s", operator, sender, text))
 		if _, err := bot.Send(msg); err != nil {
 			slog.Error("failed to send message", "text", msg.Text, "error", err)
 		}
 	})
+
+	select {}
 }

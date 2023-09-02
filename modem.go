@@ -9,29 +9,50 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-type SMSReceviedFunc = func(sms modemmanager.Sms)
+type SMSSubscriber = func(sms modemmanager.Sms)
 
 type Modem interface {
 	GetIccid() (string, error)
-	GetCarrier() (string, error)
+	GetOperatorName() (string, error)
 	GetImei() (string, error)
 	GetSignalQuality() (uint32, error)
+	GetPrimarySimSlot() (uint32, error)
+	SetPrimarySimSlot(simSlot uint32) error
+	GetSimSlots() ([]dbus.ObjectPath, error)
 	RunUSSDCommand(command string) (string, error)
-	SMSRecevied(callback SMSReceviedFunc) error
+	RespondUSSDCommand(response string) (string, error)
+	SubscribeSMS(callback SMSSubscriber) error
 	SendSMS(number, message string) error
 }
 
 type mm struct {
-	modem modemmanager.Modem
+	mmgr          modemmanager.ModemManager
+	modem         modemmanager.Modem
+	smsSubscriber SMSSubscriber
 }
 
+var (
+	modemPropertySimSlots       = "org.freedesktop.ModemManager1.Modem.SimSlots"
+	modemPropertyPrimarySimSlot = "org.freedesktop.ModemManager1.Modem.PrimarySimSlot"
+	modemSetPrimarySimSlot      = "org.freedesktop.ModemManager1.Modem.SetPrimarySimSlot"
+)
+
 func NewModem() (Modem, error) {
+	var err error
 	mmgr, err := modemmanager.NewModemManager()
 	if err != nil {
 		return nil, err
 	}
+	mmgr.SetLogging(modemmanager.MMLoggingLevelWarning)
+	m := &mm{
+		mmgr: mmgr,
+	}
+	m.modem, err = m.initModemManager()
+	return m, err
+}
 
-	modems, err := mmgr.GetModems()
+func (m *mm) initModemManager() (modemmanager.Modem, error) {
+	modems, err := m.mmgr.GetModems()
 	if err != nil {
 		return nil, err
 	}
@@ -52,10 +73,7 @@ func NewModem() (Modem, error) {
 			return nil, err
 		}
 	}
-
-	return &mm{
-		modem,
-	}, nil
+	return modem, err
 }
 
 func (m *mm) GetIccid() (string, error) {
@@ -76,7 +94,7 @@ func (m *mm) GetImei() (string, error) {
 	return threeGpp.GetImei()
 }
 
-func (m *mm) GetCarrier() (string, error) {
+func (m *mm) GetOperatorName() (string, error) {
 	threeGpp, err := m.modem.Get3gpp()
 	if err != nil {
 		return "", err
@@ -94,6 +112,101 @@ func (m *mm) GetSignalQuality() (uint32, error) {
 	return percent, err
 }
 
+func (m *mm) GetSimSlots() ([]dbus.ObjectPath, error) {
+	prop, err := m.getProperty(m.modem.GetObjectPath(), modemPropertySimSlots)
+	if err != nil {
+		return nil, err
+	}
+
+	simSlots := []dbus.ObjectPath{}
+	for _, slot := range prop.Value().([]dbus.ObjectPath) {
+		simSlots = append(simSlots, slot)
+	}
+	return simSlots, err
+}
+
+func (m *mm) GetPrimarySimSlot() (uint32, error) {
+	prop, err := m.getProperty(m.modem.GetObjectPath(), modemPropertyPrimarySimSlot)
+	if err != nil {
+		return 0, err
+	}
+	return prop.Value().(uint32), err
+}
+
+func (m *mm) SetPrimarySimSlot(simSlot uint32) error {
+	primarySlot, err := m.GetPrimarySimSlot()
+	if err != nil {
+		return err
+	}
+
+	if primarySlot == simSlot {
+		slog.Info("the given sim slot has already activated", "slot", simSlot)
+		return nil
+	}
+
+	messaging, err := m.modem.GetMessaging()
+	if err != nil {
+		return err
+	}
+	slog.Info("unsubscribe sms")
+	messaging.Unsubscribe()
+
+	if err := m.callMethod(m.modem.GetObjectPath(), modemSetPrimarySimSlot, uint32(simSlot)); err != nil {
+		return err
+	}
+
+	for {
+		time.Sleep(5 * time.Second)
+		modems, err := m.mmgr.GetModems()
+		if err != nil {
+			return err
+		}
+
+		if len(modems) > 0 {
+			modem := modems[0]
+			if modem.GetObjectPath() != m.modem.GetObjectPath() {
+				slog.Info("new modem detected", "path", modem.GetObjectPath())
+
+				state, err := modem.GetState()
+				if err != nil {
+					return err
+				}
+				if state == modemmanager.MmModemStateDisabled {
+					if err := modem.Enable(); err != nil {
+						slog.Error("failed to enable modem", "error", err)
+						return err
+					}
+				}
+				m.modem = modem
+				break
+			}
+		}
+	}
+
+	go m.SubscribeSMS(m.smsSubscriber)
+	return nil
+}
+
+func (m *mm) callMethod(objectPath dbus.ObjectPath, method string, args ...interface{}) error {
+	dbusConn, err := dbus.SystemBus()
+	if err != nil {
+		return err
+	}
+
+	obj := dbusConn.Object(modemmanager.ModemManagerInterface, objectPath)
+	return obj.Call(method, 0, args...).Err
+}
+
+func (m *mm) getProperty(objectPath dbus.ObjectPath, property string) (dbus.Variant, error) {
+	dbusConn, err := dbus.SystemBus()
+	if err != nil {
+		return dbus.Variant{}, err
+	}
+
+	obj := dbusConn.Object(modemmanager.ModemManagerInterface, objectPath)
+	return obj.GetProperty(property)
+}
+
 func (m *mm) RunUSSDCommand(command string) (string, error) {
 	three3gpp, err := m.modem.Get3gpp()
 	if err != nil {
@@ -104,8 +217,20 @@ func (m *mm) RunUSSDCommand(command string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	return ussd.Initiate(command)
+}
+
+func (m *mm) RespondUSSDCommand(response string) (string, error) {
+	three3gpp, err := m.modem.Get3gpp()
+	if err != nil {
+		return "", err
+	}
+
+	ussd, err := three3gpp.GetUssd()
+	if err != nil {
+		return "", err
+	}
+	return ussd.Respond(response)
 }
 
 func (m *mm) SendSMS(number, message string) error {
@@ -115,10 +240,13 @@ func (m *mm) SendSMS(number, message string) error {
 	}
 
 	sms, err := messaging.CreateSms(number, message)
+
 	return sms.Send()
 }
 
-func (m *mm) SMSRecevied(callback SMSReceviedFunc) error {
+func (m *mm) SubscribeSMS(subscriber SMSSubscriber) error {
+	slog.Info("subscriber sms")
+	m.smsSubscriber = subscriber
 	messaging, err := m.modem.GetMessaging()
 	if err != nil {
 		slog.Error("failed to get messaging", "error", err)
@@ -142,14 +270,14 @@ func (m *mm) SMSRecevied(callback SMSReceviedFunc) error {
 			for {
 				time.Sleep(1 * time.Second)
 				if state, err := sms.GetState(); state == modemmanager.MmSmsStateReceived && err == nil {
-					callback(sms)
+					subscriber(sms)
 					break
 				}
 			}
 		}
 
 		if state == modemmanager.MmSmsStateReceived {
-			callback(sms)
+			subscriber(sms)
 		} else {
 			continue
 		}
@@ -157,13 +285,10 @@ func (m *mm) SMSRecevied(callback SMSReceviedFunc) error {
 }
 
 func (m *mm) parseSMSDatetime(path dbus.ObjectPath) (string, error) {
-	dbusConn, err := dbus.SystemBus()
+	prop, err := m.getProperty(path, modemmanager.SmsPropertyTimestamp)
 	if err != nil {
 		return "", err
 	}
-
-	obj := dbusConn.Object(modemmanager.ModemManagerInterface, path)
-	prop, err := obj.GetProperty(modemmanager.SmsPropertyTimestamp)
 
 	for _, f := range []string{
 		"2006-01-02T15:04:05-07",
@@ -175,6 +300,5 @@ func (m *mm) parseSMSDatetime(path dbus.ObjectPath) (string, error) {
 			return t.Format(time.DateTime), nil
 		}
 	}
-
 	return time.Now().Format(time.DateTime), nil
 }
