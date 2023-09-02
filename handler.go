@@ -45,7 +45,7 @@ func NewHandler(chatId int64, tgbot *tgbotapi.BotAPI, modem Modem) Handler {
 func (h *handler) RegisterCommands() error {
 	h.commands = map[string]command{
 		"chatid":        {command: "chatid", description: "Obtain your chat id", handler: h.handleChatIdCommand},
-		"sim":           {command: "sim", description: "SIM card info", handler: h.handleSimCommand},
+		"sim":           {command: "sim", description: "Obtain SIM card properties", handler: h.handleSimCommand},
 		"switchsimslot": {command: "switchsimslot", description: "Switch to another SIM slot", handler: h.handleSwitchSlotCommand, callback: h.handleSwitchSlotCallback},
 		"sms":           {command: "sms", description: "Send SMS", handler: h.handleSendSmsCommand},
 		"ussd":          {command: "ussd", description: "Run ussd command", handler: h.handleUSSDCommand},
