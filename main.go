@@ -12,14 +12,16 @@ import (
 )
 
 var (
-	token  string
-	chatId int64
-	debug  bool
+	token      string
+	chatId     int64
+	modemIndex int
+	debug      bool
 )
 
 func init() {
 	flag.StringVar(&token, "token", "", "Telegram API token")
 	flag.Int64Var(&chatId, "chat-id", 0, "Your telegram chat id")
+	flag.IntVar(&modemIndex, "modem", 0, "The modem index number")
 	flag.BoolVar(&debug, "debug", false, "Show verbose info")
 	flag.Parse()
 }
@@ -43,7 +45,7 @@ func main() {
 	}
 	bot.Debug = debug
 
-	modem, err := NewModem()
+	modem, err := NewModem(modemIndex)
 	if err != nil {
 		slog.Error("failed to connect to modem", "error", err)
 		panic(err)

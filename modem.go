@@ -26,6 +26,7 @@ type Modem interface {
 }
 
 type mm struct {
+	modemIndex         int
 	mmgr               modemmanager.ModemManager
 	modem              modemmanager.Modem
 	smsResubscribeChan chan struct{}
@@ -37,7 +38,7 @@ var (
 	modemSetPrimarySimSlot      = "org.freedesktop.ModemManager1.Modem.SetPrimarySimSlot"
 )
 
-func NewModem() (Modem, error) {
+func NewModem(modemIndex int) (Modem, error) {
 	var err error
 	mmgr, err := modemmanager.NewModemManager()
 	if err != nil {
@@ -45,6 +46,7 @@ func NewModem() (Modem, error) {
 	}
 	mmgr.SetLogging(modemmanager.MMLoggingLevelWarning)
 	m := &mm{
+		modemIndex:         modemIndex,
 		mmgr:               mmgr,
 		smsResubscribeChan: make(chan struct{}, 1),
 	}
@@ -63,7 +65,7 @@ func (m *mm) initModemManager() (modemmanager.Modem, error) {
 	}
 
 	// Only support one modem for now
-	modem := modems[0]
+	modem := modems[m.modemIndex]
 	state, err := modem.GetState()
 	if err != nil {
 		return nil, err
@@ -157,7 +159,7 @@ func (m *mm) SetPrimarySimSlot(simSlot uint32) error {
 		}
 
 		if len(modems) > 0 {
-			modem := modems[0]
+			modem := modems[m.modemIndex]
 			if modem.GetObjectPath() != m.modem.GetObjectPath() {
 				slog.Info("new modem detected", "path", modem.GetObjectPath())
 
