@@ -105,14 +105,18 @@ func main() {
 			return
 		}
 
-		replacements := []string{"_", "*", "[", "]", "(", ")", "~", "`", ">", "#", "+", "-", "=", "|", "{", "}", ".", "!"}
-		for _, replacement := range replacements {
-			text = strings.ReplaceAll(text, replacement, "\\"+replacement)
-		}
-		msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("*\\[%s\\] %s*\n%s", operator, sender, text))
+		msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("*\\[%s\\] %s*\n%s", operator, escapeText(sender), escapeText(text)))
 		msg.ParseMode = "markdownV2"
 		if _, err := bot.Send(msg); err != nil {
 			slog.Error("failed to send message", "text", msg.Text, "error", err)
 		}
 	})
+}
+
+func escapeText(text string) string {
+	replacements := []string{"_", "*", "[", "]", "(", ")", "~", "`", ">", "#", "+", "-", "=", "|", "{", "}", ".", "!"}
+	for _, replacement := range replacements {
+		text = strings.ReplaceAll(text, replacement, "\\"+replacement)
+	}
+	return text
 }
