@@ -84,7 +84,6 @@ func (m *mm) GetIccid() (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	return sim.GetSimIdentifier()
 }
 
@@ -93,7 +92,6 @@ func (m *mm) GetImei() (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	return threeGpp.GetImei()
 }
 
@@ -111,7 +109,6 @@ func (m *mm) GetSignalQuality() (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-
 	return percent, err
 }
 
@@ -179,7 +176,6 @@ func (m *mm) SetPrimarySimSlot(simSlot uint32) error {
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -236,7 +232,6 @@ func (m *mm) SendSMS(number, message string) error {
 	}
 
 	sms, err := messaging.CreateSms(number, message)
-
 	return sms.Send()
 }
 

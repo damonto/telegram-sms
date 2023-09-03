@@ -68,7 +68,6 @@ func (h *handler) RegisterCommands() error {
 	if !response.Ok {
 		return errors.New(response.Description)
 	}
-
 	return nil
 }
 
@@ -150,7 +149,6 @@ func (h *handler) handleSwitchSlotCallback(callback *tgbotapi.CallbackQuery, val
 	if _, err = h.tgbot.Request(tgbotapi.NewCallback(callback.ID, "Success!")); err != nil {
 		return err
 	}
-
 	return h.sendText(callback.Message.Chat.ID, "Success! SIM slot has been changed.")
 }
 
@@ -164,7 +162,6 @@ func (h *handler) handleSimCommand(message *tgbotapi.Message) error {
 	iccid, _ := h.modem.GetIccid()
 	imei, _ := h.modem.GetImei()
 	signalQuality, _ := h.modem.GetSignalQuality()
-
 	return h.sendText(message.Chat.ID, fmt.Sprintf("SIM Slot: %d\nOperator: %s\nICCID: %s\nIMEI: %s\nSignal Quality: %d%s", slot, operator, iccid, imei, signalQuality, "%"))
 }
 
@@ -182,7 +179,6 @@ func (h *handler) handleUSSDCommand(message *tgbotapi.Message) error {
 	if err != nil {
 		return err
 	}
-
 	return h.sendText(message.Chat.ID, result)
 }
 
@@ -200,7 +196,6 @@ func (h *handler) handleUSSDRespondCommand(message *tgbotapi.Message) error {
 	if err != nil {
 		return err
 	}
-
 	return h.sendText(message.Chat.ID, reply)
 }
 
@@ -217,7 +212,6 @@ func (h *handler) handleSendSmsCommand(message *tgbotapi.Message) error {
 	if err := h.modem.SendSMS(arguments[0], strings.Join(arguments[1:], " ")); err != nil {
 		return h.sendText(message.Chat.ID, err.Error())
 	}
-
 	return nil
 }
 
@@ -225,7 +219,6 @@ func (h *handler) checkChatId(chatId int64) error {
 	if h.chatId == chatId {
 		return nil
 	}
-
 	return errors.New("chat id does not match")
 }
 
@@ -233,6 +226,5 @@ func (h *handler) sendText(chatId int64, message string) error {
 	if _, err := h.tgbot.Send(tgbotapi.NewMessage(chatId, message)); err != nil {
 		return err
 	}
-
 	return nil
 }
