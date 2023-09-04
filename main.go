@@ -105,7 +105,7 @@ func main() {
 			return
 		}
 
-		msg := tgbotapi.NewMessage(chatId, escapeText(fmt.Sprintf("*[%s] %s*\n%s", operator, sender, text)))
+		msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("*\\[%s\\] %s*\n%s", operator, escapeText(sender), escapeText(text)))
 		msg.ParseMode = "markdownV2"
 		if _, err := bot.Send(msg); err != nil {
 			slog.Error("failed to send message", "text", msg.Text, "error", err)
