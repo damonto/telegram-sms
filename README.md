@@ -18,7 +18,7 @@ You can obtain the latest release from the [releases page](https://github.com/da
 If you have already installed Go (Golang) on your system, you can also install the latest version using the following command:
 
 ```bash
-go install github.com/damonto/telegram-sms
+go install github.com/damonto/telegram-sms@latest
 ```
 
 Sometimes, you might need to set executable permissions for the binary file using the following command:
