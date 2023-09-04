@@ -15,6 +15,12 @@ I have thoroughly tested this program and found it to work well. However, its co
 
 You can obtain the latest release from the [releases page](https://github.com/damonto/telegram-sms/releases).
 
+If you have already installed Go (Golang) on your system, you can also install the latest version using the following command:
+
+```bash
+go install github.com/damonto/telegram-sms
+```
+
 Sometimes, you might need to set executable permissions for the binary file using the following command:
 
 ```bash
@@ -59,11 +65,3 @@ sudo systemctl start telegram-sms
 ```bash
 sudo systemctl enable telegram-sms
 ```
-
-## Supported Commands
-
-* /ussd command - Send a USSD command to your SIM card (/ussd *132#)
-* /sim Retrieve information about your SIM card
-* /send number message - Send an SMS to a phone number (/send 911 Abandon)
-* /chatid - Retrieve your Telegram chat ID
-

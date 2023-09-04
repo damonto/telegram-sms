@@ -47,8 +47,8 @@ func (h *handler) RegisterCommands() error {
 		"chatid":        {command: "chatid", description: "Obtain your chat id", handler: h.handleChatIdCommand},
 		"sim":           {command: "sim", description: "Obtain SIM card properties", handler: h.handleSimCommand},
 		"switchsimslot": {command: "switchsimslot", description: "Switch to another SIM slot", handler: h.handleSwitchSlotCommand, callback: h.handleSwitchSlotCallback},
-		"sms":           {command: "sms", description: "Send SMS", handler: h.handleSendSmsCommand},
-		"ussd":          {command: "ussd", description: "Run ussd command", handler: h.handleUSSDCommand},
+		"sms":           {command: "sms", description: "Send an SMS to a phone number", handler: h.handleSendSmsCommand},
+		"ussd":          {command: "ussd", description: "Send a USSD command to your SIM card", handler: h.handleUSSDCommand},
 		"ussdresponed":  {command: "ussdresponed", description: "Respond the last ussd command", handler: h.handleUSSDRespondCommand},
 	}
 	botCommands := []tgbotapi.BotCommand{}
@@ -106,6 +106,10 @@ func (h *handler) handleChatIdCommand(message *tgbotapi.Message) error {
 }
 
 func (h *handler) handleSwitchSlotCommand(message *tgbotapi.Message) error {
+	if err := h.checkChatId(message.Chat.ID); err != nil {
+		return err
+	}
+
 	simSlots, err := h.modem.GetSimSlots()
 	if err != nil {
 		return err
@@ -136,6 +140,10 @@ func (h *handler) handleSwitchSlotCommand(message *tgbotapi.Message) error {
 }
 
 func (h *handler) handleSwitchSlotCallback(callback *tgbotapi.CallbackQuery, value string) error {
+	if err := h.checkChatId(callback.Message.Chat.ID); err != nil {
+		return err
+	}
+
 	simSlot, err := strconv.ParseUint(value, 10, 32)
 	if err != nil {
 		return err
