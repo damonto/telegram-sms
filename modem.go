@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/godbus/dbus/v5"
@@ -12,6 +13,8 @@ import (
 type SMSSubscriber = func(sms modemmanager.Sms)
 
 type Modem interface {
+	Use(modemId string) *modem
+	ListModems() (map[string]string, error)
 	GetIccid() (string, error)
 	GetOperatorName() (string, error)
 	GetImei() (string, error)
@@ -21,15 +24,15 @@ type Modem interface {
 	GetSimSlots() ([]dbus.ObjectPath, error)
 	RunUSSDCommand(command string) (string, error)
 	RespondUSSDCommand(response string) (string, error)
-	SubscribeSMS(callback SMSSubscriber) error
+	SubscribeSMS(callback SMSSubscriber)
 	SendSMS(number, message string) error
 }
 
-type mm struct {
-	modemIndex         int
-	mmgr               modemmanager.ModemManager
-	modem              modemmanager.Modem
-	smsResubscribeChan chan struct{}
+type modem struct {
+	mmgr                modemmanager.ModemManager
+	modem               modemmanager.Modem
+	modems              map[string]modemmanager.Modem
+	reloadSmsSubscriber chan struct{}
 }
 
 var (
@@ -38,48 +41,78 @@ var (
 	modemSetPrimarySimSlot      = "org.freedesktop.ModemManager1.Modem.SetPrimarySimSlot"
 )
 
-func NewModem(modemIndex int) (Modem, error) {
+func NewModem() (Modem, error) {
 	var err error
 	mmgr, err := modemmanager.NewModemManager()
 	if err != nil {
 		return nil, err
 	}
 	mmgr.SetLogging(modemmanager.MMLoggingLevelWarning)
-	m := &mm{
-		modemIndex:         modemIndex,
-		mmgr:               mmgr,
-		smsResubscribeChan: make(chan struct{}, 1),
+	m := &modem{
+		mmgr:                mmgr,
+		reloadSmsSubscriber: make(chan struct{}, 1),
 	}
-	m.modem, err = m.initModemManager()
+	if err := m.initModemManager(); err != nil {
+		return nil, err
+	}
 	return m, err
 }
 
-func (m *mm) initModemManager() (modemmanager.Modem, error) {
+func (m *modem) initModemManager() error {
 	modems, err := m.mmgr.GetModems()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if len(modems) == 0 {
-		return nil, errors.New("no modems found")
+		return errors.New("no modems found")
 	}
 
-	// Only support one modem for now
-	modem := modems[m.modemIndex]
-	state, err := modem.GetState()
-	if err != nil {
-		return nil, err
-	}
-	if state == modemmanager.MmModemStateDisabled {
-		if err := modem.Enable(); err != nil {
-			slog.Error("failed to enable modem", "error", err)
-			return nil, err
+	mmModems := make(map[string]modemmanager.Modem, len(modems))
+	for _, modem := range modems {
+		state, err := modem.GetState()
+		if err != nil {
+			return err
 		}
+		if state == modemmanager.MmModemStateDisabled {
+			if err := modem.Enable(); err != nil {
+				slog.Error("failed to enable modem", "error", err)
+				return err
+			}
+		}
+
+		modemId, err := modem.GetEquipmentIdentifier()
+		if err != nil {
+			return err
+		}
+		mmModems[modemId] = modem
 	}
-	return modem, err
+	m.modems = mmModems
+	return nil
 }
 
-func (m *mm) GetIccid() (string, error) {
+func (m *modem) Use(modemId string) *modem {
+	m.modem = m.modems[modemId]
+	return m
+}
+
+func (m *modem) ListModems() (map[string]string, error) {
+	modemList := make(map[string]string)
+	for modemId, modem := range m.modems {
+		modemName, _ := modem.GetModel()
+		threeGpp, err := modem.Get3gpp()
+		if err != nil {
+			return nil, err
+		}
+		operator, _ := threeGpp.GetOperatorName()
+
+		modemList[modemId] = fmt.Sprintf("%s (%s)", modemName, operator)
+	}
+
+	return modemList, nil
+}
+
+func (m *modem) GetIccid() (string, error) {
 	sim, err := m.modem.GetSim()
 	if err != nil {
 		return "", err
@@ -87,15 +120,16 @@ func (m *mm) GetIccid() (string, error) {
 	return sim.GetSimIdentifier()
 }
 
-func (m *mm) GetImei() (string, error) {
+func (m *modem) GetImei() (string, error) {
 	threeGpp, err := m.modem.Get3gpp()
 	if err != nil {
 		return "", err
 	}
+
 	return threeGpp.GetImei()
 }
 
-func (m *mm) GetOperatorName() (string, error) {
+func (m *modem) GetOperatorName() (string, error) {
 	threeGpp, err := m.modem.Get3gpp()
 	if err != nil {
 		return "", err
@@ -104,7 +138,7 @@ func (m *mm) GetOperatorName() (string, error) {
 	return threeGpp.GetOperatorName()
 }
 
-func (m *mm) GetSignalQuality() (uint32, error) {
+func (m *modem) GetSignalQuality() (uint32, error) {
 	percent, _, err := m.modem.GetSignalQuality()
 	if err != nil {
 		return 0, err
@@ -112,20 +146,18 @@ func (m *mm) GetSignalQuality() (uint32, error) {
 	return percent, err
 }
 
-func (m *mm) GetSimSlots() ([]dbus.ObjectPath, error) {
+func (m *modem) GetSimSlots() ([]dbus.ObjectPath, error) {
 	prop, err := m.getProperty(m.modem.GetObjectPath(), modemPropertySimSlots)
 	if err != nil {
 		return nil, err
 	}
 
 	simSlots := []dbus.ObjectPath{}
-	for _, slot := range prop.Value().([]dbus.ObjectPath) {
-		simSlots = append(simSlots, slot)
-	}
+	simSlots = append(simSlots, prop.Value().([]dbus.ObjectPath)...)
 	return simSlots, err
 }
 
-func (m *mm) GetPrimarySimSlot() (uint32, error) {
+func (m *modem) GetPrimarySimSlot() (uint32, error) {
 	prop, err := m.getProperty(m.modem.GetObjectPath(), modemPropertyPrimarySimSlot)
 	if err != nil {
 		return 0, err
@@ -133,7 +165,7 @@ func (m *mm) GetPrimarySimSlot() (uint32, error) {
 	return prop.Value().(uint32), err
 }
 
-func (m *mm) SetPrimarySimSlot(simSlot uint32) error {
+func (m *modem) SetPrimarySimSlot(simSlot uint32) error {
 	primarySlot, err := m.GetPrimarySimSlot()
 	if err != nil {
 		return err
@@ -155,31 +187,42 @@ func (m *mm) SetPrimarySimSlot(simSlot uint32) error {
 			return err
 		}
 
-		if len(modems) > 0 {
-			modem := modems[m.modemIndex]
-			if modem.GetObjectPath() != m.modem.GetObjectPath() {
-				slog.Info("new modem detected", "path", modem.GetObjectPath())
+		if len(modems) >= len(m.modems) {
+			registeredModems := make(map[dbus.ObjectPath]struct{}, len(m.modems))
+			for _, registeredModem := range m.modems {
+				registeredModems[registeredModem.GetObjectPath()] = struct{}{}
+			}
 
-				state, err := modem.GetState()
-				if err != nil {
-					return err
-				}
-				if state == modemmanager.MmModemStateDisabled {
-					if err := modem.Enable(); err != nil {
-						slog.Error("failed to enable modem", "error", err)
+			for _, modem := range modems {
+				if _, ok := registeredModems[modem.GetObjectPath()]; !ok {
+					slog.Info("new modem found", "modem", modem.GetObjectPath())
+					state, err := modem.GetState()
+					if err != nil {
 						return err
 					}
+					if state == modemmanager.MmModemStateDisabled {
+						if err := modem.Enable(); err != nil {
+							slog.Error("failed to enable modem", "error", err)
+							return err
+						}
+					}
+
+					modemId, err := modem.GetEquipmentIdentifier()
+					if err != nil {
+						return err
+					}
+
+					m.modems[modemId] = modem
+					slog.Info("new modem added", "modem-id", modemId, "modem", modem.GetObjectPath())
+					m.reloadSmsSubscriber <- struct{}{}
+					return nil
 				}
-				m.modem = modem
-				m.smsResubscribeChan <- struct{}{}
-				break
 			}
 		}
 	}
-	return nil
 }
 
-func (m *mm) callMethod(objectPath dbus.ObjectPath, method string, args ...interface{}) error {
+func (m *modem) callMethod(objectPath dbus.ObjectPath, method string, args ...interface{}) error {
 	dbusConn, err := dbus.SystemBus()
 	if err != nil {
 		return err
@@ -189,7 +232,7 @@ func (m *mm) callMethod(objectPath dbus.ObjectPath, method string, args ...inter
 	return obj.Call(method, 0, args...).Err
 }
 
-func (m *mm) getProperty(objectPath dbus.ObjectPath, property string) (dbus.Variant, error) {
+func (m *modem) getProperty(objectPath dbus.ObjectPath, property string) (dbus.Variant, error) {
 	dbusConn, err := dbus.SystemBus()
 	if err != nil {
 		return dbus.Variant{}, err
@@ -199,7 +242,7 @@ func (m *mm) getProperty(objectPath dbus.ObjectPath, property string) (dbus.Vari
 	return obj.GetProperty(property)
 }
 
-func (m *mm) RunUSSDCommand(command string) (string, error) {
+func (m *modem) RunUSSDCommand(command string) (string, error) {
 	three3gpp, err := m.modem.Get3gpp()
 	if err != nil {
 		return "", err
@@ -212,7 +255,7 @@ func (m *mm) RunUSSDCommand(command string) (string, error) {
 	return ussd.Initiate(command)
 }
 
-func (m *mm) RespondUSSDCommand(response string) (string, error) {
+func (m *modem) RespondUSSDCommand(response string) (string, error) {
 	three3gpp, err := m.modem.Get3gpp()
 	if err != nil {
 		return "", err
@@ -225,23 +268,42 @@ func (m *mm) RespondUSSDCommand(response string) (string, error) {
 	return ussd.Respond(response)
 }
 
-func (m *mm) SendSMS(number, message string) error {
+func (m *modem) SendSMS(number, message string) error {
 	messaging, err := m.modem.GetMessaging()
 	if err != nil {
 		return err
 	}
 
 	sms, err := messaging.CreateSms(number, message)
+	if err != nil {
+		return err
+	}
 	return sms.Send()
 }
 
-func (m *mm) SubscribeSMS(subscriber SMSSubscriber) error {
-Subscribe:
-	messaging, err := m.modem.GetMessaging()
-	if err != nil {
-		slog.Error("failed to get messaging", "error", err)
+func (m *modem) SubscribeSMS(subscriber SMSSubscriber) {
+Subscriber:
+	stopChans := make([]chan struct{}, 0, len(m.modems))
+	for modemId, modem := range m.modems {
+		messaging, err := modem.GetMessaging()
+		if err != nil {
+			slog.Error("failed to get messaging", "error", err)
+		}
+		slog.Info("subscribe new sms event", "modem-id", modemId, "path", messaging.GetObjectPath())
+		stopCh := make(chan struct{})
+		stopChans = append(stopChans, stopCh)
+		go m.subscribe(modemId, messaging, subscriber, stopCh)
 	}
 
+	<-m.reloadSmsSubscriber
+	slog.Info("SIM slot has been changed, unsubscribe all existing sms event")
+	for _, stopChan := range stopChans {
+		stopChan <- struct{}{}
+	}
+	goto Subscriber
+}
+
+func (m *modem) subscribe(modemId string, messaging modemmanager.ModemMessaging, subscriber SMSSubscriber, stopCh chan struct{}) error {
 	for {
 		select {
 		case smsSignal := <-messaging.SubscribeAdded():
@@ -272,29 +334,10 @@ Subscribe:
 			} else {
 				continue
 			}
-		case <-m.smsResubscribeChan:
-			slog.Info("SIM slot has been changed, unsubscribe and subscribe again")
+		case <-stopCh:
+			slog.Info("unsubscribe messaging", "modem-id", modemId, "path", messaging.GetObjectPath())
 			messaging.Unsubscribe()
-			goto Subscribe
+			return nil
 		}
 	}
-}
-
-func (m *mm) parseSMSDatetime(path dbus.ObjectPath) (string, error) {
-	prop, err := m.getProperty(path, modemmanager.SmsPropertyTimestamp)
-	if err != nil {
-		return "", err
-	}
-
-	for _, f := range []string{
-		"2006-01-02T15:04:05-07",
-		time.RFC3339,
-		time.RFC3339Nano,
-	} {
-		t, err := time.Parse(f, prop.Value().(string))
-		if err == nil {
-			return t.Format(time.DateTime), nil
-		}
-	}
-	return time.Now().Format(time.DateTime), nil
 }

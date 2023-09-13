@@ -12,16 +12,14 @@ import (
 )
 
 var (
-	token      string
-	chatId     int64
-	modemIndex int
-	debug      bool
+	token  string
+	chatId int64
+	debug  bool
 )
 
 func init() {
 	flag.StringVar(&token, "token", "", "Telegram API token")
 	flag.Int64Var(&chatId, "chat-id", 0, "Your telegram chat id")
-	flag.IntVar(&modemIndex, "modem", 0, "The modem index number")
 	flag.BoolVar(&debug, "debug", false, "Show verbose info")
 	flag.Parse()
 }
@@ -45,7 +43,7 @@ func main() {
 	}
 	bot.Debug = debug
 
-	modem, err := NewModem(modemIndex)
+	modem, err := NewModem()
 	if err != nil {
 		slog.Error("failed to connect to modem", "error", err)
 		panic(err)
@@ -65,6 +63,7 @@ func main() {
 				if err := handler.HandleCommand(update.Message.Command(), update.Message); err != nil {
 					slog.Error("failed to handle command", "error", err)
 					msg := tgbotapi.NewMessage(chatId, escapeText(err.Error()))
+					msg.ReplyToMessageID = update.Message.MessageID
 					if _, err := bot.Send(msg); err != nil {
 						slog.Error("failed to send message", "text", msg.Text, "error", err)
 					}
@@ -77,6 +76,7 @@ func main() {
 				if err := handler.HandleCallback(update.CallbackQuery); err != nil {
 					slog.Error("failed to handle callback", "error", err)
 					msg := tgbotapi.NewMessage(chatId, escapeText(err.Error()))
+					msg.ReplyToMessageID = update.Message.MessageID
 					if _, err := bot.Send(msg); err != nil {
 						slog.Error("failed to send message", "text", msg.Text, "error", err)
 					}

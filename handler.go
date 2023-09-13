@@ -20,14 +20,14 @@ type Handler interface {
 }
 
 type handler struct {
-	chatId int64
-	tgbot  *tgbotapi.BotAPI
-	modem  Modem
-
-	commands map[string]command
+	chatId      int64
+	tgbot       *tgbotapi.BotAPI
+	modem       Modem
+	botHandlers map[string]botHandler
+	messages    map[int]*tgbotapi.Message
 }
 
-type command struct {
+type botHandler struct {
 	command     string
 	description string
 	handler     HandlerFunc
@@ -36,27 +36,32 @@ type command struct {
 
 func NewHandler(chatId int64, tgbot *tgbotapi.BotAPI, modem Modem) Handler {
 	return &handler{
-		chatId: chatId,
-		tgbot:  tgbot,
-		modem:  modem,
+		chatId:   chatId,
+		tgbot:    tgbot,
+		modem:    modem,
+		messages: make(map[int]*tgbotapi.Message, 1),
 	}
 }
 
 func (h *handler) RegisterCommands() error {
-	h.commands = map[string]command{
-		"chatid":        {command: "chatid", description: "Obtain your chat id", handler: h.handleChatIdCommand},
-		"sim":           {command: "sim", description: "Obtain SIM card properties", handler: h.handleSimCommand},
-		"switchsimslot": {command: "switchsimslot", description: "Switch to another SIM slot", handler: h.handleSwitchSlotCommand, callback: h.handleSwitchSlotCallback},
-		"sms":           {command: "sms", description: "Send an SMS to a phone number", handler: h.handleSendSmsCommand},
-		"ussd":          {command: "ussd", description: "Send a USSD command to your SIM card", handler: h.handleUSSDCommand},
-		"ussdresponed":  {command: "ussdresponed", description: "Respond the last ussd command", handler: h.handleUSSDRespondCommand},
+	h.botHandlers = map[string]botHandler{
+		"switchmodemcallback":   {callback: h.handleSwitchModemCallback},
+		"chatid":                {command: "chatid", description: "Obtain your chat id", handler: h.handleChatIdCommand},
+		"sim":                   {command: "sim", description: "Obtain SIM card properties", handler: h.handleSimCommand},
+		"switchsimslot":         {command: "switchsimslot", description: "Switch to another SIM slot", handler: h.handleSwitchSlotCommand},
+		"switchsimslotcallback": {callback: h.handleSwitchSlotCallback},
+		"sms":                   {command: "sms", description: "Send an SMS to a phone number", handler: h.handleSendSmsCommand},
+		"ussd":                  {command: "ussd", description: "Send a USSD command to your SIM card", handler: h.handleUSSDCommand},
+		"ussdresponed":          {command: "ussdresponed", description: "Respond the last ussd command", handler: h.handleUSSDRespondCommand},
 	}
 	botCommands := []tgbotapi.BotCommand{}
-	for _, c := range h.commands {
-		botCommands = append(botCommands, tgbotapi.BotCommand{
-			Command:     c.command,
-			Description: c.description,
-		})
+	for _, c := range h.botHandlers {
+		if c.command == "" {
+			botCommands = append(botCommands, tgbotapi.BotCommand{
+				Command:     c.command,
+				Description: c.description,
+			})
+		}
 	}
 
 	response, err := h.tgbot.Request(tgbotapi.NewSetMyCommands(botCommands...))
@@ -76,7 +81,7 @@ func (h *handler) HandleCommand(command string, message *tgbotapi.Message) error
 		return h.handleStartCommand(message)
 	}
 
-	if command, ok := h.commands[command]; ok {
+	if command, ok := h.botHandlers[command]; ok {
 		return command.handler(message)
 	}
 	return errors.New("command not found")
@@ -85,30 +90,37 @@ func (h *handler) HandleCommand(command string, message *tgbotapi.Message) error
 func (h *handler) HandleCallback(callback *tgbotapi.CallbackQuery) error {
 	button := strings.Split(callback.Data, ":")
 
-	if command, ok := h.commands[button[0]]; ok {
-		return command.callback(callback, button[1])
+	if command, ok := h.botHandlers[button[0]]; ok {
+		return command.callback(callback, strings.Join(button[1:], ":"))
 	}
 	return errors.New("command not found")
 }
 
 func (h *handler) handleStartCommand(message *tgbotapi.Message) error {
-	greeting := "Welcome to using this bot. You can control the bot using these commands:\n\n"
-	for _, c := range h.commands {
-		greeting += fmt.Sprintf("/%s - %s\n", c.command, c.description)
+	welcomeMessage := "Welcome to using this bot. You can control the bot using these commands:\n\n"
+	for _, c := range h.botHandlers {
+		if c.command != "" {
+			welcomeMessage += fmt.Sprintf("/%s - %s\n", c.command, c.description)
+		}
 	}
 
-	greeting = strings.TrimRight(greeting, "\n")
-	return h.sendText(h.chatId, greeting)
+	welcomeMessage = strings.TrimRight(welcomeMessage, "\n")
+	return h.sendText(h.chatId, welcomeMessage, message.MessageID)
 }
 
 func (h *handler) handleChatIdCommand(message *tgbotapi.Message) error {
-	return h.sendText(message.Chat.ID, fmt.Sprintf("%d", message.Chat.ID))
+	return h.sendText(message.Chat.ID, fmt.Sprintf("%d", message.Chat.ID), message.MessageID)
 }
 
 func (h *handler) handleSwitchSlotCommand(message *tgbotapi.Message) error {
 	if err := h.checkChatId(message.Chat.ID); err != nil {
 		return err
 	}
+
+	if yes, err := h.chooseModem(message, "switchsimslot"); err != nil || yes {
+		return err
+	}
+	delete(h.messages, message.MessageID)
 
 	simSlots, err := h.modem.GetSimSlots()
 	if err != nil {
@@ -123,9 +135,9 @@ func (h *handler) handleSwitchSlotCommand(message *tgbotapi.Message) error {
 	buttons := []tgbotapi.InlineKeyboardButton{}
 	for slotIndex := range simSlots {
 		if uint32(slotIndex)+1 == currentActivatedSlot {
-			buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("Slot %d (active)", slotIndex+1), fmt.Sprintf("switchsimslot:%d", slotIndex+1)))
+			buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("Slot %d (active)", slotIndex+1), fmt.Sprintf("switchsimslotcallback:%d", slotIndex+1)))
 		} else {
-			buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("Slot %d", slotIndex+1), fmt.Sprintf("switchsimslot:%d", slotIndex+1)))
+			buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("Slot %d", slotIndex+1), fmt.Sprintf("switchsimslotcallback:%d", slotIndex+1)))
 		}
 	}
 
@@ -133,10 +145,76 @@ func (h *handler) handleSwitchSlotCommand(message *tgbotapi.Message) error {
 	msg.ParseMode = "markdownV2"
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(buttons...))
 	msg.ReplyMarkup = keyboard
+	msg.ReplyToMessageID = message.MessageID
 	if _, err := h.tgbot.Send(msg); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (h *handler) chooseModem(message *tgbotapi.Message, command string) (bool, error) {
+	if _, ok := h.messages[message.MessageID]; ok {
+		slog.Info("modem already switched", "message-id", message.MessageID)
+		return false, nil
+	}
+
+	h.messages[message.MessageID] = message
+	modems, err := h.modem.ListModems()
+	if err != nil {
+		return false, err
+	}
+
+	if len(modems) > 0 {
+		return true, h.sendSwitchModemReplyButtons(modems, message, command)
+	}
+	// If there is only one modem, use it
+	for modemId, modem := range modems {
+		slog.Info("using modem", "modem-id", modemId, "modem", modem)
+		h.modem.Use(modemId)
+	}
+	return false, nil
+}
+
+func (h *handler) sendSwitchModemReplyButtons(modems map[string]string, message *tgbotapi.Message, command string) error {
+	buttons := []tgbotapi.InlineKeyboardButton{}
+	for modemId, modem := range modems {
+		buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData(modem, fmt.Sprintf("switchmodemcallback:%s:%s:%d", modemId, command, message.MessageID)))
+	}
+
+	msg := tgbotapi.NewMessage(h.chatId, "Which modem do you want to use?")
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(buttons...))
+	msg.ReplyMarkup = keyboard
+	msg.ReplyToMessageID = message.MessageID
+	if _, err := h.tgbot.Send(msg); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *handler) handleSwitchModemCallback(callback *tgbotapi.CallbackQuery, value string) error {
+	if err := h.checkChatId(callback.Message.Chat.ID); err != nil {
+		return err
+	}
+
+	arguments := strings.Split(value, ":")
+	modemId, next := arguments[0], arguments[1]
+	messageId, err := strconv.ParseInt(arguments[2], 10, 32)
+	if err != nil {
+		return err
+	}
+
+	h.modem.Use(modemId)
+	slog.Info("switched modem", "modem-id", modemId)
+
+	if _, err := h.tgbot.Request(tgbotapi.NewCallback(callback.ID, "Success!")); err != nil {
+		return err
+	}
+	if message, ok := h.messages[int(messageId)]; ok {
+		slog.Info("passing message to next handler", "message-id", messageId)
+		return h.HandleCommand(next, message)
+	}
+
+	return h.HandleCommand(next, callback.Message)
 }
 
 func (h *handler) handleSwitchSlotCallback(callback *tgbotapi.CallbackQuery, value string) error {
@@ -157,7 +235,7 @@ func (h *handler) handleSwitchSlotCallback(callback *tgbotapi.CallbackQuery, val
 	if _, err = h.tgbot.Request(tgbotapi.NewCallback(callback.ID, "Success!")); err != nil {
 		return err
 	}
-	return h.sendText(callback.Message.Chat.ID, "Success! SIM slot has been changed.")
+	return h.sendText(callback.Message.Chat.ID, "Success! SIM slot has been changed.", callback.Message.MessageID)
 }
 
 func (h *handler) handleSimCommand(message *tgbotapi.Message) error {
@@ -165,18 +243,32 @@ func (h *handler) handleSimCommand(message *tgbotapi.Message) error {
 		return err
 	}
 
+	if yes, err := h.chooseModem(message, "sim"); err != nil || yes {
+		return err
+	}
+	delete(h.messages, message.MessageID)
+
 	slot, _ := h.modem.GetPrimarySimSlot()
 	operator, _ := h.modem.GetOperatorName()
 	iccid, _ := h.modem.GetIccid()
 	imei, _ := h.modem.GetImei()
 	signalQuality, _ := h.modem.GetSignalQuality()
-	return h.sendText(message.Chat.ID, fmt.Sprintf("SIM Slot: %d\nOperator: %s\nICCID: %s\nIMEI: %s\nSignal Quality: %d%s", slot, operator, iccid, imei, signalQuality, "%"))
+	return h.sendText(
+		message.Chat.ID,
+		fmt.Sprintf("SIM Slot: %d\nOperator: %s\nICCID: %s\nIMEI: %s\nSignal Quality: %d%s", slot, operator, iccid, imei, signalQuality, "%"),
+		message.MessageID,
+	)
 }
 
 func (h *handler) handleUSSDCommand(message *tgbotapi.Message) error {
 	if err := h.checkChatId(message.Chat.ID); err != nil {
 		return err
 	}
+
+	if yes, err := h.chooseModem(message, "ussd"); err != nil || yes {
+		return err
+	}
+	delete(h.messages, message.MessageID)
 
 	arguments := strings.Split(message.CommandArguments(), " ")
 	if len(arguments) < 1 {
@@ -187,13 +279,18 @@ func (h *handler) handleUSSDCommand(message *tgbotapi.Message) error {
 	if err != nil {
 		return err
 	}
-	return h.sendText(message.Chat.ID, result)
+	return h.sendText(message.Chat.ID, result, message.MessageID)
 }
 
 func (h *handler) handleUSSDRespondCommand(message *tgbotapi.Message) error {
 	if err := h.checkChatId(message.Chat.ID); err != nil {
 		return err
 	}
+
+	if yes, err := h.chooseModem(message, "ussdresponed"); err != nil || yes {
+		return err
+	}
+	delete(h.messages, message.MessageID)
 
 	arguments := strings.Split(message.CommandArguments(), " ")
 	if len(arguments) < 1 {
@@ -204,7 +301,7 @@ func (h *handler) handleUSSDRespondCommand(message *tgbotapi.Message) error {
 	if err != nil {
 		return err
 	}
-	return h.sendText(message.Chat.ID, reply)
+	return h.sendText(message.Chat.ID, reply, message.MessageID)
 }
 
 func (h *handler) handleSendSmsCommand(message *tgbotapi.Message) error {
@@ -212,15 +309,17 @@ func (h *handler) handleSendSmsCommand(message *tgbotapi.Message) error {
 		return err
 	}
 
+	if yes, err := h.chooseModem(message, "sms"); err != nil || yes {
+		return err
+	}
+	delete(h.messages, message.MessageID)
+
 	arguments := strings.Split(message.CommandArguments(), " ")
 	if len(arguments) < 2 {
 		return errors.New("invalid arguments")
 	}
 
-	if err := h.modem.SendSMS(arguments[0], strings.Join(arguments[1:], " ")); err != nil {
-		return h.sendText(message.Chat.ID, err.Error())
-	}
-	return nil
+	return h.modem.SendSMS(arguments[0], strings.Join(arguments[1:], " "))
 }
 
 func (h *handler) checkChatId(chatId int64) error {
@@ -230,8 +329,10 @@ func (h *handler) checkChatId(chatId int64) error {
 	return errors.New("chat id does not match")
 }
 
-func (h *handler) sendText(chatId int64, message string) error {
-	if _, err := h.tgbot.Send(tgbotapi.NewMessage(chatId, message)); err != nil {
+func (h *handler) sendText(chatId int64, message string, messageId int) error {
+	msg := tgbotapi.NewMessage(chatId, message)
+	msg.ReplyToMessageID = messageId
+	if _, err := h.tgbot.Send(msg); err != nil {
 		return err
 	}
 	return nil
