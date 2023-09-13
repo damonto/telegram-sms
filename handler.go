@@ -164,7 +164,7 @@ func (h *handler) chooseModem(message *tgbotapi.Message, command string) (bool, 
 		return false, err
 	}
 
-	if len(modems) > 0 {
+	if len(modems) > 1 {
 		return true, h.sendSwitchModemReplyButtons(modems, message, command)
 	}
 	// If there is only one modem, use it
