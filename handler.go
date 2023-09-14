@@ -141,9 +141,9 @@ func (h *handler) handleSwitchSlotCommand(message *tgbotapi.Message) error {
 		}
 	}
 
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(buttons...))
 	msg := tgbotapi.NewMessage(h.chatId, "*Which SIM slot do you want to use?*\nThis action may take some time\\.")
 	msg.ParseMode = "markdownV2"
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(buttons...))
 	msg.ReplyMarkup = keyboard
 	msg.ReplyToMessageID = message.MessageID
 	if _, err := h.tgbot.Send(msg); err != nil {
@@ -181,8 +181,8 @@ func (h *handler) sendSwitchModemReplyButtons(modems map[string]string, message 
 		buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData(modem, fmt.Sprintf("switchmodemcallback:%s:%s:%d", modemId, command, message.MessageID)))
 	}
 
-	msg := tgbotapi.NewMessage(h.chatId, "Which modem do you want to use?")
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(buttons...))
+	msg := tgbotapi.NewMessage(h.chatId, "Which modem do you want to use?")
 	msg.ReplyMarkup = keyboard
 	msg.ReplyToMessageID = message.MessageID
 	if _, err := h.tgbot.Send(msg); err != nil {
