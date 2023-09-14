@@ -106,6 +106,7 @@ func main() {
 			return
 		}
 
+		slog.Info("SMS received", "operator-name", operatorName, "sender", sender, "text", text)
 		msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("*\\[%s\\] %s*\n%s", operatorName, escapeText(sender), escapeText(text)))
 		msg.ParseMode = "markdownV2"
 		if _, err := bot.Send(msg); err != nil {
