@@ -10,7 +10,7 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-type SMSSubscriber = func(sms modemmanager.Sms)
+type SMSSubscriber = func(modem modemmanager.Modem, sms modemmanager.Sms)
 
 type Modem interface {
 	Use(modemId string) *modem
@@ -285,14 +285,9 @@ func (m *modem) SubscribeSMS(subscriber SMSSubscriber) {
 Subscriber:
 	stopChans := make([]chan struct{}, 0, len(m.modems))
 	for modemId, modem := range m.modems {
-		messaging, err := modem.GetMessaging()
-		if err != nil {
-			slog.Error("failed to get messaging", "error", err)
-		}
-		slog.Info("subscribe new sms event", "modem-id", modemId, "path", messaging.GetObjectPath())
 		stopCh := make(chan struct{})
 		stopChans = append(stopChans, stopCh)
-		go m.subscribe(modemId, messaging, subscriber, stopCh)
+		go m.subscribe(modemId, modem, subscriber, stopCh)
 	}
 
 	<-m.reloadSmsSubscriber
@@ -303,7 +298,13 @@ Subscriber:
 	goto Subscriber
 }
 
-func (m *modem) subscribe(modemId string, messaging modemmanager.ModemMessaging, subscriber SMSSubscriber, stopCh chan struct{}) error {
+func (m *modem) subscribe(modemId string, modem modemmanager.Modem, subscriber SMSSubscriber, stopCh chan struct{}) error {
+	messaging, err := modem.GetMessaging()
+	if err != nil {
+		slog.Error("failed to get messaging", "error", err)
+	}
+	slog.Info("subscribe new sms event", "modem-id", modemId, "path", messaging.GetObjectPath())
+
 	for {
 		select {
 		case smsSignal := <-messaging.SubscribeAdded():
@@ -323,14 +324,14 @@ func (m *modem) subscribe(modemId string, messaging modemmanager.ModemMessaging,
 				for {
 					time.Sleep(1 * time.Second)
 					if state, err := sms.GetState(); state == modemmanager.MmSmsStateReceived && err == nil {
-						subscriber(sms)
+						subscriber(modem, sms)
 						break
 					}
 				}
 			}
 
 			if state == modemmanager.MmSmsStateReceived {
-				subscriber(sms)
+				subscriber(modem, sms)
 			} else {
 				continue
 			}
