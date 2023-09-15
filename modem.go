@@ -29,10 +29,10 @@ type Modem interface {
 }
 
 type modem struct {
-	mmgr                modemmanager.ModemManager
-	modem               modemmanager.Modem
-	modems              map[string]modemmanager.Modem
-	reloadSmsSubscriber chan struct{}
+	mmgr           modemmanager.ModemManager
+	modem          modemmanager.Modem
+	modems         map[string]modemmanager.Modem
+	modemAddedChan chan struct{}
 }
 
 var (
@@ -49,8 +49,8 @@ func NewModem() (Modem, error) {
 	}
 	mmgr.SetLogging(modemmanager.MMLoggingLevelWarning)
 	m := &modem{
-		mmgr:                mmgr,
-		reloadSmsSubscriber: make(chan struct{}, 1),
+		mmgr:           mmgr,
+		modemAddedChan: make(chan struct{}, 1),
 	}
 	if err := m.initModemManager(); err != nil {
 		return nil, err
@@ -214,7 +214,7 @@ func (m *modem) SetPrimarySimSlot(simSlot uint32) error {
 
 					m.modems[modemId] = modem
 					slog.Info("new modem added", "modem-id", modemId, "modem", modem.GetObjectPath())
-					m.reloadSmsSubscriber <- struct{}{}
+					m.modemAddedChan <- struct{}{}
 					return nil
 				}
 			}
@@ -290,7 +290,7 @@ Subscriber:
 		go m.subscribe(modemId, modem, subscriber, stopCh)
 	}
 
-	<-m.reloadSmsSubscriber
+	<-m.modemAddedChan
 	slog.Info("SIM slot has been changed, unsubscribe all existing sms event")
 	for _, stopChan := range stopChans {
 		stopChan <- struct{}{}
@@ -305,15 +305,25 @@ func (m *modem) subscribe(modemId string, modem modemmanager.Modem, subscriber S
 	}
 	slog.Info("subscribe new sms event", "modem-id", modemId, "path", messaging.GetObjectPath())
 
+	dbusConn, err := m.systemBusPrivate()
+	if err != nil {
+		return err
+	}
+	rule := fmt.Sprintf("type='signal', member='%s',path_namespace='%s'", modemmanager.ModemMessagingSignalAdded, fmt.Sprint(modem.GetObjectPath()))
+	dbusConn.BusObject().Call("org.freedesktop.DBus.AddMatch", 0, rule)
+	sigChan := make(chan *dbus.Signal, 10)
+	dbusConn.Signal(sigChan)
+
 	for {
 		select {
-		case smsSignal := <-messaging.SubscribeAdded():
+		case smsSignal := <-sigChan:
 			sms, _, err := messaging.ParseAdded(smsSignal)
 			if err != nil {
 				slog.Error("failed to parse SMS", "error", err)
 				continue
 			}
 
+			slog.Info("new sms received", "path", sms.GetObjectPath(), "messaging-path", messaging.GetObjectPath())
 			state, err := sms.GetState()
 			if err != nil {
 				slog.Error("failed to get SMS state", "error", err)
@@ -341,4 +351,25 @@ func (m *modem) subscribe(modemId string, modem modemmanager.Modem, subscriber S
 			return nil
 		}
 	}
+}
+
+func (m *modem) systemBusPrivate() (*dbus.Conn, error) {
+	dbusConn, err := dbus.SystemBusPrivate()
+	if err != nil {
+		return nil, err
+	}
+
+	err = dbusConn.Auth(nil)
+	if err != nil {
+		dbusConn.Close()
+		return nil, err
+	}
+
+	err = dbusConn.Hello()
+	if err != nil {
+		dbusConn.Close()
+		return nil, err
+	}
+
+	return dbusConn, nil
 }
