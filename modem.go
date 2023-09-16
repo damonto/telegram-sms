@@ -99,14 +99,13 @@ func (m *modem) Use(modemId string) *modem {
 func (m *modem) ListModems() (map[string]string, error) {
 	modemList := make(map[string]string)
 	for modemId, modem := range m.modems {
-		modemName, _ := modem.GetModel()
 		threeGpp, err := modem.Get3gpp()
 		if err != nil {
 			return nil, err
 		}
-		operator, _ := threeGpp.GetOperatorName()
+		operatorName, _ := threeGpp.GetOperatorName()
 
-		modemList[modemId] = fmt.Sprintf("%s (%s)", modemName, operator)
+		modemList[modemId] = operatorName
 	}
 
 	return modemList, nil
