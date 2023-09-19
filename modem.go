@@ -15,6 +15,7 @@ type SMSSubscriber = func(modem modemmanager.Modem, sms modemmanager.Sms)
 type Modem interface {
 	Use(modemId string) *modem
 	ListModems() (map[string]string, error)
+	GetAtDevice() (string, error)
 	GetIccid() (string, error)
 	GetOperatorName() (string, error)
 	GetImei() (string, error)
@@ -109,6 +110,21 @@ func (m *modem) ListModems() (map[string]string, error) {
 	}
 
 	return modemList, nil
+}
+
+func (m *modem) GetAtDevice() (string, error) {
+	ports, err := m.modem.GetPorts()
+	if err != nil {
+		return "", err
+	}
+
+	for _, port := range ports {
+		if port.PortType == modemmanager.MmModemPortTypeAt {
+			return fmt.Sprintf("/dev/%s", port.PortName), nil
+		}
+	}
+
+	return "", errors.New("no at port founded")
 }
 
 func (m *modem) GetIccid() (string, error) {

@@ -14,12 +14,14 @@ import (
 var (
 	token  string
 	chatId int64
+	euicc  bool
 	debug  bool
 )
 
 func init() {
 	flag.StringVar(&token, "token", "", "Telegram API token")
 	flag.Int64Var(&chatId, "chat-id", 0, "Your telegram chat id")
+	flag.BoolVar(&euicc, "euicc", false, "Enable eUICC features")
 	flag.BoolVar(&debug, "debug", false, "Show verbose info")
 	flag.Parse()
 }
@@ -49,7 +51,7 @@ func main() {
 		panic(err)
 	}
 
-	handler := NewHandler(chatId, bot, modem)
+	handler := NewHandler(chatId, euicc, bot, modem)
 	handler.RegisterCommands()
 
 	go func(bot *tgbotapi.BotAPI, modem Modem) {

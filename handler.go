@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/damonto/telegram-sms/esim"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"golang.org/x/exp/slog"
 )
@@ -21,6 +22,7 @@ type Handler interface {
 
 type handler struct {
 	chatId      int64
+	isEuicc     bool
 	tgbot       *tgbotapi.BotAPI
 	modem       Modem
 	botHandlers map[string]botHandler
@@ -34,9 +36,10 @@ type botHandler struct {
 	callback    CallbackFunc
 }
 
-func NewHandler(chatId int64, tgbot *tgbotapi.BotAPI, modem Modem) Handler {
+func NewHandler(chatId int64, isEuicc bool, tgbot *tgbotapi.BotAPI, modem Modem) Handler {
 	return &handler{
 		chatId:   chatId,
+		isEuicc:  isEuicc,
 		tgbot:    tgbot,
 		modem:    modem,
 		messages: make(map[int]*tgbotapi.Message, 1),
@@ -54,9 +57,14 @@ func (h *handler) RegisterCommands() error {
 		"ussd":                  {command: "ussd", description: "Send a USSD command to your SIM card", handler: h.handleUSSDCommand},
 		"ussdresponed":          {command: "ussdresponed", description: "Respond the last ussd command", handler: h.handleUSSDRespondCommand},
 	}
+
+	if h.isEuicc {
+		h.botHandlers["esimprofiles"] = botHandler{command: "esimprofiles", description: "List installed eSIM profiles", handler: h.handleListEsimProfiles}
+	}
+
 	botCommands := []tgbotapi.BotCommand{}
 	for _, c := range h.botHandlers {
-		if c.command == "" {
+		if c.command != "" {
 			botCommands = append(botCommands, tgbotapi.BotCommand{
 				Command:     c.command,
 				Description: c.description,
@@ -253,9 +261,44 @@ func (h *handler) handleSimCommand(message *tgbotapi.Message) error {
 	iccid, _ := h.modem.GetIccid()
 	imei, _ := h.modem.GetImei()
 	signalQuality, _ := h.modem.GetSignalQuality()
+
+	if !h.isEuicc {
+		return h.sendText(
+			message.Chat.ID,
+			fmt.Sprintf("SIM Slot: %d\nOperator Name: %s\nICCID: %s\nIMEI: %s\nSignal Quality: %d%s", slot, operator, iccid, imei, signalQuality, "%"),
+			message.MessageID,
+		)
+	}
+
+	device, err := h.modem.GetAtDevice()
+	if err != nil {
+		return err
+	}
+
+	esim := esim.New(device)
+	profiles, err := esim.ListProfiles()
+	if err != nil {
+		return err
+	}
+
+	var profileName string
+	for _, profile := range profiles {
+		if profile.Iccid == iccid {
+			if profile.ProfileNickname != "" {
+				profileName = profile.ProfileNickname
+			} else {
+				profileName = profile.ProviderName
+			}
+		}
+	}
+	eid, err := esim.Eid()
+	if err != nil {
+		return err
+	}
+
 	return h.sendText(
 		message.Chat.ID,
-		fmt.Sprintf("SIM Slot: %d\nOperator: %s\nICCID: %s\nIMEI: %s\nSignal Quality: %d%s", slot, operator, iccid, imei, signalQuality, "%"),
+		fmt.Sprintf("SIM Slot: %d\nEID: %s\nOperator Name: %s\nProvider Name: %s\nICCID: %s\nIMEI: %s\nSignal Quality: %d%s", slot, eid, operator, profileName, iccid, imei, signalQuality, "%"),
 		message.MessageID,
 	)
 }
@@ -327,6 +370,42 @@ func (h *handler) checkChatId(chatId int64) error {
 		return nil
 	}
 	return errors.New("chat id does not match")
+}
+
+func (h *handler) handleListEsimProfiles(message *tgbotapi.Message) error {
+	if err := h.checkChatId(message.Chat.ID); err != nil {
+		return err
+	}
+
+	if yes, err := h.chooseModem(message, "esimprofiles"); err != nil || yes {
+		return err
+	}
+	delete(h.messages, message.MessageID)
+
+	device, err := h.modem.GetAtDevice()
+	if err != nil {
+		return err
+	}
+	esim := esim.New(device)
+	profiles, err := esim.ListProfiles()
+	if err != nil {
+		return err
+	}
+
+	if len(profiles) == 0 {
+		return h.sendText(message.Chat.ID, "No eSIM profiles found.", message.MessageID)
+	}
+
+	content := ""
+	for _, profile := range profiles {
+		state := "Disabled"
+		if profile.State == 1 {
+			state = "Enabled"
+		}
+		content += fmt.Sprintf("Profile Name: %s\nNickname: %s\nProvider Name: %s\nICCID: %s\nState: %s\n\n", profile.ProfileName, profile.ProfileNickname, profile.ProviderName, profile.Iccid, state)
+	}
+
+	return h.sendText(message.Chat.ID, content, message.MessageID)
 }
 
 func (h *handler) sendText(chatId int64, message string, messageId int) error {
