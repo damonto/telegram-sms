@@ -33,6 +33,12 @@ Once done, you can run the program with root privileges:
 sudo ./telegram-sms -token=YourTelegramToken -chat-id=YourTelegramChatID
 ```
 
+If your modem supports `AT+CCHO/AT+CGLA/AT+CCHC`, and your SIM card is a removable eUICC, you can use the `-euicc` flag to enable eUICC features.
+
+```bash
+sudo ./telegram-sms -token=YourTelegramToken -chat-id=YourTelegramChatID -euicc
+```
+
 If you wish to run the program in the background, you can utilize the `systemctl` command. Here is an example of how to achieve this:
 
 1. Start by creating a service file in the `/etc/systemd/system` directory. For instance, you can name the file `telegram-sms.service` and include the following content:
