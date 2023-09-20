@@ -14,7 +14,7 @@ import (
 type Esim interface {
 	Eid() (string, error)
 	ListProfiles() ([]Profile, error)
-	Download(smds string, activationCode string, confirmationCode string, imei string) error
+	Download(smdp string, activationCode string, confirmationCode string, imei string) error
 	Rename(iccid string, name string) error
 	Enable(iccid string) error
 	Disable(iccid string) error

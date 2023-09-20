@@ -13,20 +13,29 @@ import (
 
 type HandlerFunc = func(message *tgbotapi.Message) error
 type CallbackFunc = func(callback *tgbotapi.CallbackQuery, value string) error
+type NextFunc = func(message *tgbotapi.Message, callback *tgbotapi.CallbackQuery, value string) error
 
 type Handler interface {
 	RegisterCommands() error
 	HandleCommand(command string, message *tgbotapi.Message) error
 	HandleCallback(callback *tgbotapi.CallbackQuery) error
+	HandleRawMessage(message *tgbotapi.Message) error
 }
 
 type handler struct {
-	chatId      int64
-	isEuicc     bool
-	tgbot       *tgbotapi.BotAPI
-	modem       Modem
-	botHandlers map[string]botHandler
-	messages    map[int]*tgbotapi.Message
+	chatId           int64
+	isEuicc          bool
+	tgbot            *tgbotapi.BotAPI
+	modem            Modem
+	botHandlers      map[string]botHandler
+	triggeredMessage triggeredMessage
+	nextAction       NextFunc
+	messages         map[int]*tgbotapi.Message
+}
+
+type triggeredMessage struct {
+	callback *tgbotapi.CallbackQuery
+	value    string
 }
 
 type botHandler struct {
@@ -38,11 +47,12 @@ type botHandler struct {
 
 func NewHandler(chatId int64, isEuicc bool, tgbot *tgbotapi.BotAPI, modem Modem) Handler {
 	return &handler{
-		chatId:   chatId,
-		isEuicc:  isEuicc,
-		tgbot:    tgbot,
-		modem:    modem,
-		messages: make(map[int]*tgbotapi.Message, 1),
+		chatId:           chatId,
+		isEuicc:          isEuicc,
+		tgbot:            tgbot,
+		modem:            modem,
+		messages:         make(map[int]*tgbotapi.Message, 1),
+		triggeredMessage: triggeredMessage{},
 	}
 }
 
@@ -60,6 +70,13 @@ func (h *handler) RegisterCommands() error {
 
 	if h.isEuicc {
 		h.botHandlers["esimprofiles"] = botHandler{command: "esimprofiles", description: "List installed eSIM profiles", handler: h.handleListEsimProfiles}
+		h.botHandlers["esimdownload"] = botHandler{command: "esimdownload", description: "Download a new eSIM profile", handler: h.handleEsimDownload}
+		h.botHandlers["clickprofilecallback"] = botHandler{callback: h.handleClickProfileCallback}
+		h.botHandlers["enableprofilecallback"] = botHandler{callback: h.handleEnableProfileCallback}
+		h.botHandlers["disableprofilecallback"] = botHandler{callback: h.handleDisableProfileCallback}
+		h.botHandlers["renameprofilecallback"] = botHandler{callback: h.handleRenameProfileCallback}
+		h.botHandlers["deleteprofilecallback"] = botHandler{callback: h.handleDeleteProfileCallback}
+		h.botHandlers["confirmdeleteprofilecallback"] = botHandler{callback: h.handleConfirmDeleteProfileCallback}
 	}
 
 	botCommands := []tgbotapi.BotCommand{}
@@ -104,6 +121,14 @@ func (h *handler) HandleCallback(callback *tgbotapi.CallbackQuery) error {
 	return errors.New("command not found")
 }
 
+func (h *handler) HandleRawMessage(message *tgbotapi.Message) error {
+	if h.nextAction == nil {
+		return errors.New("undefined next action")
+	}
+
+	return h.nextAction(message, h.triggeredMessage.callback, h.triggeredMessage.value)
+}
+
 func (h *handler) handleStartCommand(message *tgbotapi.Message) error {
 	welcomeMessage := "Welcome to using this bot. You can control the bot using these commands:\n\n"
 	for _, c := range h.botHandlers {
@@ -143,7 +168,7 @@ func (h *handler) handleSwitchSlotCommand(message *tgbotapi.Message) error {
 	buttons := []tgbotapi.InlineKeyboardButton{}
 	for slotIndex := range simSlots {
 		if uint32(slotIndex)+1 == currentActivatedSlot {
-			buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("Slot %d (active)", slotIndex+1), fmt.Sprintf("switchsimslotcallback:%d", slotIndex+1)))
+			buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("Slot %d ()", slotIndex+1), fmt.Sprintf("switchsimslotcallback:%d", slotIndex+1)))
 		} else {
 			buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("Slot %d", slotIndex+1), fmt.Sprintf("switchsimslotcallback:%d", slotIndex+1)))
 		}
@@ -184,12 +209,13 @@ func (h *handler) chooseModem(message *tgbotapi.Message, command string) (bool, 
 }
 
 func (h *handler) sendSwitchModemReplyButtons(modems map[string]string, message *tgbotapi.Message, command string) error {
-	buttons := []tgbotapi.InlineKeyboardButton{}
+	buttons := [][]tgbotapi.InlineKeyboardButton{}
 	for modemId, modem := range modems {
-		buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData(modem, fmt.Sprintf("switchmodemcallback:%s:%s:%d", modemId, command, message.MessageID)))
+		button := tgbotapi.NewInlineKeyboardButtonData(modem, fmt.Sprintf("switchmodemcallback:%s:%s:%d", modemId, command, message.MessageID))
+		buttons = append(buttons, tgbotapi.NewInlineKeyboardRow(button))
 	}
 
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(buttons...))
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(buttons...)
 	msg := tgbotapi.NewMessage(h.chatId, "Which modem do you want to use?")
 	msg.ReplyMarkup = keyboard
 	msg.ReplyToMessageID = message.MessageID
@@ -296,11 +322,22 @@ func (h *handler) handleSimCommand(message *tgbotapi.Message) error {
 		return err
 	}
 
-	return h.sendText(
-		message.Chat.ID,
-		fmt.Sprintf("SIM Slot: %d\nEID: %s\nOperator Name: %s\nProvider Name: %s\nICCID: %s\nIMEI: %s\nSignal Quality: %d%s", slot, eid, operator, profileName, iccid, imei, signalQuality, "%"),
-		message.MessageID,
-	)
+	buttons := []tgbotapi.InlineKeyboardButton{
+		tgbotapi.NewInlineKeyboardButtonData("Disable", "disableprofilecallback:"+iccid),
+		tgbotapi.NewInlineKeyboardButtonData("Rename", "renameprofilecallback:"+iccid),
+		tgbotapi.NewInlineKeyboardButtonData("Delete", "deleteprofilecallback:"+iccid),
+	}
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(buttons...))
+	content := fmt.Sprintf("SIM Slot: %d\nEID: %s\nOperator Name: %s\nProvider Name: %s\nICCID: %s\nIMEI: %s\nSignal Quality: %d%s", slot, eid, operator, profileName, iccid, imei, signalQuality, "%")
+	msg := tgbotapi.NewMessage(h.chatId, EscapeText(content))
+	msg.ParseMode = "markdownV2"
+	msg.ReplyMarkup = keyboard
+	msg.ReplyToMessageID = message.MessageID
+	if _, err := h.tgbot.Send(msg); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (h *handler) handleUSSDCommand(message *tgbotapi.Message) error {
@@ -372,6 +409,43 @@ func (h *handler) checkChatId(chatId int64) error {
 	return errors.New("chat id does not match")
 }
 
+func (h *handler) handleEsimDownload(message *tgbotapi.Message) error {
+	if err := h.checkChatId(message.Chat.ID); err != nil {
+		return err
+	}
+
+	if message.CommandArguments() == "" {
+		return errors.New("please send me the SM-DP+ address, activation code and confirmation code (optional)")
+	}
+
+	if yes, err := h.chooseModem(message, "esimprofiles"); err != nil || yes {
+		return err
+	}
+	delete(h.messages, message.MessageID)
+
+	arguments := strings.Split(message.CommandArguments(), " ")
+	if len(arguments) < 2 {
+		return errors.New("invalid arguments")
+	}
+
+	confirmationCode := ""
+	if len(arguments) == 3 {
+		confirmationCode = arguments[2]
+	}
+
+	device, err := h.modem.GetAtDevice()
+	if err != nil {
+		return err
+	}
+	esim := esim.New(device)
+	imei, _ := h.modem.GetImei()
+	if err := esim.Download(arguments[0], arguments[1], confirmationCode, imei); err != nil {
+		return err
+	}
+
+	return h.sendText(message.Chat.ID, "Congratulations! your new eSIM is ready!", message.MessageID)
+}
+
 func (h *handler) handleListEsimProfiles(message *tgbotapi.Message) error {
 	if err := h.checkChatId(message.Chat.ID); err != nil {
 		return err
@@ -396,6 +470,8 @@ func (h *handler) handleListEsimProfiles(message *tgbotapi.Message) error {
 		return h.sendText(message.Chat.ID, "No eSIM profiles found.", message.MessageID)
 	}
 
+	buttons := []tgbotapi.InlineKeyboardButton{}
+	buttonRows := [][]tgbotapi.InlineKeyboardButton{}
 	content := ""
 	for _, profile := range profiles {
 		state := "Disabled"
@@ -403,9 +479,202 @@ func (h *handler) handleListEsimProfiles(message *tgbotapi.Message) error {
 			state = "Enabled"
 		}
 		content += fmt.Sprintf("Profile Name: %s\nNickname: %s\nProvider Name: %s\nICCID: %s\nState: %s\n\n", profile.ProfileName, profile.ProfileNickname, profile.ProviderName, profile.Iccid, state)
+		profileName := profile.ProfileName
+		if profile.ProfileNickname != "" {
+			profileName = profile.ProfileNickname
+		}
+
+		if profile.State == 1 {
+			profileName = profileName + "(active)"
+		}
+		if len(buttons) == 2 {
+			buttonRows = append(buttonRows, buttons)
+			buttons = []tgbotapi.InlineKeyboardButton{}
+		}
+		buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData(profileName, fmt.Sprintf("clickprofilecallback:%s", profile.Iccid)))
 	}
 
-	return h.sendText(message.Chat.ID, content, message.MessageID)
+	if len(buttons) > 0 {
+		buttonRows = append(buttonRows, buttons)
+	}
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(buttonRows...)
+	msg := tgbotapi.NewMessage(h.chatId, EscapeText(content))
+	msg.ParseMode = "markdownV2"
+	msg.ReplyMarkup = keyboard
+	msg.ReplyToMessageID = message.MessageID
+	if _, err := h.tgbot.Send(msg); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *handler) handleClickProfileCallback(callback *tgbotapi.CallbackQuery, value string) error {
+	if err := h.checkChatId(callback.Message.Chat.ID); err != nil {
+		return err
+	}
+
+	device, err := h.modem.GetAtDevice()
+	if err != nil {
+		return err
+	}
+	e := esim.New(device)
+	profiles, err := e.ListProfiles()
+	if err != nil {
+		return err
+	}
+
+	profile := esim.Profile{}
+	for _, p := range profiles {
+		if p.Iccid == value {
+			profile = p
+			break
+		}
+	}
+
+	if profile.Iccid == "" {
+		return errors.New("no profile founded")
+	}
+
+	buttons := []tgbotapi.InlineKeyboardButton{}
+	if profile.State == 1 {
+		buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData("Disable", "disableprofilecallback:"+profile.Iccid))
+	} else {
+		buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData("Enable", "enableprofilecallback:"+profile.Iccid))
+	}
+
+	buttons = append(buttons,
+		tgbotapi.NewInlineKeyboardButtonData("Rename", "renameprofilecallback:"+profile.Iccid),
+		tgbotapi.NewInlineKeyboardButtonData("Delete", "deleteprofilecallback:"+profile.Iccid),
+	)
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(buttons...))
+	state := "Enabled"
+	if profile.State == 0 {
+		state = "Disabled"
+	}
+	content := fmt.Sprintf("Profile Name: %s\nProvider Name: %s\nNickname: %s\nICCID: %s\nState: %s", profile.ProfileName, profile.ProviderName, profile.ProfileNickname, profile.Iccid, state)
+	msg := tgbotapi.NewMessage(h.chatId, EscapeText(content))
+	msg.ParseMode = "markdownV2"
+	msg.ReplyMarkup = keyboard
+	msg.ReplyToMessageID = callback.Message.MessageID
+	if _, err := h.tgbot.Send(msg); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *handler) handleEnableProfileCallback(callback *tgbotapi.CallbackQuery, value string) error {
+	if err := h.checkChatId(callback.Message.Chat.ID); err != nil {
+		return err
+	}
+
+	device, err := h.modem.GetAtDevice()
+	if err != nil {
+		return err
+	}
+	esim := esim.New(device)
+	if err := esim.Enable(value); err != nil {
+		return err
+	}
+
+	if err := h.modem.Reload(); err != nil {
+		return err
+	}
+
+	_, err = h.tgbot.Request(tgbotapi.NewCallback(callback.ID, "Success!"))
+	if err != nil {
+		slog.Error("failed to send callback", "error", err)
+	}
+	return h.sendText(callback.Message.Chat.ID, "Success! eSIM profile has been enabled.", callback.Message.MessageID)
+}
+
+func (h *handler) handleDisableProfileCallback(callback *tgbotapi.CallbackQuery, value string) error {
+	if err := h.checkChatId(callback.Message.Chat.ID); err != nil {
+		return err
+	}
+
+	device, err := h.modem.GetAtDevice()
+	if err != nil {
+		return err
+	}
+	esim := esim.New(device)
+	if err := esim.Disable(value); err != nil {
+		return err
+	}
+
+	if err := h.modem.Reload(); err != nil {
+		return err
+	}
+
+	_, err = h.tgbot.Request(tgbotapi.NewCallback(callback.ID, "Success!"))
+	if err != nil {
+		slog.Error("failed to send callback", "error", err)
+	}
+	return h.sendText(callback.Message.Chat.ID, "Success! eSIM profile has been enabled.", callback.Message.MessageID)
+}
+
+func (h *handler) handleRenameProfileCallback(callback *tgbotapi.CallbackQuery, value string) error {
+	if err := h.checkChatId(callback.Message.Chat.ID); err != nil {
+		return err
+	}
+
+	h.triggeredMessage = triggeredMessage{
+		callback: callback,
+		value:    value,
+	}
+	h.nextAction = h.renameProfile
+
+	return h.sendText(callback.Message.Chat.ID, "Please enter a new name:", callback.Message.MessageID)
+}
+
+func (h *handler) renameProfile(message *tgbotapi.Message, callback *tgbotapi.CallbackQuery, value string) error {
+	device, err := h.modem.GetAtDevice()
+	if err != nil {
+		return err
+	}
+	esim := esim.New(device)
+	if err := esim.Rename(value, message.Text); err != nil {
+		return err
+	}
+
+	// clean
+	h.triggeredMessage = triggeredMessage{}
+	h.nextAction = nil
+
+	return h.sendText(message.Chat.ID, "The profile name has been changed.", callback.Message.MessageID)
+}
+
+func (h *handler) handleDeleteProfileCallback(callback *tgbotapi.CallbackQuery, value string) error {
+	if err := h.checkChatId(callback.Message.Chat.ID); err != nil {
+		return err
+	}
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData("Yes", "confirmdeleteprofilecallback:"+value)))
+	msg := tgbotapi.NewMessage(h.chatId, "Are you sure you want to delete this profile?")
+	msg.ParseMode = "markdownV2"
+	msg.ReplyMarkup = keyboard
+	msg.ReplyToMessageID = callback.Message.MessageID
+	if _, err := h.tgbot.Send(msg); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *handler) handleConfirmDeleteProfileCallback(callback *tgbotapi.CallbackQuery, value string) error {
+	if err := h.checkChatId(callback.Message.Chat.ID); err != nil {
+		return err
+	}
+
+	device, err := h.modem.GetAtDevice()
+	if err != nil {
+		return err
+	}
+	esim := esim.New(device)
+	if err := esim.Delete(value); err != nil {
+		return err
+	}
+
+	return h.sendText(callback.Message.Chat.ID, "The profile "+value+" has been deleted.", callback.Message.MessageID)
 }
 
 func (h *handler) sendText(chatId int64, message string, messageId int) error {

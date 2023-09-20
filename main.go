@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os/user"
-	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/maltegrosse/go-modemmanager"
@@ -64,26 +63,30 @@ func main() {
 				slog.Info("command received", "command", update.Message.Command(), "raw", update.Message.Text)
 				if err := handler.HandleCommand(update.Message.Command(), update.Message); err != nil {
 					slog.Error("failed to handle command", "error", err)
-					msg := tgbotapi.NewMessage(chatId, escapeText(err.Error()))
+					msg := tgbotapi.NewMessage(chatId, EscapeText(err.Error()))
 					msg.ReplyToMessageID = update.Message.MessageID
 					if _, err := bot.Send(msg); err != nil {
 						slog.Error("failed to send message", "text", msg.Text, "error", err)
 					}
-					continue
 				}
+				continue
 			}
 
 			if update.CallbackQuery != nil {
 				slog.Info("command callback received", "button", update.CallbackQuery.Data)
 				if err := handler.HandleCallback(update.CallbackQuery); err != nil {
 					slog.Error("failed to handle callback", "error", err)
-					msg := tgbotapi.NewMessage(chatId, escapeText(err.Error()))
+					msg := tgbotapi.NewMessage(chatId, EscapeText(err.Error()))
 					msg.ReplyToMessageID = update.Message.MessageID
 					if _, err := bot.Send(msg); err != nil {
 						slog.Error("failed to send message", "text", msg.Text, "error", err)
 					}
-					continue
 				}
+				continue
+			}
+
+			if err := handler.HandleRawMessage(update.Message); err != nil {
+				slog.Error("failed to handle callback", "error", err)
 			}
 		}
 	}(bot, modem)
@@ -109,18 +112,10 @@ func main() {
 		}
 
 		slog.Info("SMS received", "operator-name", operatorName, "sender", sender, "text", text)
-		msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("*\\[%s\\] %s*\n%s", operatorName, escapeText(sender), escapeText(text)))
+		msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("*\\[%s\\] %s*\n%s", operatorName, EscapeText(sender), EscapeText(text)))
 		msg.ParseMode = "markdownV2"
 		if _, err := bot.Send(msg); err != nil {
 			slog.Error("failed to send message", "text", msg.Text, "error", err)
 		}
 	})
-}
-
-func escapeText(text string) string {
-	replacements := []string{"_", "*", "[", "]", "(", ")", "~", "`", ">", "#", "+", "-", "=", "|", "{", "}", ".", "!"}
-	for _, replacement := range replacements {
-		text = strings.ReplaceAll(text, replacement, "\\"+replacement)
-	}
-	return text
 }

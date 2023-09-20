@@ -14,6 +14,7 @@ type SMSSubscriber = func(modem modemmanager.Modem, sms modemmanager.Sms)
 
 type Modem interface {
 	Use(modemId string) *modem
+	Reload() error
 	ListModems() (map[string]string, error)
 	GetAtDevice() (string, error)
 	GetIccid() (string, error)
@@ -105,8 +106,10 @@ func (m *modem) ListModems() (map[string]string, error) {
 			return nil, err
 		}
 		operatorName, _ := threeGpp.GetOperatorName()
+		manufacturer, _ := modem.GetManufacturer()
+		hwRevision, _ := modem.GetHardwareRevision()
 
-		modemList[modemId] = operatorName
+		modemList[modemId] = fmt.Sprintf("%s %s (Current: %s)", manufacturer, hwRevision, operatorName)
 	}
 
 	return modemList, nil
@@ -195,6 +198,10 @@ func (m *modem) SetPrimarySimSlot(simSlot uint32) error {
 		return err
 	}
 
+	return m.Reload()
+}
+
+func (m *modem) Reload() error {
 	for {
 		time.Sleep(5 * time.Second)
 		modems, err := m.mmgr.GetModems()
