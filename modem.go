@@ -313,7 +313,7 @@ Subscriber:
 	}
 
 	<-m.modemAddedChan
-	slog.Info("SIM slot has been changed, unsubscribe all existing sms event")
+	slog.Info("unsubscribe all existing sms event")
 	for _, stopChan := range stopChans {
 		stopChan <- struct{}{}
 	}
