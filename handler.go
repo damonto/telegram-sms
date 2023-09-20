@@ -415,7 +415,11 @@ func (h *handler) handleEsimDownload(message *tgbotapi.Message) error {
 	}
 
 	if message.CommandArguments() == "" {
-		return errors.New("please send me the SM-DP+ address, activation code and confirmation code (optional)")
+		return h.sendText(
+			message.Chat.ID,
+			"Please send me the SM-DP+ address, activation code and confirmation code (optional). For example:\n/esimdownload smdp.io activationCode confirmationCode(optional)",
+			message.MessageID,
+		)
 	}
 
 	if yes, err := h.chooseModem(message, "esimdownload"); err != nil || yes {
