@@ -160,14 +160,14 @@ func (h *handler) handleSwitchSlotCommand(message *tgbotapi.Message) error {
 		return err
 	}
 
-	currentActivatedSlot, err := h.modem.GetPrimarySimSlot()
+	activatedSlot, err := h.modem.GetPrimarySimSlot()
 	if err != nil {
 		return err
 	}
 
 	buttons := []tgbotapi.InlineKeyboardButton{}
 	for slotIndex := range simSlots {
-		if uint32(slotIndex)+1 == currentActivatedSlot {
+		if uint32(slotIndex)+1 == activatedSlot {
 			buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("Slot %d ()", slotIndex+1), fmt.Sprintf("switchsimslotcallback:%d", slotIndex+1)))
 		} else {
 			buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("Slot %d", slotIndex+1), fmt.Sprintf("switchsimslotcallback:%d", slotIndex+1)))
