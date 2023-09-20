@@ -92,8 +92,8 @@ func (e *esim) execute(arguments []string) ([]byte, error) {
 	lpacBin := e.lpacPath + "/lpac/lpac"
 
 	os.Setenv("AT_DEVICE", e.device)
-	os.Setenv("APDU_INTERFACE", e.lpacPath+"/lpac/at_apdu_interface.so")
-	os.Setenv("ES9P_INTERFACE", e.lpacPath+"/lpac/es9pinterface.so")
+	os.Setenv("APDU_INTERFACE", e.lpacPath+"/lpac/libapduinterface_at.so")
+	os.Setenv("ES9P_INTERFACE", e.lpacPath+"/lpac/libes9pinterface_curl.so")
 	os.Setenv("OUTPUT_JSON", "1")
 
 	output, err := exec.Command(lpacBin, arguments...).Output()

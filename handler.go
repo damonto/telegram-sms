@@ -168,7 +168,7 @@ func (h *handler) handleSwitchSlotCommand(message *tgbotapi.Message) error {
 	buttons := []tgbotapi.InlineKeyboardButton{}
 	for slotIndex := range simSlots {
 		if uint32(slotIndex)+1 == activatedSlot {
-			buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("Slot %d ()", slotIndex+1), fmt.Sprintf("switchsimslotcallback:%d", slotIndex+1)))
+			buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("Slot %d (active)", slotIndex+1), fmt.Sprintf("switchsimslotcallback:%d", slotIndex+1)))
 		} else {
 			buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("Slot %d", slotIndex+1), fmt.Sprintf("switchsimslotcallback:%d", slotIndex+1)))
 		}
@@ -585,7 +585,7 @@ func (h *handler) handleEnableProfileCallback(callback *tgbotapi.CallbackQuery, 
 	if err != nil {
 		slog.Error("failed to send callback", "error", err)
 	}
-	return h.sendText(callback.Message.Chat.ID, "Success! eSIM profile has been enabled.", callback.Message.MessageID)
+	return h.sendText(callback.Message.Chat.ID, "Success! The eSIM profile has been enabled.", callback.Message.MessageID)
 }
 
 func (h *handler) handleDisableProfileCallback(callback *tgbotapi.CallbackQuery, value string) error {
@@ -610,7 +610,7 @@ func (h *handler) handleDisableProfileCallback(callback *tgbotapi.CallbackQuery,
 	if err != nil {
 		slog.Error("failed to send callback", "error", err)
 	}
-	return h.sendText(callback.Message.Chat.ID, "Success! eSIM profile has been enabled.", callback.Message.MessageID)
+	return h.sendText(callback.Message.Chat.ID, "Success! The eSIM profile has been disabled.", callback.Message.MessageID)
 }
 
 func (h *handler) handleRenameProfileCallback(callback *tgbotapi.CallbackQuery, value string) error {
@@ -624,7 +624,7 @@ func (h *handler) handleRenameProfileCallback(callback *tgbotapi.CallbackQuery, 
 	}
 	h.nextAction = h.renameProfile
 
-	return h.sendText(callback.Message.Chat.ID, "Please enter a new name:", callback.Message.MessageID)
+	return h.sendText(callback.Message.Chat.ID, "Please enter a new name of the eSIM.", callback.Message.MessageID)
 }
 
 func (h *handler) renameProfile(message *tgbotapi.Message, callback *tgbotapi.CallbackQuery, value string) error {
