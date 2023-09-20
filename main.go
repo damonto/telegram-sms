@@ -63,7 +63,7 @@ func main() {
 				slog.Info("command received", "command", update.Message.Command(), "raw", update.Message.Text)
 				if err := handler.HandleCommand(update.Message.Command(), update.Message); err != nil {
 					slog.Error("failed to handle command", "error", err)
-					msg := tgbotapi.NewMessage(chatId, EscapeText(err.Error()))
+					msg := tgbotapi.NewMessage(chatId, err.Error())
 					msg.ReplyToMessageID = update.Message.MessageID
 					if _, err := bot.Send(msg); err != nil {
 						slog.Error("failed to send message", "text", msg.Text, "error", err)
@@ -76,8 +76,8 @@ func main() {
 				slog.Info("command callback received", "button", update.CallbackQuery.Data)
 				if err := handler.HandleCallback(update.CallbackQuery); err != nil {
 					slog.Error("failed to handle callback", "error", err)
-					msg := tgbotapi.NewMessage(chatId, EscapeText(err.Error()))
-					msg.ReplyToMessageID = update.Message.MessageID
+					msg := tgbotapi.NewMessage(chatId, err.Error())
+					msg.ReplyToMessageID = update.CallbackQuery.Message.MessageID
 					if _, err := bot.Send(msg); err != nil {
 						slog.Error("failed to send message", "text", msg.Text, "error", err)
 					}

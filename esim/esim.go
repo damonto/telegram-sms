@@ -1,14 +1,18 @@
 package esim
 
 import (
+	"bytes"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"golang.org/x/exp/slog"
 )
 
 type Esim interface {
@@ -23,6 +27,18 @@ type Esim interface {
 
 type commandResponse struct {
 	Message string `json:"message"`
+}
+
+type es9pError struct {
+	SubjectCode       string `json:"subjectCode"`
+	ReasonCode        string `json:"reasonCode"`
+	SubjectIdentifier string `json:"subjectIdentifier"`
+	Message           string `json:"message"`
+}
+
+type errorResponse struct {
+	Message string `json:"message"`
+	Data    string `json:"data"`
 }
 
 type Eid struct {
@@ -96,8 +112,27 @@ func (e *esim) execute(arguments []string) ([]byte, error) {
 	os.Setenv("ES9P_INTERFACE", e.lpacPath+"/lpac/libes9pinterface_curl.so")
 	os.Setenv("OUTPUT_JSON", "1")
 
-	output, err := exec.Command(lpacBin, arguments...).Output()
-	return output, err
+	slog.Info("command executing", "arguments", strings.Join(arguments, " "))
+	cmd := exec.Command(lpacBin, arguments...)
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	err := cmd.Run()
+	slog.Info("command executed", "output", stdout.String(), "error", err)
+
+	if err != nil {
+		var errResp errorResponse
+		json.Unmarshal(stdout.Bytes(), &errResp)
+		if errResp.Data != "" {
+			var es9pErr es9pError
+			json.Unmarshal([]byte(errResp.Data), &es9pErr)
+			if es9pErr.Message != "" {
+				return nil, errors.New(es9pErr.Message)
+			}
+		}
+		return nil, errors.New(errResp.Message)
+	}
+
+	return stdout.Bytes(), nil
 }
 
 func (e *esim) Eid() (string, error) {
@@ -139,70 +174,35 @@ func (e *esim) ListProfiles() ([]Profile, error) {
 		return nil, err
 	}
 
-	if resp.Message != "success" {
-		return nil, fmt.Errorf("failed to get installed profiles %v", err)
-	}
 	return resp.Data, nil
 }
 
 func (e *esim) Rename(iccid string, name string) error {
 	e.release()
 	defer e.clean()
-	output, err := e.execute([]string{"profile", "rename", iccid, name})
-	if err != nil {
-		return err
-	}
-
-	s := string(output)
-	if !strings.Contains(s, "success") {
-		return fmt.Errorf("failed to rename profile %v", err)
-	}
-	return nil
+	_, err := e.execute([]string{"profile", "rename", iccid, name})
+	return err
 }
 
 func (e *esim) Enable(iccid string) error {
 	e.release()
 	defer e.clean()
-	output, err := e.execute([]string{"profile", "enable", iccid})
-	if err != nil {
-		return err
-	}
-
-	s := string(output)
-	if !strings.Contains(s, "success") {
-		return fmt.Errorf("failed to enable profile %v", err)
-	}
-	return nil
+	_, err := e.execute([]string{"profile", "enable", iccid})
+	return err
 }
 
 func (e *esim) Disable(iccid string) error {
 	e.release()
 	defer e.clean()
-	output, err := e.execute([]string{"profile", "disable", iccid})
-	if err != nil {
-		return err
-	}
-
-	s := string(output)
-	if !strings.Contains(s, "success") {
-		return fmt.Errorf("failed to disable profile %v", err)
-	}
-	return nil
+	_, err := e.execute([]string{"profile", "disable", iccid})
+	return err
 }
 
 func (e *esim) Delete(iccid string) error {
 	e.release()
 	defer e.clean()
-	output, err := e.execute([]string{"profile", "delete", iccid})
-	if err != nil {
-		return err
-	}
-
-	s := string(output)
-	if !strings.Contains(s, "success") {
-		return fmt.Errorf("failed to delete installed eSIM profile %v", err)
-	}
-	return nil
+	_, err := e.execute([]string{"profile", "delete", iccid})
+	return err
 }
 
 func (e *esim) Download(smdp string, activationCode string, confirmationCode string, imei string) error {
@@ -213,14 +213,6 @@ func (e *esim) Download(smdp string, activationCode string, confirmationCode str
 	if confirmationCode != "" {
 		args = append(args, "-c", confirmationCode)
 	}
-	output, err := e.execute(args)
-	if err != nil {
-		return err
-	}
-
-	s := string(output)
-	if !strings.Contains(s, "success") {
-		return fmt.Errorf("failed to install new eSIM profile %v", err)
-	}
-	return nil
+	_, err := e.execute(args)
+	return err
 }

@@ -118,7 +118,7 @@ func (h *handler) HandleCallback(callback *tgbotapi.CallbackQuery) error {
 	if command, ok := h.botHandlers[button[0]]; ok {
 		return command.callback(callback, strings.Join(button[1:], ":"))
 	}
-	return errors.New("command not found")
+	return errors.New("callback not found")
 }
 
 func (h *handler) HandleRawMessage(message *tgbotapi.Message) error {
@@ -418,7 +418,7 @@ func (h *handler) handleEsimDownload(message *tgbotapi.Message) error {
 		return errors.New("please send me the SM-DP+ address, activation code and confirmation code (optional)")
 	}
 
-	if yes, err := h.chooseModem(message, "esimprofiles"); err != nil || yes {
+	if yes, err := h.chooseModem(message, "esimdownload"); err != nil || yes {
 		return err
 	}
 	delete(h.messages, message.MessageID)
@@ -624,7 +624,7 @@ func (h *handler) handleRenameProfileCallback(callback *tgbotapi.CallbackQuery, 
 	}
 	h.nextAction = h.renameProfile
 
-	return h.sendText(callback.Message.Chat.ID, "Please enter a new name of the eSIM.", callback.Message.MessageID)
+	return h.sendText(callback.Message.Chat.ID, "Please enter a new name for the eSIM.", callback.Message.MessageID)
 }
 
 func (h *handler) renameProfile(message *tgbotapi.Message, callback *tgbotapi.CallbackQuery, value string) error {
