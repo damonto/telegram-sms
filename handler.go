@@ -23,17 +23,17 @@ type Handler interface {
 }
 
 type handler struct {
-	chatId           int64
-	isEuicc          bool
-	tgbot            *tgbotapi.BotAPI
-	modem            Modem
-	botHandlers      map[string]botHandler
-	triggeredMessage triggeredMessage
-	nextAction       NextFunc
-	messages         map[int]*tgbotapi.Message
+	chatId       int64
+	isEuicc      bool
+	tgbot        *tgbotapi.BotAPI
+	modem        Modem
+	botHandlers  map[string]botHandler
+	lastCallback lastCallback
+	nextAction   NextFunc
+	messages     map[int]*tgbotapi.Message
 }
 
-type triggeredMessage struct {
+type lastCallback struct {
 	callback *tgbotapi.CallbackQuery
 	value    string
 }
@@ -47,12 +47,12 @@ type botHandler struct {
 
 func NewHandler(chatId int64, isEuicc bool, tgbot *tgbotapi.BotAPI, modem Modem) Handler {
 	return &handler{
-		chatId:           chatId,
-		isEuicc:          isEuicc,
-		tgbot:            tgbot,
-		modem:            modem,
-		messages:         make(map[int]*tgbotapi.Message, 1),
-		triggeredMessage: triggeredMessage{},
+		chatId:       chatId,
+		isEuicc:      isEuicc,
+		tgbot:        tgbot,
+		modem:        modem,
+		messages:     make(map[int]*tgbotapi.Message, 1),
+		lastCallback: lastCallback{},
 	}
 }
 
@@ -125,7 +125,7 @@ func (h *handler) HandleRawMessage(message *tgbotapi.Message) error {
 	if h.nextAction == nil {
 		return errors.New("undefined next action")
 	}
-	return h.nextAction(message, h.triggeredMessage.callback, h.triggeredMessage.value)
+	return h.nextAction(message, h.lastCallback.callback, h.lastCallback.value)
 }
 
 func (h *handler) handleStartCommand(message *tgbotapi.Message) error {
@@ -619,7 +619,7 @@ func (h *handler) handleRenameProfileCallback(callback *tgbotapi.CallbackQuery, 
 		return err
 	}
 
-	h.triggeredMessage = triggeredMessage{
+	h.lastCallback = lastCallback{
 		callback: callback,
 		value:    value,
 	}
@@ -638,7 +638,7 @@ func (h *handler) renameProfile(message *tgbotapi.Message, callback *tgbotapi.Ca
 	}
 
 	// clean
-	h.triggeredMessage = triggeredMessage{}
+	h.lastCallback = lastCallback{}
 	h.nextAction = nil
 
 	return h.sendText(message.Chat.ID, "The profile name has been changed.", callback.Message.MessageID)
