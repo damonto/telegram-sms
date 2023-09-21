@@ -125,7 +125,6 @@ func (h *handler) HandleRawMessage(message *tgbotapi.Message) error {
 	if h.nextAction == nil {
 		return errors.New("undefined next action")
 	}
-
 	return h.nextAction(message, h.triggeredMessage.callback, h.triggeredMessage.value)
 }
 
