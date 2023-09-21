@@ -131,7 +131,6 @@ func (e *esim) execute(arguments []string) ([]byte, error) {
 		}
 		return nil, errors.New(errResp.Message)
 	}
-
 	return stdout.Bytes(), nil
 }
 
@@ -173,7 +172,6 @@ func (e *esim) ListProfiles() ([]Profile, error) {
 	if err := json.Unmarshal(output, resp); err != nil {
 		return nil, err
 	}
-
 	return resp.Data, nil
 }
 

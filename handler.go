@@ -247,7 +247,6 @@ func (h *handler) handleSwitchModemCallback(callback *tgbotapi.CallbackQuery, va
 		slog.Info("passing message to next handler", "message-id", messageId)
 		return h.HandleCommand(next, message)
 	}
-
 	return h.HandleCommand(next, callback.Message)
 }
 
@@ -446,7 +445,6 @@ func (h *handler) handleEsimDownload(message *tgbotapi.Message) error {
 	if err := esim.Download(arguments[0], arguments[1], confirmationCode, imei); err != nil {
 		return err
 	}
-
 	return h.sendText(message.Chat.ID, "Congratulations! your new eSIM is ready!", message.MessageID)
 }
 
@@ -627,7 +625,6 @@ func (h *handler) handleRenameProfileCallback(callback *tgbotapi.CallbackQuery, 
 		value:    value,
 	}
 	h.nextAction = h.renameProfile
-
 	return h.sendText(callback.Message.Chat.ID, "Please enter a new name for the eSIM.", callback.Message.MessageID)
 }
 
@@ -677,7 +674,6 @@ func (h *handler) handleConfirmDeleteProfileCallback(callback *tgbotapi.Callback
 	if err := esim.Delete(value); err != nil {
 		return err
 	}
-
 	return h.sendText(callback.Message.Chat.ID, "The profile "+value+" has been deleted.", callback.Message.MessageID)
 }
 

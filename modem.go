@@ -111,7 +111,6 @@ func (m *modem) ListModems() (map[string]string, error) {
 
 		modemList[modemId] = fmt.Sprintf("%s %s (Current: %s)", manufacturer, hwRevision, operatorName)
 	}
-
 	return modemList, nil
 }
 
@@ -126,7 +125,6 @@ func (m *modem) GetAtDevice() (string, error) {
 			return fmt.Sprintf("/dev/%s", port.PortName), nil
 		}
 	}
-
 	return "", errors.New("no at port founded")
 }
 
@@ -143,7 +141,6 @@ func (m *modem) GetImei() (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	return threeGpp.GetImei()
 }
 
@@ -152,7 +149,6 @@ func (m *modem) GetOperatorName() (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	return threeGpp.GetOperatorName()
 }
 
@@ -197,7 +193,6 @@ func (m *modem) SetPrimarySimSlot(simSlot uint32) error {
 	if err := m.callMethod(m.modem.GetObjectPath(), modemSetPrimarySimSlot, uint32(simSlot)); err != nil {
 		return err
 	}
-
 	return m.Reload()
 }
 
@@ -392,6 +387,5 @@ func (m *modem) systemBusPrivate() (*dbus.Conn, error) {
 		dbusConn.Close()
 		return nil, err
 	}
-
 	return dbusConn, nil
 }
