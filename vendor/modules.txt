@@ -7,7 +7,7 @@ github.com/godbus/dbus/v5
 # github.com/maltegrosse/go-modemmanager v0.1.0
 ## explicit; go 1.13
 github.com/maltegrosse/go-modemmanager
-# golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
+# golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/slices
