@@ -11,17 +11,17 @@ import (
 )
 
 var (
-	token  string
-	chatId int64
-	euicc  bool
-	debug  bool
+	tgBotToken          string
+	tgChatId            int64
+	enableEuiccFeatures bool
+	enableDebugMode     bool
 )
 
 func init() {
-	flag.StringVar(&token, "token", "", "Telegram API token")
-	flag.Int64Var(&chatId, "chat-id", 0, "Your telegram chat id")
-	flag.BoolVar(&euicc, "euicc", false, "Enable eUICC features")
-	flag.BoolVar(&debug, "debug", false, "Show verbose info")
+	flag.StringVar(&tgBotToken, "token", "", "Telegram API token")
+	flag.Int64Var(&tgChatId, "chat-id", 0, "Your telegram chat id")
+	flag.BoolVar(&enableEuiccFeatures, "euicc", false, "Enable eUICC features")
+	flag.BoolVar(&enableDebugMode, "debug", false, "Show verbose info")
 	flag.Parse()
 }
 
@@ -37,12 +37,12 @@ func main() {
 		return
 	}
 
-	bot, err := tgbotapi.NewBotAPI(token)
+	bot, err := tgbotapi.NewBotAPI(tgBotToken)
 	if err != nil {
 		slog.Error("failed to connect to telegram bot", "error", err)
 		panic(err)
 	}
-	bot.Debug = debug
+	bot.Debug = enableDebugMode
 
 	modem, err := NewModem()
 	if err != nil {
@@ -50,7 +50,7 @@ func main() {
 		panic(err)
 	}
 
-	handler := NewHandler(chatId, euicc, bot, modem)
+	handler := NewHandler(tgChatId, enableEuiccFeatures, bot, modem)
 	handler.RegisterCommands()
 
 	go func(bot *tgbotapi.BotAPI, modem Modem) {
@@ -63,7 +63,7 @@ func main() {
 				slog.Info("command received", "command", update.Message.Command(), "raw", update.Message.Text)
 				if err := handler.HandleCommand(update.Message.Command(), update.Message); err != nil {
 					slog.Error("failed to handle command", "error", err)
-					msg := tgbotapi.NewMessage(chatId, err.Error())
+					msg := tgbotapi.NewMessage(tgChatId, err.Error())
 					msg.ReplyToMessageID = update.Message.MessageID
 					if _, err := bot.Send(msg); err != nil {
 						slog.Error("failed to send message", "text", msg.Text, "error", err)
@@ -76,7 +76,7 @@ func main() {
 				slog.Info("command callback received", "button", update.CallbackQuery.Data)
 				if err := handler.HandleCallback(update.CallbackQuery); err != nil {
 					slog.Error("failed to handle callback", "error", err)
-					msg := tgbotapi.NewMessage(chatId, err.Error())
+					msg := tgbotapi.NewMessage(tgChatId, err.Error())
 					msg.ReplyToMessageID = update.CallbackQuery.Message.MessageID
 					if _, err := bot.Send(msg); err != nil {
 						slog.Error("failed to send message", "text", msg.Text, "error", err)
@@ -112,7 +112,7 @@ func main() {
 		}
 
 		slog.Info("SMS received", "operator-name", operatorName, "sender", sender, "text", text)
-		msg := tgbotapi.NewMessage(chatId, fmt.Sprintf("*\\[%s\\] %s*\n%s", operatorName, EscapeText(sender), EscapeText(text)))
+		msg := tgbotapi.NewMessage(tgChatId, fmt.Sprintf("*\\[%s\\] %s*\n%s", operatorName, EscapeText(sender), EscapeText(text)))
 		msg.ParseMode = "markdownV2"
 		if _, err := bot.Send(msg); err != nil {
 			slog.Error("failed to send message", "text", msg.Text, "error", err)
