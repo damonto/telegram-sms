@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"golang.org/x/exp/slog"
@@ -23,9 +24,12 @@ type Esim interface {
 	Enable(iccid string) error
 	Disable(iccid string) error
 	Delete(iccid string) error
+	ListNotifications() ([]Notification, error)
+	ProcessNotification(seqNumber string) error
 }
 
-type commandResponse struct {
+type lpacPayload struct {
+	Code    int    `json:"code"`
 	Message string `json:"message"`
 }
 
@@ -37,12 +41,28 @@ type es9pError struct {
 }
 
 type errorResponse struct {
-	Message string `json:"message"`
-	Data    string `json:"data"`
+	Payload struct {
+		lpacPayload
+		Data string
+	} `json:"payload"`
 }
 
-type Eid struct {
-	Eid string `json:"eid"`
+type infoResponse struct {
+	Payload struct {
+		lpacPayload
+		Data struct {
+			Eid         string `json:"eid"`
+			DefaultSmds string `json:"default_smds"`
+			DefaultSmdp string `json:"default_smdp"`
+		} `json:"data"`
+	} `json:"payload"`
+}
+
+type profileResponse struct {
+	Payload struct {
+		lpacPayload
+		Data []Profile `json:"data"`
+	} `json:"payload"`
 }
 
 type Profile struct {
@@ -51,6 +71,20 @@ type Profile struct {
 	ProfileName     string `json:"profileName"`
 	ProfileNickname string `json:"profileNickname"`
 	State           int    `json:"profileState"`
+}
+
+type notificationResponse struct {
+	Payload struct {
+		lpacPayload
+		Data []Notification `json:"data"`
+	} `json:"payload"`
+}
+
+type Notification struct {
+	SeqNumber                  int    `json:"seqNumber"`
+	ProfileManagementOperation int    `json:"profileManagementOperation"`
+	NotificationAddress        string `json:"notificationAddress"`
+	Iccid                      string `json:"iccid"`
 }
 
 type esim struct {
@@ -73,7 +107,7 @@ func (e *esim) release() error {
 	if err != nil {
 		return err
 	}
-	return fs.WalkDir(embededLpac, "lpac", func(path string, d fs.DirEntry, err error) error {
+	return fs.WalkDir(embededLpac, "lpac/linux-"+runtime.GOARCH, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -84,7 +118,7 @@ func (e *esim) release() error {
 				return err
 			}
 
-			targetPath := filepath.Join(e.lpacPath, path)
+			targetPath := filepath.Join(e.lpacPath, d.Name())
 			err = os.MkdirAll(filepath.Dir(targetPath), 0755)
 			if err != nil {
 				return err
@@ -105,11 +139,11 @@ func (e *esim) clean() error {
 }
 
 func (e *esim) execute(arguments []string) ([]byte, error) {
-	lpacBin := e.lpacPath + "/lpac/lpac"
+	lpacBin := e.lpacPath + "/lpac"
 
 	os.Setenv("AT_DEVICE", e.device)
-	os.Setenv("APDU_INTERFACE", e.lpacPath+"/lpac/libapduinterface_at.so")
-	os.Setenv("ES9P_INTERFACE", e.lpacPath+"/lpac/libes9pinterface_curl.so")
+	os.Setenv("APDU_INTERFACE", e.lpacPath+"/libapduinterface_at.so")
+	os.Setenv("ES9P_INTERFACE", e.lpacPath+"/libes9pinterface_curl.so")
 	os.Setenv("OUTPUT_JSON", "1")
 
 	slog.Info("command executing", "arguments", strings.Join(arguments, " "))
@@ -122,14 +156,14 @@ func (e *esim) execute(arguments []string) ([]byte, error) {
 	if err != nil {
 		var errResp errorResponse
 		json.Unmarshal(stdout.Bytes(), &errResp)
-		if errResp.Data != "" {
+		if errResp.Payload.Message != "" {
 			var es9pErr es9pError
-			json.Unmarshal([]byte(errResp.Data), &es9pErr)
+			json.Unmarshal([]byte(errResp.Payload.Data), &es9pErr)
 			if es9pErr.Message != "" {
-				return nil, errors.New(es9pErr.Message)
+				return nil, fmt.Errorf("%s / %s / %s", es9pErr.SubjectCode, es9pErr.SubjectIdentifier, es9pErr.Message)
 			}
 		}
-		return nil, errors.New(errResp.Message)
+		return nil, errors.New(errResp.Payload.Message)
 	}
 	return stdout.Bytes(), nil
 }
@@ -142,18 +176,14 @@ func (e *esim) Eid() (string, error) {
 		return "", err
 	}
 
-	type response struct {
-		commandResponse
-		Data Eid `json:"data"`
-	}
-	resp := &response{}
+	resp := &infoResponse{}
 	if err := json.Unmarshal(output, resp); err != nil {
 		return "", err
 	}
-	if resp.Message != "success" {
+	if resp.Payload.Message != "success" {
 		return "", fmt.Errorf("failed to get eid %v", err)
 	}
-	return resp.Data.Eid, nil
+	return resp.Payload.Data.Eid, nil
 }
 
 func (e *esim) ListProfiles() ([]Profile, error) {
@@ -164,15 +194,11 @@ func (e *esim) ListProfiles() ([]Profile, error) {
 		return nil, err
 	}
 
-	type response struct {
-		commandResponse
-		Data []Profile `json:"data"`
-	}
-	resp := &response{}
+	resp := &profileResponse{}
 	if err := json.Unmarshal(output, resp); err != nil {
 		return nil, err
 	}
-	return resp.Data, nil
+	return resp.Payload.Data, nil
 }
 
 func (e *esim) Rename(iccid string, name string) error {
@@ -207,10 +233,37 @@ func (e *esim) Download(smdp string, activationCode string, confirmationCode str
 	e.release()
 	defer e.clean()
 
-	args := []string{"download", "-a", smdp, "-m", activationCode, "-i", imei}
+	os.Setenv("SMDP", smdp)
+	os.Setenv("MATCHINGID", activationCode)
+	os.Setenv("IMEI", imei)
+
 	if confirmationCode != "" {
-		args = append(args, "-c", confirmationCode)
+		os.Setenv("CONFIRMATION_CODE", confirmationCode)
 	}
-	_, err := e.execute(args)
+
+	slog.Info("downloading new eSIM profile", "smdp", smdp, "activation-code", activationCode, "confirmation-code", confirmationCode, "imei", imei)
+	_, err := e.execute([]string{"download"})
+	return err
+}
+
+func (e *esim) ListNotifications() ([]Notification, error) {
+	e.release()
+	defer e.clean()
+	output, err := e.execute([]string{"notification", "list"})
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &notificationResponse{}
+	if err := json.Unmarshal(output, resp); err != nil {
+		return nil, err
+	}
+	return resp.Payload.Data, nil
+}
+
+func (e *esim) ProcessNotification(seqNumber string) error {
+	e.release()
+	defer e.clean()
+	_, err := e.execute([]string{"notification", "process", seqNumber})
 	return err
 }

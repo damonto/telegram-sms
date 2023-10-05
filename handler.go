@@ -71,6 +71,8 @@ func (h *handler) RegisterCommands() error {
 	if h.isEuicc {
 		h.botHandlers["esimprofiles"] = botHandler{command: "esimprofiles", description: "List installed eSIM profiles", handler: h.handleListEsimProfiles}
 		h.botHandlers["esimdownload"] = botHandler{command: "esimdownload", description: "Download a new eSIM profile", handler: h.handleEsimDownload}
+		h.botHandlers["esimnotifications"] = botHandler{command: "esimnotifications", description: "List eUICC notifications", handler: h.handleListNotifications}
+		h.botHandlers["processnotificationcallback"] = botHandler{callback: h.handleProcessNotificationCallback}
 		h.botHandlers["clickprofilecallback"] = botHandler{callback: h.handleClickProfileCallback}
 		h.botHandlers["enableprofilecallback"] = botHandler{callback: h.handleEnableProfileCallback}
 		h.botHandlers["disableprofilecallback"] = botHandler{callback: h.handleDisableProfileCallback}
@@ -415,7 +417,7 @@ func (h *handler) handleEsimDownload(message *tgbotapi.Message) error {
 	if message.CommandArguments() == "" {
 		return h.sendText(
 			message.Chat.ID,
-			"Please send me the SM-DP+ address, activation code and confirmation code (optional). For example:\n/esimdownload smdp.io activationCode confirmationCode(optional)",
+			"Please send me the SM-DP+ address, activation code and confirmation code (optional). For example:\n/esimdownload smdp.io activationCode confirmationCode(optional) \n/esimdownload LPA:1$smdp.io$QR-G-5C-KR-1PCDWP9",
 			message.MessageID,
 		)
 	}
@@ -426,8 +428,16 @@ func (h *handler) handleEsimDownload(message *tgbotapi.Message) error {
 	delete(h.messages, message.MessageID)
 
 	arguments := strings.Split(message.CommandArguments(), " ")
+	// LPA:1$smdp.io$QR-G-5C-KR-1PCDWP9
+	if len(arguments) == 1 && strings.Contains(arguments[0], "$") {
+		splitArgs := strings.Split(arguments[0], "$")
+		// replace the first element.
+		arguments[0] = splitArgs[1]
+		arguments = append(arguments, splitArgs[2:]...)
+	}
+
 	if len(arguments) < 2 {
-		return errors.New("invalid arguments")
+		return errors.New("not enough argument")
 	}
 
 	confirmationCode := ""
@@ -674,6 +684,78 @@ func (h *handler) handleConfirmDeleteProfileCallback(callback *tgbotapi.Callback
 		return err
 	}
 	return h.sendText(callback.Message.Chat.ID, "The profile "+value+" has been deleted.", callback.Message.MessageID)
+}
+
+func (h *handler) handleListNotifications(message *tgbotapi.Message) error {
+	if err := h.checkChatId(message.Chat.ID); err != nil {
+		return err
+	}
+
+	if yes, err := h.chooseModem(message, "esimnotifications"); err != nil || yes {
+		return err
+	}
+	delete(h.messages, message.MessageID)
+
+	device, err := h.modem.GetAtDevice()
+	if err != nil {
+		return err
+	}
+	esim := esim.New(device)
+	notifications, err := esim.ListNotifications()
+	if err != nil {
+		return err
+	}
+
+	if len(notifications) == 0 {
+		return h.sendText(message.Chat.ID, "No eUICC notifications found.", message.MessageID)
+	}
+
+	buttons := []tgbotapi.InlineKeyboardButton{}
+	buttonRows := [][]tgbotapi.InlineKeyboardButton{}
+	content := ""
+	for _, notification := range notifications {
+		content += fmt.Sprintf("Seq Number: %d\nProfile Management Operation: %d\nNofitication Address: %s\nICCID: %s\n\n", notification.SeqNumber, notification.ProfileManagementOperation, notification.NotificationAddress, notification.Iccid)
+		if len(buttons) == 2 {
+			buttonRows = append(buttonRows, buttons)
+			buttons = []tgbotapi.InlineKeyboardButton{}
+		}
+		buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("Seq Number %d", notification.SeqNumber), fmt.Sprintf("processnotificationcallback:%d", notification.SeqNumber)))
+	}
+
+	if len(buttons) > 0 {
+		buttonRows = append(buttonRows, buttons)
+	}
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(buttonRows...)
+	msg := tgbotapi.NewMessage(h.chatId, EscapeText(content))
+	msg.ParseMode = "markdownV2"
+	msg.ReplyMarkup = keyboard
+	msg.ReplyToMessageID = message.MessageID
+	if _, err := h.tgbot.Send(msg); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *handler) handleProcessNotificationCallback(callback *tgbotapi.CallbackQuery, value string) error {
+	if err := h.checkChatId(callback.Message.Chat.ID); err != nil {
+		return err
+	}
+
+	device, err := h.modem.GetAtDevice()
+	if err != nil {
+		return err
+	}
+	esim := esim.New(device)
+	if err := esim.ProcessNotification(value); err != nil {
+		return err
+	}
+
+	_, err = h.tgbot.Request(tgbotapi.NewCallback(callback.ID, "Success!"))
+	if err != nil {
+		slog.Error("failed to send callback", "error", err)
+	}
+	return h.sendText(callback.Message.Chat.ID, "Success! The eUICC notification has been sent.", callback.Message.MessageID)
 }
 
 func (h *handler) sendText(chatId int64, message string, messageId int) error {
