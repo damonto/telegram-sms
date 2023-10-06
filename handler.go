@@ -417,7 +417,7 @@ func (h *handler) handleEsimDownload(message *tgbotapi.Message) error {
 	if message.CommandArguments() == "" {
 		return h.sendText(
 			message.Chat.ID,
-			"Please send me the SM-DP+ address, activation code and confirmation code (optional). For example:\n/esimdownload smdp.io activationCode confirmationCode(optional) \n/esimdownload LPA:1$smdp.io$QR-G-5C-KR-1PCDWP9",
+			"Please send me the SM-DP+ address, activation code, confirmation code (optional) and IMEI (optional). For example:\n/esimdownload LPA:1$smdp.io$QR-G-5C-KR-1PCDWP9\n/esimdownload LPA:1$smdp.io$QR-G-5C-KR-1PCDWP9 IMEI\n/esimdownload LPA:1$smdp.io$QR-G-5C-KR-1PCDWP9 use-modem",
 			message.MessageID,
 		)
 	}
@@ -428,21 +428,24 @@ func (h *handler) handleEsimDownload(message *tgbotapi.Message) error {
 	delete(h.messages, message.MessageID)
 
 	arguments := strings.Split(message.CommandArguments(), " ")
-	// LPA:1$smdp.io$QR-G-5C-KR-1PCDWP9
-	if len(arguments) == 1 && strings.Contains(arguments[0], "$") {
-		splitArgs := strings.Split(arguments[0], "$")
-		// replace the first element.
-		arguments[0] = splitArgs[1]
-		arguments = append(arguments, splitArgs[2:]...)
+	var smdp string
+	var activationCode string
+	var confirmationCode string
+	if strings.Contains(arguments[0], "$") {
+		lpaArguments := strings.Split(arguments[0], "$")
+		smdp = lpaArguments[1]
+		activationCode = lpaArguments[2]
+		if len(lpaArguments) == 4 {
+			confirmationCode = lpaArguments[3]
+		}
 	}
 
-	if len(arguments) < 2 {
-		return errors.New("not enough argument")
-	}
-
-	confirmationCode := ""
-	if len(arguments) == 3 {
-		confirmationCode = arguments[2]
+	var imei string
+	if len(arguments) == 2 {
+		imei = arguments[1]
+		if imei == "use-modem" {
+			imei, _ = h.modem.GetImei()
+		}
 	}
 
 	device, err := h.modem.GetAtDevice()
@@ -450,8 +453,7 @@ func (h *handler) handleEsimDownload(message *tgbotapi.Message) error {
 		return err
 	}
 	esim := esim.New(device)
-	imei, _ := h.modem.GetImei()
-	if err := esim.Download(arguments[0], arguments[1], confirmationCode, imei); err != nil {
+	if err := esim.Download(smdp, activationCode, confirmationCode, imei); err != nil {
 		return err
 	}
 	return h.sendText(message.Chat.ID, "Congratulations! your new eSIM is ready!", message.MessageID)
