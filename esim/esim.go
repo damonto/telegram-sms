@@ -241,7 +241,7 @@ func (e *esim) Download(smdp string, activationCode string, confirmationCode str
 		os.Setenv("CONFIRMATION_CODE", confirmationCode)
 	}
 
-	slog.Info("downloading new eSIM profile", "smdp", smdp, "activation-code", activationCode, "confirmation-code", confirmationCode, "imei", imei)
+	slog.Info("downloading new eSIM profile", "smdp", smdp, "activationCode", activationCode, "confirmationCode", confirmationCode, "imei", imei)
 	_, err := e.execute([]string{"download"})
 	return err
 }

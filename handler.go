@@ -188,7 +188,7 @@ func (h *handler) handleSwitchSlotCommand(message *tgbotapi.Message) error {
 
 func (h *handler) chooseModem(message *tgbotapi.Message, command string) (bool, error) {
 	if _, ok := h.messages[message.MessageID]; ok {
-		slog.Info("modem already switched", "message-id", message.MessageID)
+		slog.Info("modem already switched", "messageId", message.MessageID)
 		return false, nil
 	}
 
@@ -203,7 +203,7 @@ func (h *handler) chooseModem(message *tgbotapi.Message, command string) (bool, 
 	}
 	// If there is only one modem, use it
 	for modemId, modem := range modems {
-		slog.Info("using modem", "modem-id", modemId, "modem", modem)
+		slog.Info("using modem", "modemId", modemId, "modem", modem)
 		h.modem.Use(modemId)
 	}
 	return false, nil
@@ -239,13 +239,13 @@ func (h *handler) handleSwitchModemCallback(callback *tgbotapi.CallbackQuery, va
 	}
 
 	h.modem.Use(modemId)
-	slog.Info("switched modem", "modem-id", modemId)
+	slog.Info("switched modem", "modemId", modemId)
 
 	if _, err := h.tgbot.Request(tgbotapi.NewCallback(callback.ID, "Success!")); err != nil {
 		return err
 	}
 	if message, ok := h.messages[int(messageId)]; ok {
-		slog.Info("passing message to next handler", "message-id", messageId)
+		slog.Info("passing message to next handler", "messageId", messageId)
 		return h.HandleCommand(next, message)
 	}
 	return h.HandleCommand(next, callback.Message)

@@ -230,7 +230,7 @@ func (m *modem) Reload() error {
 					}
 
 					m.modems[modemId] = modem
-					slog.Info("new modem added", "modem-id", modemId, "modem", modem.GetObjectPath())
+					slog.Info("new modem added", "modemId", modemId, "modem", modem.GetObjectPath())
 					m.modemAddedChan <- struct{}{}
 					return nil
 				}
@@ -320,7 +320,7 @@ func (m *modem) subscribe(modemId string, modem modemmanager.Modem, subscriber S
 	if err != nil {
 		slog.Error("failed to get messaging", "error", err)
 	}
-	slog.Info("subscribe new sms event", "modem-id", modemId, "path", messaging.GetObjectPath())
+	slog.Info("subscribe new sms event", "modemId", modemId, "path", messaging.GetObjectPath())
 
 	dbusConn, err := m.systemBusPrivate()
 	if err != nil {
@@ -340,7 +340,7 @@ func (m *modem) subscribe(modemId string, modem modemmanager.Modem, subscriber S
 				continue
 			}
 
-			slog.Info("new sms received", "path", sms.GetObjectPath(), "messaging-path", messaging.GetObjectPath())
+			slog.Info("new sms received", "path", sms.GetObjectPath(), "messagingPath", messaging.GetObjectPath())
 			state, err := sms.GetState()
 			if err != nil {
 				slog.Error("failed to get SMS state", "error", err)
@@ -363,7 +363,7 @@ func (m *modem) subscribe(modemId string, modem modemmanager.Modem, subscriber S
 				continue
 			}
 		case <-stopCh:
-			slog.Info("unsubscribe messaging", "modem-id", modemId, "path", messaging.GetObjectPath())
+			slog.Info("unsubscribe messaging", "modemId", modemId, "path", messaging.GetObjectPath())
 			messaging.Unsubscribe()
 			return nil
 		}
