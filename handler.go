@@ -291,7 +291,7 @@ func (h *handler) handleSimCommand(message *tgbotapi.Message) error {
 	if !h.isEuicc {
 		return h.sendText(
 			message.Chat.ID,
-			fmt.Sprintf("SIM Slot: %d\nOperator Name: %s\nICCID: %s\nIMEI: %s\nSignal Quality: %d%s", slot, operator, iccid, imei, signalQuality, "%"),
+			fmt.Sprintf("SIM Slot: %d\nOperator Name: %s\nICCID: %s\nIMEI: %s\nSignal Quality: %d%%", slot, operator, iccid, imei, signalQuality),
 			message.MessageID,
 		)
 	}
