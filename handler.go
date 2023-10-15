@@ -398,7 +398,6 @@ func (h *handler) handleSendSmsCommand(message *tgbotapi.Message) error {
 	if len(arguments) < 2 {
 		return errors.New("invalid arguments")
 	}
-
 	return h.modem.SendSMS(arguments[0], strings.Join(arguments[1:], " "))
 }
 
@@ -652,7 +651,6 @@ func (h *handler) renameProfile(message *tgbotapi.Message, callback *tgbotapi.Ca
 	// clean
 	h.lastCallback = lastCallback{}
 	h.nextAction = nil
-
 	return h.sendText(message.Chat.ID, "The profile name has been changed.", callback.Message.MessageID)
 }
 
