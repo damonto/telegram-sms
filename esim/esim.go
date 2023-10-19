@@ -143,15 +143,16 @@ func (e *esim) execute(arguments []string) ([]byte, error) {
 
 	os.Setenv("AT_DEVICE", e.device)
 	os.Setenv("APDU_INTERFACE", e.lpacPath+"/libapduinterface_at.so")
-	os.Setenv("ES9P_INTERFACE", e.lpacPath+"/libes9pinterface_curl.so")
-	os.Setenv("OUTPUT_JSON", "1")
+	os.Setenv("HTTP_INTERFACE", e.lpacPath+"/libhttpinterface_curl.so")
 
 	slog.Info("command executing", "arguments", strings.Join(arguments, " "))
 	cmd := exec.Command(lpacBin, arguments...)
 	var stdout bytes.Buffer
+	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 	err := cmd.Run()
-	slog.Info("command executed", "output", stdout.String(), "error", err)
+	slog.Info("command executed", "output", stdout.String(), "stderr", stderr.String(), "error", err)
 
 	if err != nil {
 		var errResp errorResponse
