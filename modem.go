@@ -125,7 +125,7 @@ func (m *modem) GetAtDevice() (string, error) {
 			return fmt.Sprintf("/dev/%s", port.PortName), nil
 		}
 	}
-	return "", errors.New("no at port founded")
+	return "", errors.New("no at port found")
 }
 
 func (m *modem) GetIccid() (string, error) {
