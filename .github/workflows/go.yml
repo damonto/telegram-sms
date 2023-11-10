@@ -18,32 +18,33 @@ jobs:
 
     strategy:
       matrix:
-        os: [linux]
-        arch: [amd64, arm64]
+        goos: [linux]
+        goarch: [amd64, arm64]
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version: 1.21
         id: go
 
-      - name: Checkout code
-        uses: actions/checkout@v3
-
       - name: Build
         run: |
-          CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -trimpath -ldflags="-w -s" -o telegram-sms-${{ matrix.os }}-${{ matrix.arch }}
-          chmod +x telegram-sms-${{ matrix.os }}-${{ matrix.arch }}
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -trimpath -ldflags="-w -s" -o telegram-sms-${{ matrix.goos }}-${{ matrix.goarch }}
+          chmod +x telegram-sms-${{ matrix.goos }}-${{ matrix.goarch }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: telegram-sms-${{ matrix.os }}-${{ matrix.arch }}
-          path: telegram-sms-${{ matrix.os }}-${{ matrix.arch }}
+          name: telegram-sms-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: telegram-sms-${{ matrix.goos }}-${{ matrix.goarch }}
 
       - name: Release
         uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/v')
         with:
           files: |
-            telegram-sms-${{ matrix.os }}-${{ matrix.arch }}
+            telegram-sms-${{ matrix.goos }}-${{ matrix.goarch }}
