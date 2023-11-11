@@ -10,7 +10,7 @@ Go D-Bus bindings for ModemManager
 
 Additional information: [ModemManager D-Bus Specs](https://www.freedesktop.org/software/ModemManager/api/1.12.0/ref-dbus.html)
 
-Tested with [ModemManager - Version 1.28.8](https://gitlab.freedesktop.org/mobile-broadband/ModemManager), Go 1.13, on `Debian Buster (armv7)` with `Kernel 5.4.x` and `libqmi 1.24.6`.
+Tested with [ModemManager - Version 1.12.8](https://gitlab.freedesktop.org/mobile-broadband/ModemManager), Go 1.13, on `Debian Buster (armv7)` with `Kernel 5.4.x` and `libqmi 1.24.6`.
 
 Test hardware: [SolidRun Hummingboard Edge](https://www.solid-run.com/nxp-family/hummingboard/)   and a `Quectel EC25 - EC25EFA` mini pcie modem.
 
@@ -26,7 +26,7 @@ Some methods/properties are untested as they are not supported by my modem/lack 
 
 This packages requires Go 1.13 (for the dbus lib). If you installed it and set up your GOPATH, just run:
 
-`go get -u https://github.com/maltegrosse/go-modemmanager`
+`go get -u github.com/maltegrosse/go-modemmanager`
 
 ## Usage
 
