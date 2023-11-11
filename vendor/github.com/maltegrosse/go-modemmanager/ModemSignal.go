@@ -74,8 +74,8 @@ type modemSignal struct {
 type signalProperty struct {
 	Type MMSignalPropertyType `json:"property-type"` // define the Signal Property Type
 	Rssi float64              `json:"rssi"`          // The CDMA1x / CDMA EV-DO / GSM / UMTS / LTE RSSI (Received Signal Strength Indication), in dBm, given as a floating point value (Applicable for all types).
-	Ecio float64              `json:"sinr"`          // The CDMA1x Ec/Io / CDMA EV-DO Ec/Io / UMTS Ec/Io level in dBm, given as a floating point value (Only applicable for type Cdma, Evdo, Umts).
-	Sinr float64              `json:"ecio"`          // CDMA EV-DO SINR level, in dB, given as a floating point value (Only applicable for type Evdo).
+	Ecio float64              `json:"ecio"`          // The CDMA1x Ec/Io / CDMA EV-DO Ec/Io / UMTS Ec/Io level in dBm, given as a floating point value (Only applicable for type Cdma, Evdo, Umts).
+	Sinr float64              `json:"sinr"`          // CDMA EV-DO SINR level, in dB, given as a floating point value (Only applicable for type Evdo).
 	Io   float64              `json:"io"`            // The CDMA EV-DO Io, in dBm, given as a floating point value (Only applicable for type Evdo).
 	Rscp float64              `json:"rscp"`          // The UMTS RSCP (Received Signal Code Power), in dBm, given as a floating point value (Only applicable for type Umts).
 	Rsrq float64              `json:"rsrq"`          // The LTE RSRP (Reference Signal Received Power), in dBm, given as a floating point value (Only applicable for type LTE).

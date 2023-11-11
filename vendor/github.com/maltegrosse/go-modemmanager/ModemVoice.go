@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/godbus/dbus/v5"
 )
 
@@ -232,7 +234,11 @@ func (m modemVoice) SubscribeCallDeleted() <-chan *dbus.Signal {
 }
 
 func (m modemVoice) ParseCallAdded(v *dbus.Signal) (call Call, err error) {
-	// todo untested
+
+	if strings.Contains(v.Name, ModemVoiceSignalCallAdded) == false {
+		return nil, errors.New("error by parsing calladded signal")
+	}
+
 	if len(v.Body) != 1 {
 		err = errors.New("error by parsing activation changed signal")
 		return
