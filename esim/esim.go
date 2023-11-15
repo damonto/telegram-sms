@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
 	"golang.org/x/exp/slog"
 )
@@ -90,6 +91,7 @@ type Notification struct {
 type esim struct {
 	device   string
 	lpacPath string
+	mux      sync.Mutex
 }
 
 //go:embed lpac/*
@@ -139,6 +141,11 @@ func (e *esim) clean() error {
 }
 
 func (e *esim) execute(arguments []string) ([]byte, error) {
+	if !e.mux.TryLock() {
+		return nil, errors.New("already in use")
+	}
+	defer e.mux.Unlock()
+
 	lpacBin := e.lpacPath + "/lpac"
 
 	os.Setenv("AT_DEVICE", e.device)
