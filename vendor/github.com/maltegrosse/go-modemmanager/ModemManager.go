@@ -102,12 +102,10 @@ func (ep EventProperties) MarshalJSON() ([]byte, error) {
 }
 
 func (mm modemManager) GetModems() (modems []Modem, err error) {
-	fmt.Println("####->", ModemManagerInterface, ModemManagerObjectPath)
 	devPaths, err := mm.getManagedObjects(ModemManagerInterface, ModemManagerObjectPath)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(devPaths)
 	for idx := range devPaths {
 		modem, err := NewModem(devPaths[idx])
 		if err != nil {
