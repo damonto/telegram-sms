@@ -125,12 +125,7 @@ func (e *esim) release() error {
 			if err != nil {
 				return err
 			}
-			err = os.WriteFile(targetPath, content, 0644)
-			if err != nil {
-				return err
-			}
-
-			return os.Chmod(targetPath, 0755)
+			return os.WriteFile(targetPath, content, 0755)
 		}
 		return nil
 	})
