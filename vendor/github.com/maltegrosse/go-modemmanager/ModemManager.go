@@ -95,7 +95,7 @@ type EventProperties struct {
 func (ep EventProperties) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"Action":    ep.Action,
-		"Name ":     ep.Name,
+		"Name":      ep.Name,
 		"Subsystem": ep.Subsystem,
 		"Uid":       ep.Uid,
 	})

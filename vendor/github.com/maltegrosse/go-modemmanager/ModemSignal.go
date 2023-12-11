@@ -42,22 +42,22 @@ type ModemSignal interface {
 	GetRate() (rate uint32, err error)
 
 	// Returns all available cmda,evdo, gsm,umts or lte signal properties objects where rssi is set
-	GetCurrentSignals() (sp []signalProperty, err error)
+	GetCurrentSignals() (sp []SignalProperty, err error)
 
 	// The CDMA1x access technology.
-	GetCdma() (signalProperty, error)
+	GetCdma() (SignalProperty, error)
 
 	// The CDMA EV-DO access technology.
-	GetEvdo() (signalProperty, error)
+	GetEvdo() (SignalProperty, error)
 
 	// The GSM/GPRS access technology.
-	GetGsm() (signalProperty, error)
+	GetGsm() (SignalProperty, error)
 
 	// The UMTS (WCDMA)  access technology.
-	GetUmts() (signalProperty, error)
+	GetUmts() (SignalProperty, error)
 
 	// The LTE access technology.
-	GetLte() (signalProperty, error)
+	GetLte() (SignalProperty, error)
 }
 
 // NewModemSignal returns new ModemSignal Interface
@@ -70,8 +70,8 @@ type modemSignal struct {
 	dbusBase
 }
 
-// signalProperty represents all available signal properties
-type signalProperty struct {
+// SignalProperty represents all available signal properties
+type SignalProperty struct {
 	Type MMSignalPropertyType `json:"property-type"` // define the Signal Property Type
 	Rssi float64              `json:"rssi"`          // The CDMA1x / CDMA EV-DO / GSM / UMTS / LTE RSSI (Received Signal Strength Indication), in dBm, given as a floating point value (Applicable for all types).
 	Ecio float64              `json:"ecio"`          // The CDMA1x Ec/Io / CDMA EV-DO Ec/Io / UMTS Ec/Io level in dBm, given as a floating point value (Only applicable for type Cdma, Evdo, Umts).
@@ -84,7 +84,7 @@ type signalProperty struct {
 }
 
 // MarshalJSON returns a byte array
-func (sp signalProperty) MarshalJSON() ([]byte, error) {
+func (sp SignalProperty) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"Type": fmt.Sprint(sp.Type),
 		"Rssi": sp.Rssi,
@@ -98,7 +98,7 @@ func (sp signalProperty) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (sp signalProperty) String() string {
+func (sp SignalProperty) String() string {
 	return "Type: " + fmt.Sprint(sp.Type) +
 		", Rssi: " + fmt.Sprint(sp.Rssi) +
 		", Ecio: " + fmt.Sprint(sp.Ecio) +
@@ -109,7 +109,7 @@ func (sp signalProperty) String() string {
 		", Rsrp: " + fmt.Sprint(sp.Rsrp) +
 		", Snr: " + fmt.Sprint(sp.Snr)
 }
-func convertMapToSignalProperty(inputMap map[string]dbus.Variant, signalType MMSignalPropertyType) (sp signalProperty) {
+func convertMapToSignalProperty(inputMap map[string]dbus.Variant, signalType MMSignalPropertyType) (sp SignalProperty) {
 	sp.Type = signalType
 	for key, element := range inputMap {
 		switch key {
@@ -179,7 +179,7 @@ func (si modemSignal) GetRate() (rate uint32, err error) {
 	return si.getUint32Property(ModemSignalPropertyRate)
 }
 
-func (si modemSignal) GetCdma() (sp signalProperty, err error) {
+func (si modemSignal) GetCdma() (sp SignalProperty, err error) {
 	res, err := si.getMapStringVariantProperty(ModemSignalPropertyCdma)
 	if err != nil {
 		return
@@ -188,7 +188,7 @@ func (si modemSignal) GetCdma() (sp signalProperty, err error) {
 	return
 }
 
-func (si modemSignal) GetEvdo() (sp signalProperty, err error) {
+func (si modemSignal) GetEvdo() (sp SignalProperty, err error) {
 	res, err := si.getMapStringVariantProperty(ModemSignalPropertyEvdo)
 	if err != nil {
 		return
@@ -197,7 +197,7 @@ func (si modemSignal) GetEvdo() (sp signalProperty, err error) {
 	return
 }
 
-func (si modemSignal) GetGsm() (sp signalProperty, err error) {
+func (si modemSignal) GetGsm() (sp SignalProperty, err error) {
 	res, err := si.getMapStringVariantProperty(ModemSignalPropertyGsm)
 	if err != nil {
 		return
@@ -206,7 +206,7 @@ func (si modemSignal) GetGsm() (sp signalProperty, err error) {
 	return
 }
 
-func (si modemSignal) GetUmts() (sp signalProperty, err error) {
+func (si modemSignal) GetUmts() (sp SignalProperty, err error) {
 	res, err := si.getMapStringVariantProperty(ModemSignalPropertyUmts)
 	if err != nil {
 		return
@@ -215,7 +215,7 @@ func (si modemSignal) GetUmts() (sp signalProperty, err error) {
 	return
 }
 
-func (si modemSignal) GetLte() (sp signalProperty, err error) {
+func (si modemSignal) GetLte() (sp SignalProperty, err error) {
 	res, err := si.getMapStringVariantProperty(ModemSignalPropertyLte)
 	if err != nil {
 		return
@@ -224,7 +224,7 @@ func (si modemSignal) GetLte() (sp signalProperty, err error) {
 	sp = convertMapToSignalProperty(res, MMSignalPropertyTypeLte)
 	return
 }
-func (si modemSignal) isRssiSet(sp signalProperty) bool {
+func (si modemSignal) isRssiSet(sp SignalProperty) bool {
 	v := reflect.ValueOf(sp)
 	st := reflect.TypeOf(sp)
 	for i := 0; i < v.NumField(); i++ {
@@ -239,7 +239,7 @@ func (si modemSignal) isRssiSet(sp signalProperty) bool {
 	return false
 
 }
-func (si modemSignal) GetCurrentSignals() (sp []signalProperty, err error) {
+func (si modemSignal) GetCurrentSignals() (sp []SignalProperty, err error) {
 	mSignalCdma, err := si.GetCdma()
 	if err != nil {
 		return sp, err

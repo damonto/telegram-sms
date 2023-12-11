@@ -61,7 +61,7 @@ type ModemOma interface {
 	// List of network-initiated sessions which are waiting to be accepted or rejected, given as an array of unsigned integer pairs, where:
 	// 		The first integer is a MMOmaSessionType.
 	// 		The second integer is the unique session ID.
-	GetPendingNetworkInitiatedSessions() ([]modemOmaInitiatedSession, error)
+	GetPendingNetworkInitiatedSessions() ([]ModemOmaInitiatedSession, error)
 
 	// Type of the current on-going device management session, given as a MMOmaSessionType.
 	GetSessionType() (MMOmaSessionType, error)
@@ -92,20 +92,20 @@ type modemOma struct {
 	sigChan chan *dbus.Signal
 }
 
-type modemOmaInitiatedSession struct {
+type ModemOmaInitiatedSession struct {
 	SessionType MMOmaSessionType `json:"session-type"` // network-initiated session type
 	SessionId   uint32           `json:"session-id"`   // network-initiated session id
 }
 
 // MarshalJSON returns a byte array
-func (mois modemOmaInitiatedSession) MarshalJSON() ([]byte, error) {
+func (mois ModemOmaInitiatedSession) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"SessionType": fmt.Sprint(mois.SessionType),
 		"SessionId":   mois.SessionId,
 	})
 }
 
-func (mois modemOmaInitiatedSession) String() string {
+func (mois ModemOmaInitiatedSession) String() string {
 	return "SessionType: " + fmt.Sprint(mois.SessionType) +
 		", SessionId: " + fmt.Sprint(mois.SessionId)
 }
@@ -143,13 +143,13 @@ func (om modemOma) GetFeatures() ([]MMOmaFeature, error) {
 
 }
 
-func (om modemOma) GetPendingNetworkInitiatedSessions() (result []modemOmaInitiatedSession, err error) {
+func (om modemOma) GetPendingNetworkInitiatedSessions() (result []ModemOmaInitiatedSession, err error) {
 	res, err := om.getSliceSlicePairProperty(ModemOmaPropertyPendingNetworkInitiatedSessions)
 	if err != nil {
 		return nil, err
 	}
 	for _, e := range res {
-		var tmp modemOmaInitiatedSession
+		var tmp ModemOmaInitiatedSession
 		sType, ok := e.GetLeft().(uint32)
 		if !ok {
 			return nil, errors.New("wrong type")

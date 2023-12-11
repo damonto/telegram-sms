@@ -36,7 +36,7 @@ type ModemFirmware interface {
 	// Firmware slots and firmware images are identified by arbitrary opaque strings.
 	// 		List (OUT s      selected, OUT aa{sv} installed);
 
-	List() ([]firmwareProperty, error)
+	List() ([]FirmwareProperty, error)
 
 	// Selects a different firmware image to use, and immediately resets the modem so that it begins using the new firmware image.
 	// The method will fail if the identifier does not match any of the names returned by List(), or if the image could not be selected for some reason.
@@ -48,7 +48,7 @@ type ModemFirmware interface {
 
 	/* PROPERTIES */
 	// Detailed settings that provide information about how the module should be updated.
-	GetUpdateSettings() (updateSettingsProperty, error)
+	GetUpdateSettings() (UpdateSettingsProperty, error)
 }
 
 // NewModemFirmware returns new ModemFirmware Interface
@@ -61,8 +61,8 @@ type modemFirmware struct {
 	dbusBase
 }
 
-// firmwareProperty represents all properties of a firmware
-type firmwareProperty struct {
+// FirmwareProperty represents all properties of a firmware
+type FirmwareProperty struct {
 	ImageType         MMFirmwareImageType `json:"image-type"`           // (Required) Type of the firmware image, given as a MMFirmwareImageType value (signature "u"). Firmware images of type MM_FIRMWARE_IMAGE_TYPE_GENERIC will only expose only the mandatory properties.
 	UniqueId          string              `json:"unique-id"`            // (Required) A user-readable unique ID for the firmware image, given as a string value (signature "s").
 	GobiPriVersion    string              `json:"gobi-pri-version"`     // (Optional) The version of the PRI firmware image, in images of type MM_FIRMWARE_IMAGE_TYPE_GOBI, given as a string value (signature "s").
@@ -74,7 +74,7 @@ type firmwareProperty struct {
 }
 
 // MarshalJSON returns a byte array
-func (fp firmwareProperty) MarshalJSON() ([]byte, error) {
+func (fp FirmwareProperty) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"ImageType":         fmt.Sprint(fp.ImageType),
 		"UniqueId":          fp.UniqueId,
@@ -86,7 +86,7 @@ func (fp firmwareProperty) MarshalJSON() ([]byte, error) {
 		"Selected":          fp.Selected,
 	})
 }
-func (fp firmwareProperty) String() string {
+func (fp FirmwareProperty) String() string {
 	return "ImageType: " + fmt.Sprint(fp.ImageType) +
 		", UniqueId: " + fp.UniqueId +
 		", GobiPriVersion: " + fp.GobiPriVersion +
@@ -97,8 +97,8 @@ func (fp firmwareProperty) String() string {
 		", Selected: " + fmt.Sprint(fp.Selected)
 }
 
-// updateSettingsProperty represents all available update settings
-type updateSettingsProperty struct {
+// UpdateSettingsProperty represents all available update settings
+type UpdateSettingsProperty struct {
 	UpdateMethods []MMModemFirmwareUpdateMethod `json:"update-methods"` // The settings are given as a bitmask of MMModemFirmwareUpdateMethod values specifying the type of firmware update procedures
 	DeviceIds     []string                      `json:"device-ids"`     // (Required) This property exposes the list of device IDs associated to a given device, from most specific to least specific. (signature 'as'). E.g. a list containing: "USB\VID_413C&PID_81D7&REV_0001", "USB\VID_413C&PID_81D7" and "USB\VID_413C"
 	Version       string                        `json:"version"`        // (Required) This property exposes the current firmware version string of the module. If the module uses separate version numbers for firmware version and carrier configuration, this version string will be a combination of both, and so it may be different to the version string showed in the "Revision" property. (signature 's')
@@ -106,7 +106,7 @@ type updateSettingsProperty struct {
 }
 
 // MarshalJSON returns a byte array
-func (us updateSettingsProperty) MarshalJSON() ([]byte, error) {
+func (us UpdateSettingsProperty) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"UpdateMethods": fmt.Sprint(us.UpdateMethods),
 		"DeviceIds":     us.DeviceIds,
@@ -115,7 +115,7 @@ func (us updateSettingsProperty) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (us updateSettingsProperty) String() string {
+func (us UpdateSettingsProperty) String() string {
 	return "UpdateMethods: " + fmt.Sprint(us.UpdateMethods) +
 		", DeviceIds: " + fmt.Sprint(us.DeviceIds) +
 		", Version: " + us.Version +
@@ -130,7 +130,7 @@ func (fi modemFirmware) Select(uid string) error {
 	return fi.call(ModemFirmwareSelect, uid)
 }
 
-func (fi modemFirmware) List() (properties []firmwareProperty, err error) {
+func (fi modemFirmware) List() (properties []FirmwareProperty, err error) {
 	var resMap []map[string]dbus.Variant
 	var tmpString string
 	err = fi.callWithReturn2(&tmpString, &resMap, ModemFirmwareList)
@@ -138,7 +138,7 @@ func (fi modemFirmware) List() (properties []firmwareProperty, err error) {
 		return
 	}
 	for _, el := range resMap {
-		var property firmwareProperty
+		var property FirmwareProperty
 		for key, element := range el {
 			switch key {
 			case "image-type":
@@ -188,7 +188,7 @@ func (fi modemFirmware) List() (properties []firmwareProperty, err error) {
 	return
 }
 
-func (fi modemFirmware) GetUpdateSettings() (property updateSettingsProperty, err error) {
+func (fi modemFirmware) GetUpdateSettings() (property UpdateSettingsProperty, err error) {
 	res, err := fi.getPairProperty(ModemFirmwarePropertyUpdateSettings)
 	if err != nil {
 		return

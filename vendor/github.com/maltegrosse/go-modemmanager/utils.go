@@ -78,7 +78,7 @@ func (p Pair) pairToSlice() []interface{} {
 func (p Pair) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"Left":   p.GetLeft(),
-		"Right ": p.GetRight(),
+		"Right":  p.GetRight(),
 	})
 }
 

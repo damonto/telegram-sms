@@ -72,7 +72,7 @@ type Bearer interface {
 	// Additional items which are only applicable when using the MM_BEARER_IP_METHOD_STATIC method are:
 	// address, prefix, dns1, dns2, dns3 and gateway
 	// This property may also include the following items when such information is available: mtu
-	GetIp4Config() (bearerIpConfig, error)
+	GetIp4Config() (BearerIpConfig, error)
 
 	// If the bearer was configured for IPv6 addressing, upon activation this property contains the addressing
 	// details for assignment to the data interface.
@@ -84,12 +84,12 @@ type Bearer interface {
 	// Additional items which are usually only applicable when using the MM_BEARER_IP_METHOD_STATIC method are:
 	// address, prefix, dns1, dns2, dns3 and gateway
 	// This property may also include the following items when such information is available: mtu
-	GetIp6Config() (bearerIpConfig, error)
+	GetIp6Config() (BearerIpConfig, error)
 
 	// If the modem supports it, this property will show statistics of the ongoing connection.
 	// When the connection is disconnected automatically or explicitly by the user, the values in this
 	// property will show the last values cached. The statistics are reset
-	GetStats() (bearerStats, error)
+	GetStats() (BearerStats, error)
 
 	// Maximum time to wait for a successful IP establishment, when PPP is used.
 	GetIpTimeout() (uint32, error)
@@ -125,8 +125,8 @@ type bearer struct {
 	sigChan chan *dbus.Signal
 }
 
-// bearerIpConfig represents all available ip configuration properties
-type bearerIpConfig struct {
+// BearerIpConfig represents all available ip configuration properties
+type BearerIpConfig struct {
 	Method   MMBearerIpMethod `json:"method"`    // Mandatory: A MMBearerIpMethod, given as an unsigned integer value (signature "u").
 	Address  string           `json:"address"`   // 	IP address, given as a string value (signature "s").
 	Prefix   uint32           `json:"prefix"`    // Numeric CIDR network prefix (ie, 24, 32, etc), given as an unsigned integer value (signature "u").
@@ -139,20 +139,20 @@ type bearerIpConfig struct {
 }
 
 // MarshalJSON returns a byte array
-func (bc bearerIpConfig) MarshalJSON() ([]byte, error) {
+func (bc BearerIpConfig) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
-		"Method":     fmt.Sprint(bc.Method),
-		"Address":    bc.Address,
-		"Prefix":     bc.Prefix,
-		"Dns1: ":     bc.Dns1,
-		"Dns2: ":     bc.Dns2,
-		"Dns3: ":     bc.Dns3,
-		"Gateway: ":  bc.Gateway,
-		"Mtu":        bc.Mtu,
-		"IpFamily: ": fmt.Sprint(bc.IpFamily)})
+		"Method":    fmt.Sprint(bc.Method),
+		"Address":   bc.Address,
+		"Prefix":    bc.Prefix,
+		"Dns1":      bc.Dns1,
+		"Dns2":      bc.Dns2,
+		"Dns3":      bc.Dns3,
+		"Gateway":   bc.Gateway,
+		"Mtu":       bc.Mtu,
+		"IpFamily":  fmt.Sprint(bc.IpFamily)})
 }
 
-func (bc bearerIpConfig) String() string {
+func (bc BearerIpConfig) String() string {
 	return "Method: " + fmt.Sprint(bc.Method) +
 		", Address: " + bc.Address +
 		", Prefix: " + fmt.Sprint(bc.Prefix) +
@@ -201,22 +201,22 @@ func (bp BearerProperty) String() string {
 		", Number: " + bp.Number
 }
 
-// bearerStats represents all stats according to the bearer
-type bearerStats struct {
+// BearerStats represents all stats according to the bearer
+type BearerStats struct {
 	RxBytes  uint64 `json:"rx-bytes"` // Number of bytes received without error, given as an unsigned 64-bit integer value (signature "t").
 	TxBytes  uint64 `json:"tx-bytes"` // Number bytes transmitted without error, given as an unsigned 64-bit integer value (signature "t").
 	Duration uint32 `json:"duration"` // Duration of the connection, in seconds, given as an unsigned integer value (signature "u").
 }
 
 // MarshalJSON returns a byte array
-func (bs bearerStats) MarshalJSON() ([]byte, error) {
+func (bs BearerStats) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"RxBytes":  bs.RxBytes,
 		"TxBytes":  bs.TxBytes,
 		"Duration": bs.Duration,
 	})
 }
-func (bs bearerStats) String() string {
+func (bs BearerStats) String() string {
 	return "RxBytes: " + fmt.Sprint(bs.RxBytes) +
 		", TxBytes: " + fmt.Sprint(bs.TxBytes) +
 		", Duration: " + fmt.Sprint(bs.Duration)
@@ -245,7 +245,7 @@ func (be bearer) GetSuspended() (bool, error) {
 	return be.getBoolProperty(BearerPropertySuspended)
 }
 
-func (be bearer) GetIp4Config() (bi bearerIpConfig, err error) {
+func (be bearer) GetIp4Config() (bi BearerIpConfig, err error) {
 	tmpMap, err := be.getMapStringVariantProperty(BearerPropertyIp4Config)
 	if err != nil {
 		return bi, err
@@ -300,7 +300,7 @@ func (be bearer) GetIp4Config() (bi bearerIpConfig, err error) {
 	return
 }
 
-func (be bearer) GetIp6Config() (bi bearerIpConfig, err error) {
+func (be bearer) GetIp6Config() (bi BearerIpConfig, err error) {
 	tmpMap, err := be.getMapStringVariantProperty(BearerPropertyIp6Config)
 	if err != nil {
 		return bi, err
@@ -354,7 +354,7 @@ func (be bearer) GetIp6Config() (bi bearerIpConfig, err error) {
 	return
 }
 
-func (be bearer) GetStats() (br bearerStats, err error) {
+func (be bearer) GetStats() (br BearerStats, err error) {
 	tmpMap, err := be.getMapStringVariantProperty(BearerPropertyStats)
 	if err != nil {
 		return br, err
