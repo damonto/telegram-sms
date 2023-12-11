@@ -99,7 +99,7 @@ type Call interface {
 	GetAudioPort() (string, error)
 
 	// If call audio is routed via the host, a description of the audio format supported by the audio port.
-	GetAudioFormat() (audioFormat, error)
+	GetAudioFormat() (AudioFormat, error)
 
 	/* SIGNALS */
 
@@ -146,21 +146,21 @@ type call struct {
 	sigChan chan *dbus.Signal
 }
 
-type audioFormat struct {
+type AudioFormat struct {
 	Encoding   string `json:"encoding"`   // The audio encoding format. For example, "pcm" for PCM audio.
 	Resolution string `json:"resolution"` // The sampling precision and its encoding format. For example, "s16le" for signed 16-bit little-endian samples
 	Rate       uint32 `json:"rate"`       // The sampling rate as an unsigned integer. For example, 8000 for 8000hz.
 }
 
 // MarshalJSON returns a byte array
-func (af audioFormat) MarshalJSON() ([]byte, error) {
+func (af AudioFormat) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"Encoding":   af.Encoding,
 		"Resolution": af.Resolution,
 		"Rate":       af.Rate,
 	})
 }
-func (af audioFormat) String() string {
+func (af AudioFormat) String() string {
 	return returnString(af)
 
 }
@@ -233,7 +233,7 @@ func (ca call) GetAudioPort() (string, error) {
 	return ca.getStringProperty(CallPropertyAudioPort)
 }
 
-func (ca call) GetAudioFormat() (af audioFormat, err error) {
+func (ca call) GetAudioFormat() (af AudioFormat, err error) {
 	tmpMap, err := ca.getMapStringVariantProperty(CallPropertyAudioFormat)
 	if err != nil {
 		return af, err

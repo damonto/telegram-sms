@@ -41,7 +41,7 @@ type ModemTime interface {
 
 	/* PROPERTIES */
 	// The timezone data provided by the network.
-	GetNetworkTimezone() (modemTimeZone, error)
+	GetNetworkTimezone() (ModemTimeZone, error)
 
 	/* SIGNALS */
 	// Sent when the network time is updated.
@@ -65,22 +65,22 @@ type modemTime struct {
 }
 
 // Represents the TimeZone of the Modem
-type modemTimeZone struct {
+type ModemTimeZone struct {
 	Offset      int32 `json:"offset"`       // Offset of the timezone from UTC, in minutes (including DST, if applicable), given as a signed integer value (signature "i").
 	DstOffset   int32 `json:"dst-offset"`   // Amount of offset that is due to DST (daylight saving time), given as a signed integer value (signature "i").
 	LeapSeconds int32 `json:"leap-seconds"` // Number of leap seconds included in the network time, given as a signed integer value (signature "i").
 }
 
 // MarshalJSON returns a byte array
-func (mtz modemTimeZone) MarshalJSON() ([]byte, error) {
+func (mtz ModemTimeZone) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"Offset":       mtz.Offset,
-		"DstOffset ":   mtz.DstOffset,
-		"LeapSeconds ": mtz.LeapSeconds,
+		"DstOffset":    mtz.DstOffset,
+		"LeapSeconds":  mtz.LeapSeconds,
 	})
 }
 
-func (mtz modemTimeZone) String() string {
+func (mtz ModemTimeZone) String() string {
 	return "Offset: " + fmt.Sprint(mtz.Offset) +
 		", DstOffset: " + fmt.Sprint(mtz.DstOffset) +
 		", LeapSeconds: " + fmt.Sprint(mtz.LeapSeconds)
@@ -103,7 +103,7 @@ func (ti modemTime) GetNetworkTime() (time.Time, error) {
 	return t, err
 }
 
-func (ti modemTime) GetNetworkTimezone() (mTz modemTimeZone, err error) {
+func (ti modemTime) GetNetworkTimezone() (mTz ModemTimeZone, err error) {
 	tmpMap, err := ti.getMapStringVariantProperty(ModemTimePropertyNetworkTimezone)
 	if err != nil {
 		return mTz, err

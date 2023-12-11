@@ -42,7 +42,7 @@ type ModemSimple interface {
 	Disconnect(bearer Bearer) error
 
 	// Get the general modem status.
-	GetStatus() (simpleStatus, error)
+	GetStatus() (SimpleStatus, error)
 }
 
 // SimpleProperties defines all available properties
@@ -79,8 +79,8 @@ func (sp SimpleProperties) String() string {
 	return returnString(sp)
 }
 
-// simpleStatus represents all properties of the current connection state
-type simpleStatus struct {
+// SimpleStatus represents all properties of the current connection state
+type SimpleStatus struct {
 	State                       MMModemState                 `json:"state"`                          // A MMModemState value specifying the overall state of the modem, given as an unsigned integer value (signature "u")
 	SignalQuality               uint32                       `json:"signal-quality"`                 // Signal quality value, given only when registered, as an unsigned integer value (signature "u").
 	CurrentBands                []MMModemBand                `json:"current-bands"`                  // List of MMModemBand values, given only when registered, as a list of unsigned integer values (signature "au").
@@ -94,12 +94,12 @@ type simpleStatus struct {
 	CdmaNid                     uint32                       `json:"cdma-nid"`                       // The Network Identifier of the serving network, if registered in a CDMA1x network and if known. Given as an unsigned integer value (signature "u").
 }
 
-func (ss simpleStatus) String() string {
+func (ss SimpleStatus) String() string {
 	return returnString(ss)
 }
 
 // MarshalJSON returns a byte array
-func (ss simpleStatus) MarshalJSON() ([]byte, error) {
+func (ss SimpleStatus) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"State":                       fmt.Sprint(ss.State),
 		"SignalQuality":               ss.SignalQuality,
@@ -152,7 +152,7 @@ func (ms modemSimple) Disconnect(bearer Bearer) error {
 	return ms.call(ModemSimpleDisconnect, bearer.GetObjectPath())
 }
 
-func (ms modemSimple) GetStatus() (status simpleStatus, err error) {
+func (ms modemSimple) GetStatus() (status SimpleStatus, err error) {
 	type dynMap interface{}
 	var myMap map[string]dynMap
 	myMap = make(map[string]dynMap)

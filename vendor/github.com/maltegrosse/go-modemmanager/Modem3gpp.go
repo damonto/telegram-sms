@@ -48,13 +48,13 @@ type Modem3gpp interface {
 
 	// results is an array of dictionaries with each array element describing a mobile network found in the scan.
 	// takes up to 1 min
-	Scan() (networks []network3Gpp, err error)
+	Scan() (networks []Network3Gpp, err error)
 
 	// Request a network scan (async)
 	RequestScan()
 
 	// Get latest scan result
-	GetScanResults() (networkScanResult, error)
+	GetScanResults() (NetworkScanResult, error)
 
 	// Sets the UE mode of operation for EPS.
 	SetEpsUeModeOperation(mode MMModem3gppEpsUeModeOperation) error
@@ -95,7 +95,7 @@ type Modem3gpp interface {
 	//	- The flag that indicates whether the PCO data contains the complete PCO structure received from the network, given as a boolean value (signature"b").
 	//	- The raw  PCO data, given as an array of bytes (signature "ay").
 	//  Currently it's only implemented for MBIM modems that support "Microsoft Basic Connect Extensions" and for the Altair LTE plugin
-	GetPco() ([]rawPcoData, error)
+	GetPco() ([]RawPcoData, error)
 
 	// The object path for the initial default EPS bearer.
 	GetInitialEpsBearer() (Bearer, error)
@@ -111,7 +111,7 @@ type Modem3gpp interface {
 // NewModem3gpp returns new Modem3gppInterface
 func NewModem3gpp(objectPath dbus.ObjectPath) (Modem3gpp, error) {
 	var m3gpp modem3gpp
-	scanResults = networkScanResult{Recent: false}
+	scanResults = NetworkScanResult{Recent: false}
 	return &m3gpp, m3gpp.init(ModemManagerInterface, objectPath)
 }
 
@@ -119,33 +119,33 @@ type modem3gpp struct {
 	dbusBase
 }
 
-// networkScanResult represents the results of a scanned network
-type networkScanResult struct {
-	Networks     []network3Gpp
+// NetworkScanResult represents the results of a scanned network
+type NetworkScanResult struct {
+	Networks     []Network3Gpp
 	LastScan     time.Time
 	ScanDuration float64
 	Recent       bool
 }
 
 // MarshalJSON returns a byte array
-func (nsr networkScanResult) MarshalJSON() ([]byte, error) {
+func (nsr NetworkScanResult) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
-		"Networks":      fmt.Sprint(nsr.Networks),
-		"LastScan ":     nsr.LastScan,
-		"ScanDuration ": nsr.ScanDuration,
-		"Recent ":       nsr.Recent,
+		"Networks":     fmt.Sprint(nsr.Networks),
+		"LastScan":     nsr.LastScan,
+		"ScanDuration": nsr.ScanDuration,
+		"Recent":       nsr.Recent,
 	})
 }
 
-func (nsr networkScanResult) String() string {
+func (nsr NetworkScanResult) String() string {
 	return "Networks: " + fmt.Sprint(nsr.Networks) +
 		", LastScan: " + fmt.Sprint(nsr.LastScan) +
 		", ScanDuration: " + fmt.Sprint(nsr.ScanDuration) +
 		", Recent: " + fmt.Sprint(nsr.Recent)
 }
 
-// network3Gpp describes a mobile network found in the scan
-type network3Gpp struct {
+// Network3Gpp describes a mobile network found in the scan
+type Network3Gpp struct {
 	Status           MMModem3gppNetworkAvailability `json:"status"`         // A MMModem3gppNetworkAvailability value representing network availability status, given as an unsigned integer (signature "u"). This key will always be present.
 	OperatorLong     string                         `json:"operator-long"`  // Long-format name of operator, given as a string value (signature "s"). If the name is unknown, this field should not be present.
 	OperatorShort    string                         `json:"operator-short"` // Short-format name of operator, given as a string value (signature "s"). If the name is unknown, this field should not be present.
@@ -156,19 +156,19 @@ type network3Gpp struct {
 }
 
 // MarshalJSON returns a byte array
-func (n network3Gpp) MarshalJSON() ([]byte, error) {
+func (n Network3Gpp) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"Status":           fmt.Sprint(n.Status),
-		"OperatorLong ":    n.OperatorLong,
-		"OperatorShort ":   n.OperatorShort,
-		"OperatorCode ":    n.OperatorCode,
-		"Mcc ":             n.Mcc,
-		"Mnc ":             n.Mnc,
+		"OperatorLong":     n.OperatorLong,
+		"OperatorShort":    n.OperatorShort,
+		"OperatorCode":     n.OperatorCode,
+		"Mcc":              n.Mcc,
+		"Mnc":              n.Mnc,
 		"AccessTechnology": fmt.Sprint(n.AccessTechnology),
 	})
 }
 
-func (n network3Gpp) String() string {
+func (n Network3Gpp) String() string {
 	return "Status: " + fmt.Sprint(n.Status) +
 		", OperatorLong: " + n.OperatorLong +
 		", OperatorShort: " + n.OperatorShort +
@@ -178,18 +178,18 @@ func (n network3Gpp) String() string {
 		", AccessTechnology: " + fmt.Sprint(n.AccessTechnology)
 }
 
-type rawPcoData struct {
+type RawPcoData struct {
 	SessionId uint32 // The session ID associated with the PCO, given as an unsigned integer value (signature "u").
 	Complete  bool   // The flag that indicates whether the PCO data contains the complete PCO structure received from the network, given as a boolean value (signature"b").
 	RawData   []byte // The raw  PCO data, given as an array of bytes (signature "ay").
 }
 
 // MarshalJSON returns a byte array
-func (r rawPcoData) MarshalJSON() ([]byte, error) {
+func (r RawPcoData) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"SessionId": r.SessionId,
-		"Complete ": r.Complete,
-		"RawData ":  r.RawData,
+		"Complete":  r.Complete,
+		"RawData":   r.RawData,
 	})
 }
 
@@ -205,9 +205,9 @@ func (m modem3gpp) Register(operatorId string) error {
 	return m.call(Modem3gppRegister, operatorId)
 }
 
-var scanResults networkScanResult
+var scanResults NetworkScanResult
 
-func (m modem3gpp) Scan() (networks []network3Gpp, err error) {
+func (m modem3gpp) Scan() (networks []Network3Gpp, err error) {
 	// takes < 1min
 	start := time.Now()
 	var tmpRes interface{}
@@ -218,7 +218,7 @@ func (m modem3gpp) Scan() (networks []network3Gpp, err error) {
 	scanResMap, ok := tmpRes.([]map[string]dbus.Variant)
 	if ok {
 		for _, el := range scanResMap {
-			var network network3Gpp
+			var network Network3Gpp
 			for key, element := range el {
 				switch key {
 				case "status":
@@ -260,7 +260,7 @@ func (m modem3gpp) Scan() (networks []network3Gpp, err error) {
 		}
 	}
 	duration := time.Since(start).Seconds()
-	scanResults = networkScanResult{Recent: true, LastScan: time.Now(), ScanDuration: duration, Networks: networks}
+	scanResults = NetworkScanResult{Recent: true, LastScan: time.Now(), ScanDuration: duration, Networks: networks}
 
 	return networks, nil
 }
@@ -277,7 +277,7 @@ func (m modem3gpp) RequestScan() {
 	}()
 }
 
-func (m modem3gpp) GetScanResults() (res networkScanResult, err error) {
+func (m modem3gpp) GetScanResults() (res NetworkScanResult, err error) {
 	if scanResults.Recent {
 		return scanResults, nil
 	}
@@ -375,7 +375,7 @@ func (m modem3gpp) GetEpsUeModeOperation() (MMModem3gppEpsUeModeOperation, error
 	return MMModem3gppEpsUeModeOperation(res), nil
 }
 
-func (m modem3gpp) GetPco() (data []rawPcoData, err error) {
+func (m modem3gpp) GetPco() (data []RawPcoData, err error) {
 	// todo untested
 	tmpRes, err := m.getInterfaceProperty(Modem3gppPropertyPco)
 	if err != nil {
@@ -391,7 +391,7 @@ func (m modem3gpp) GetPco() (data []rawPcoData, err error) {
 					if ok {
 						rawData, ok := seq[2].([]byte)
 						if ok {
-							data = append(data, rawPcoData{SessionId: sessionId, Complete: complete, RawData: rawData})
+							data = append(data, RawPcoData{SessionId: sessionId, Complete: complete, RawData: rawData})
 						}
 					}
 				}

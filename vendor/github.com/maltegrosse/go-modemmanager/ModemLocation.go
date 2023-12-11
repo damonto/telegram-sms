@@ -66,7 +66,7 @@ type ModemLocation interface {
 
 	// Return current location information, if any. If the modelo supports multiple location types it may return more than one. See the "Location" property for more information on the dictionary returned at location.
 	// This method may require the client to authenticate itself.
-	GetCurrentLocation() (currentLocation, error)
+	GetCurrentLocation() (CurrentLocation, error)
 
 	// Configure the SUPL server for A-GPS.
 	// IN s supl: SUPL server configuration, given either as IP:PORT or as FQDN:PORT.
@@ -102,7 +102,7 @@ type ModemLocation interface {
 	// supports multiple location types it may return more than one here.
 	// Note that if the device was told not to emit updated location information when location information
 	// gathering was initially enabled, this property may not return any location information for security reasons.
-	GetLocation() (currentLocation, error)
+	GetLocation() (CurrentLocation, error)
 
 	// SUPL server configuration for A-GPS, given either as IP:PORT or FQDN:PORT.
 	GetSuplServer() (string, error)
@@ -124,16 +124,16 @@ type modemLocation struct {
 	dbusBase
 }
 
-// currentLocation represents all available/activated locations of the modem
-type currentLocation struct {
-	ThreeGppLacCi threeGppLacCiLocation `json:"3gpp-lac-ci"` // Devices supporting this capability return a string in the format "MCC,MNC,LAC,CI,TAC" (without the quotes of course)
-	GpsRaw        gpsRawLocation        `json:"gps-raw"`     // Devices supporting this capability return a D-Bus dictionary (signature "a{sv}") mapping well-known keys to values with defined formats.
-	GpsNmea       gpsNmeaLocation       `json:"gps-nmea"`    // Devices supporting this capability return a string containing one or more NMEA sentences (D-Bus signature 's'). The manager will cache the most recent NMEA sentence of each type for a period of time not less than 30 seconds. When reporting multiple NMEA sentences, sentences shall be separated by an ASCII Carriage Return and Line Feed (<CR><LF>) sequence.
-	CdmaBs        cdmaBsLocation        `json:"cdma-bs"`     // Devices supporting this capability return a D-Bus dictionary (signature "a{sv}") mapping well-known keys to values with defined formats.
+// CurrentLocation represents all available/activated locations of the modem
+type CurrentLocation struct {
+	ThreeGppLacCi ThreeGppLacCiLocation `json:"3gpp-lac-ci"` // Devices supporting this capability return a string in the format "MCC,MNC,LAC,CI,TAC" (without the quotes of course)
+	GpsRaw        GpsRawLocation        `json:"gps-raw"`     // Devices supporting this capability return a D-Bus dictionary (signature "a{sv}") mapping well-known keys to values with defined formats.
+	GpsNmea       GpsNmeaLocation       `json:"gps-nmea"`    // Devices supporting this capability return a string containing one or more NMEA sentences (D-Bus signature 's'). The manager will cache the most recent NMEA sentence of each type for a period of time not less than 30 seconds. When reporting multiple NMEA sentences, sentences shall be separated by an ASCII Carriage Return and Line Feed (<CR><LF>) sequence.
+	CdmaBs        CdmaBsLocation        `json:"cdma-bs"`     // Devices supporting this capability return a D-Bus dictionary (signature "a{sv}") mapping well-known keys to values with defined formats.
 }
 
 // MarshalJSON returns a byte array
-func (cl currentLocation) MarshalJSON() ([]byte, error) {
+func (cl CurrentLocation) MarshalJSON() ([]byte, error) {
 	threeGppLacCiJson, err := cl.ThreeGppLacCi.MarshalJSON()
 	if err != nil {
 		return nil, err
@@ -151,19 +151,19 @@ func (cl currentLocation) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(map[string]interface{}{
-		"ThreeGppLacCi ": threeGppLacCiJson,
-		"GpsRaw ":        gpsRawJson,
-		"GpsNmea ":       gpsNmeaJson,
-		"CdmaBs ":        cdmaBsJson,
+		"ThreeGppLacCi": threeGppLacCiJson,
+		"GpsRaw":        gpsRawJson,
+		"GpsNmea":       gpsNmeaJson,
+		"CdmaBs":        cdmaBsJson,
 	})
 }
 
-func (cl currentLocation) String() string {
+func (cl CurrentLocation) String() string {
 	return returnString(cl)
 
 }
 
-type threeGppLacCiLocation struct {
+type ThreeGppLacCiLocation struct {
 	Mcc string `json:"MCC"` // This is the three-digit ITU E.212 Mobile Country Code of the network provider to which the mobile is currently registered. e.g. "310".
 	Mnc string `json:"MNC"` // This is the two- or three-digit GSM Mobile Network Code of the network provider to which the mobile is currently registered. e.g. "26" or "260".
 	Lac string `json:"LAC"` // This is the two-byte Location Area Code of the GSM/UMTS base station with which the mobile is registered, in upper-case hexadecimal format without leading zeros, as specified in 3GPP TS 27.007. E.g. "84CD".
@@ -172,7 +172,7 @@ type threeGppLacCiLocation struct {
 }
 
 // MarshalJSON returns a byte array
-func (tgp threeGppLacCiLocation) MarshalJSON() ([]byte, error) {
+func (tgp ThreeGppLacCiLocation) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"Mcc": tgp.Mcc,
 		"Mnc": tgp.Mnc,
@@ -182,24 +182,24 @@ func (tgp threeGppLacCiLocation) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (tgp threeGppLacCiLocation) String() string {
+func (tgp ThreeGppLacCiLocation) String() string {
 	return returnString(tgp)
 }
 
-type gpsRawLocation struct {
+type GpsRawLocation struct {
 	UtcTime   time.Time `json:"utc-time"`  // (Required) UTC time in ISO 8601 format, given as a string value (signature "s"). e.g. 203015.
 	Latitude  float64   `json:"latitude"`  // (Required) Latitude in Decimal Degrees (positive numbers mean N quadrasphere, negative mean S quadrasphere), given as a double value (signature "d"). e.g. 38.889722, meaning 38d 53' 22" N.
 	Longitude float64   `json:"longitude"` // (Required) Longitude in Decimal Degrees (positive numbers mean E quadrasphere, negative mean W quadrasphere), given as a double value (signature "d"). e.g. -77.008889, meaning 77d 0' 32" W.
 	Altitude  float64   `json:"altitude"`  // (Optional) Altitude above sea level in meters, given as a double value (signature "d"). e.g. 33.5.
 }
 
-func (rgps gpsRawLocation) String() string {
+func (rgps GpsRawLocation) String() string {
 	return returnString(rgps)
 
 }
 
 // MarshalJSON returns a byte array
-func (rgps gpsRawLocation) MarshalJSON() ([]byte, error) {
+func (rgps GpsRawLocation) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"UtcTime":   rgps.UtcTime,
 		"Latitude":  rgps.Latitude,
@@ -208,35 +208,35 @@ func (rgps gpsRawLocation) MarshalJSON() ([]byte, error) {
 	})
 }
 
-type gpsNmeaLocation struct {
+type GpsNmeaLocation struct {
 	NmeaSentences []string `json:"nmea-sentances"` // Devices supporting this capability return a string containing one or more NMEA sentences (D-Bus signature 's'). The manager will cache the most recent NMEA sentence of each type for a period of time not less than 30 seconds. When reporting multiple NMEA sentences, sentences shall be separated by an ASCII Carriage Return and Line Feed (<CR><LF>) sequence. The manager may discard any cached sentences older than 30 seconds.  This allows clients to read the latest positioning data as soon as possible after they start, even if the device is not providing frequent location data updates.
 }
 
 // MarshalJSON returns a byte array
-func (ngps gpsNmeaLocation) MarshalJSON() ([]byte, error) {
+func (ngps GpsNmeaLocation) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"NmeaSentences": ngps.NmeaSentences,
 	})
 }
 
-func (ngps gpsNmeaLocation) String() string {
+func (ngps GpsNmeaLocation) String() string {
 	return returnString(ngps)
 }
 
-type cdmaBsLocation struct {
+type CdmaBsLocation struct {
 	Latitude  float64 `json:"latitude"`  // (Required) Latitude in Decimal Degrees (positive numbers mean N quadrasphere, negative mean S quadrasphere), given as a double value (signature "d"). e.g. 38.889722, meaning 38d 53' 22" N.
 	Longitude float64 `json:"longitude"` // (Required) Longitude in Decimal Degrees (positive numbers mean E quadrasphere, negative mean W quadrasphere), given as a double value (signature "d"). e.g. -77.008889, meaning 77d 0' 32" W.
 }
 
 // MarshalJSON returns a byte array
-func (cdma cdmaBsLocation) MarshalJSON() ([]byte, error) {
+func (cdma CdmaBsLocation) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"Latitude":  cdma.Latitude,
 		"Longitude": cdma.Longitude,
 	})
 }
 
-func (cdma cdmaBsLocation) String() string {
+func (cdma CdmaBsLocation) String() string {
 	return returnString(cdma)
 
 }
@@ -252,7 +252,7 @@ func (lo modemLocation) Setup(sources []MMModemLocationSource, enableSignal bool
 	return lo.call(ModemLocationSetup, &bitmask, &enableSignal)
 }
 
-func (lo modemLocation) GetCurrentLocation() (loc currentLocation, err error) {
+func (lo modemLocation) GetCurrentLocation() (loc CurrentLocation, err error) {
 	var res map[uint32]dbus.Variant
 	err = lo.callWithReturn(&res, ModemLocationGetLocation)
 	if err != nil {
@@ -306,14 +306,14 @@ func (lo modemLocation) GetSignalsLocation() (bool, error) {
 	return lo.getBoolProperty(ModemLocationPropertySignalsLocation)
 }
 
-func (lo modemLocation) GetLocation() (locs currentLocation, err error) {
+func (lo modemLocation) GetLocation() (locs CurrentLocation, err error) {
 	res, err := lo.getMapUint32VariantProperty(ModemLocationPropertyLocation)
 	if err != nil {
 		return
 	}
 	return lo.createLocation(res)
 }
-func (lo modemLocation) createLocation(res map[uint32]dbus.Variant) (locs currentLocation, err error) {
+func (lo modemLocation) createLocation(res map[uint32]dbus.Variant) (locs CurrentLocation, err error) {
 	var sourceTypeM MMModemLocationSource
 	for key, element := range res {
 		sType := sourceTypeM.BitmaskToSlice(key)
@@ -326,7 +326,7 @@ func (lo modemLocation) createLocation(res map[uint32]dbus.Variant) (locs curren
 				if ok {
 					res := strings.Split(tmpString, ",")
 					if len(res) == 5 {
-						var three threeGppLacCiLocation
+						var three ThreeGppLacCiLocation
 						three.Mcc = res[0]
 						three.Mnc = res[1]
 						three.Lac = res[2]
@@ -341,7 +341,7 @@ func (lo modemLocation) createLocation(res map[uint32]dbus.Variant) (locs curren
 			case MmModemLocationSourceGpsRaw:
 				tmpMap, ok := element.Value().(map[string]interface{})
 
-				var gpsRaw gpsRawLocation
+				var gpsRaw GpsRawLocation
 				if ok {
 					for k, v := range tmpMap {
 						switch k {
@@ -382,7 +382,7 @@ func (lo modemLocation) createLocation(res map[uint32]dbus.Variant) (locs curren
 			case MmModemLocationSourceGpsNmea:
 				tmpString, ok := element.Value().(string)
 				if ok {
-					var nmea gpsNmeaLocation
+					var nmea GpsNmeaLocation
 					splitString := strings.Split(tmpString, "\n")
 					var tmpRes []string
 					for _, nmea := range splitString {
@@ -398,7 +398,7 @@ func (lo modemLocation) createLocation(res map[uint32]dbus.Variant) (locs curren
 				// todo: untested
 				tmpMap, ok := element.Value().(map[string]float64)
 				if ok {
-					var cdma cdmaBsLocation
+					var cdma CdmaBsLocation
 					for k, v := range tmpMap {
 						switch k {
 						case "latitude":

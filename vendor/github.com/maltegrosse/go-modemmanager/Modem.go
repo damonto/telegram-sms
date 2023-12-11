@@ -225,7 +225,7 @@ type Modem interface {
 
 	// The list of ports in the modem, given as an array of string and unsigned integer pairs.
 	// The string is the port name or path, and the integer is the port type given as a MMModemPortType value.
-	GetPorts() ([]port, error)
+	GetPorts() ([]Port, error)
 
 	// The identity of the device. This will be the IMEI number for GSM devices and the hex-format ESN/MEID for CDMA devices.
 	GetEquipmentIdentifier() (string, error)
@@ -318,16 +318,16 @@ type modem struct {
 }
 
 // Represents the modem port (name and type)
-type port struct {
+type Port struct {
 	PortName string          // Port Name or Path
 	PortType MMModemPortType // Modem Port Type
 }
 
 // MarshalJSON returns a byte array
-func (po port) MarshalJSON() ([]byte, error) {
+func (po Port) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
-		"PortName":  po.PortName,
-		"PortType ": po.PortType,
+		"PortName": po.PortName,
+		"PortType": po.PortType,
 	})
 }
 
@@ -340,8 +340,8 @@ type Mode struct {
 // MarshalJSON returns a byte array
 func (mo Mode) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
-		"AllowedModes":   mo.AllowedModes,
-		"PreferredMode ": mo.PreferredMode,
+		"AllowedModes":  mo.AllowedModes,
+		"PreferredMode": mo.PreferredMode,
 	})
 }
 
@@ -561,7 +561,7 @@ func (m modem) GetPrimaryPort() (string, error) {
 	return m.getStringProperty(ModemPropertyPrimaryPort)
 }
 
-func (m modem) GetPorts() (ports []port, err error) {
+func (m modem) GetPorts() (ports []Port, err error) {
 	res, err := m.getSliceSlicePairProperty(ModemPropertyPorts)
 	if err != nil {
 		return nil, err
@@ -576,7 +576,7 @@ func (m modem) GetPorts() (ports []port, err error) {
 
 			return nil, errors.New("wrong type != uin32")
 		}
-		ports = append(ports, port{PortName: newA, PortType: MMModemPortType(newB)})
+		ports = append(ports, Port{PortName: newA, PortType: MMModemPortType(newB)})
 	}
 	return
 }
