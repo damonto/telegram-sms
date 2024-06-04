@@ -2,120 +2,55 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"os/user"
+	"log/slog"
+	"os"
+	"os/signal"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/maltegrosse/go-modemmanager"
-	"golang.org/x/exp/slog"
+	"github.com/PaulSonOfLars/gotgbot/v2"
+	"github.com/damonto/telegram-sms/config"
+	"github.com/damonto/telegram-sms/internal/app"
+	"github.com/damonto/telegram-sms/internal/pkg/lpac"
 )
 
-var (
-	tgBotToken          string
-	tgChatId            int64
-	enableEuiccFeatures bool
-	enableDebugMode     bool
-)
+var Version string
 
 func init() {
-	flag.StringVar(&tgBotToken, "token", "", "Telegram API token")
-	flag.Int64Var(&tgChatId, "chat-id", 0, "Your telegram chat id")
-	flag.BoolVar(&enableEuiccFeatures, "euicc", false, "Enable eUICC features")
-	flag.BoolVar(&enableDebugMode, "debug", false, "Show verbose info")
+	flag.StringVar(&config.C.BotToken, "bot-token", "", "Telegram bot token")
+	flag.Int64Var(&config.C.AdminId, "admin-id", 0, "Telegram admin id")
+	flag.BoolVar(&config.C.IseUICC, "euicc", false, "Enable eUICC features")
+	flag.StringVar(&config.C.LpacVersion, "lpac-version", "2.0.1", "lpac version")
+	flag.StringVar(&config.C.DataDir, "data-dir", "", "Data directory")
+	flag.BoolVar(&config.C.DontDownload, "dont-download", false, "Don't download lpac binary")
+	flag.BoolVar(&config.C.Verbose, "verbose", false, "Enable verbose mode")
 	flag.Parse()
 }
 
 func main() {
-	user, err := user.Current()
+	if config.C.Verbose {
+		slog.SetLogLoggerLevel(slog.LevelDebug)
+	}
+
+	slog.Info("You are using", "version", Version)
+
+	if err := config.C.IsValid(); err != nil {
+		slog.Error("config is invalid", "error", err)
+		os.Exit(1)
+	}
+
+	if !config.C.DontDownload && config.C.IseUICC {
+		lpac.Download(config.C.DataDir, config.C.LpacVersion)
+	}
+
+	bot, err := gotgbot.NewBot(config.C.BotToken, nil)
 	if err != nil {
-		slog.Error("unable to find current running user", "error", err)
-		panic(err)
+		slog.Error("failed to create bot", "error", err)
+		os.Exit(1)
 	}
 
-	if user.Username != "root" {
-		slog.Error("must be running as the root user")
-		return
-	}
+	app := app.NewApp(bot)
+	go app.Start()
 
-	bot, err := tgbotapi.NewBotAPI(tgBotToken)
-	if err != nil {
-		slog.Error("failed to connect to telegram bot", "error", err)
-		panic(err)
-	}
-	bot.Debug = enableDebugMode
-
-	modem, err := NewModem()
-	if err != nil {
-		slog.Error("failed to connect to modem", "error", err)
-		panic(err)
-	}
-
-	handler := NewHandler(tgChatId, enableEuiccFeatures, bot, modem)
-	handler.RegisterCommands()
-
-	go func(bot *tgbotapi.BotAPI, modem Modem) {
-		updateConfig := tgbotapi.NewUpdate(0)
-		updateConfig.Timeout = 30
-		updates := bot.GetUpdatesChan(updateConfig)
-
-		for update := range updates {
-			if update.Message != nil && update.Message.IsCommand() {
-				slog.Info("command received", "command", update.Message.Command(), "raw", update.Message.Text)
-				if err := handler.HandleCommand(update.Message.Command(), update.Message); err != nil {
-					slog.Error("failed to handle command", "error", err)
-					msg := tgbotapi.NewMessage(tgChatId, err.Error())
-					msg.ReplyToMessageID = update.Message.MessageID
-					if _, err := bot.Send(msg); err != nil {
-						slog.Error("failed to send message", "text", msg.Text, "error", err)
-					}
-				}
-				continue
-			}
-
-			if update.CallbackQuery != nil {
-				slog.Info("command callback received", "button", update.CallbackQuery.Data)
-				if err := handler.HandleCallback(update.CallbackQuery); err != nil {
-					slog.Error("failed to handle callback", "error", err)
-					msg := tgbotapi.NewMessage(tgChatId, err.Error())
-					msg.ReplyToMessageID = update.CallbackQuery.Message.MessageID
-					if _, err := bot.Send(msg); err != nil {
-						slog.Error("failed to send message", "text", msg.Text, "error", err)
-					}
-				}
-				continue
-			}
-
-			if err := handler.HandleRawMessage(update.Message); err != nil {
-				slog.Error("failed to handle callback", "error", err)
-			}
-		}
-	}(bot, modem)
-
-	modem.SubscribeSMS(func(modem modemmanager.Modem, sms modemmanager.Sms) {
-		sender, err := sms.GetNumber()
-		if err != nil {
-			slog.Error("failed to get phone number", "error", err)
-			return
-		}
-
-		three3gpp, _ := modem.Get3gpp()
-		operatorName, err := three3gpp.GetOperatorName()
-		if err != nil {
-			slog.Error("failed to get operator name", "error", err)
-			return
-		}
-
-		text, err := sms.GetText()
-		if err != nil {
-			slog.Error("failed to get SMS text", "error", err)
-			return
-		}
-
-		slog.Info("SMS received", "operatorName", operatorName, "sender", sender, "text", text)
-		msg := tgbotapi.NewMessage(tgChatId, fmt.Sprintf("*\\[%s\\] %s*\n%s", operatorName, EscapeText(sender), EscapeText(text)))
-		msg.ParseMode = "markdownV2"
-		if _, err := bot.Send(msg); err != nil {
-			slog.Error("failed to send message", "text", msg.Text, "error", err)
-		}
-	})
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt)
+	<-sig
 }

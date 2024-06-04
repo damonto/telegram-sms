@@ -30,13 +30,13 @@ chmod +x telegram-sms
 Once done, you can run the program with root privileges:
 
 ```bash
-sudo ./telegram-sms -token=YourTelegramToken -chat-id=YourTelegramChatID
+sudo ./telegram-sms -bot-token=YourTelegramToken -admin-id=YourTelegramChatID
 ```
 
 If your modem supports `AT+CCHO/AT+CGLA/AT+CCHC`, and your SIM card is a removable eUICC, you can use the `-euicc` flag to enable eUICC features.
 
 ```bash
-sudo ./telegram-sms -token=YourTelegramToken -chat-id=YourTelegramChatID -euicc
+sudo ./telegram-sms -bot-token=YourTelegramToken -admin-id=YourTelegramChatID -euicc
 ```
 
 If you wish to run the program in the background, you can utilize the `systemctl` command. Here is an example of how to achieve this:
@@ -45,14 +45,14 @@ If you wish to run the program in the background, you can utilize the `systemctl
 
 ```plaintext
 [Unit]
-Description=Telegram SMS Manager
+Description=Telegram SMS Forwarder
 After=network.target
 
 [Service]
 Type=simple
 User=root
 Restart=on-failure
-ExecStart=/your/binary/path/here/telegram-sms -token=YourTelegramToken -chat-id=YourTelegramChatID
+ExecStart=/your/binary/path/here/telegram-sms -bot-token=YourTelegramToken -admin-id=YourTelegramChatID
 RestartSec=10s
 TimeoutStopSec=30s
 

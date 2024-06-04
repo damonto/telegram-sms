@@ -23,5 +23,8 @@ go.work
 # Build output
 build/
 
+# Data directory
+data/
+
 # macOS
 .DS_Store
