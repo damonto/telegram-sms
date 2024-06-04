@@ -40,7 +40,7 @@ func (r *Router) Register() {
 
 func (r *Router) registerConverstaion(handler handler.ConversationHandler, middleware *middleware.Middleware) {
 	r.addCommand(handler)
-	converstations := make(map[string][]ext.Handler, 1)
+	converstations := make(map[string][]ext.Handler, len(handler.Conversations()))
 	for state, r := range handler.Conversations() {
 		converstations[state] = []ext.Handler{
 			handlers.NewMessage(func(msg *gotgbot.Message) bool {
