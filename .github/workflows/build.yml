@@ -31,12 +31,12 @@ jobs:
       - name: Build for ${{ matrix.target.name }}
         run: |
           VERSION=$(git describe --always --tags --match "v*" --dirty="-dev")
-          CGO_ENABLED=0 GOOS=${{ matrix.target.os }} GOARCH=${{ matrix.target.arch }} go build -trimpath -ldflags="-w -s -X main.Version=${VERSION}" -o tg-sms-${{ matrix.target.os }}-${{ matrix.target.arch }}
+          CGO_ENABLED=0 GOOS=${{ matrix.target.os }} GOARCH=${{ matrix.target.arch }} go build -trimpath -ldflags="-w -s -X main.Version=${VERSION}" -o telegram-sms-${{ matrix.target.os }}-${{ matrix.target.arch }}
       - name: Upload ${{ matrix.target.name }} to Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tg-sms-${{ matrix.target.os }}-${{ matrix.target.arch }}
-          path: tg-sms-${{ matrix.target.os }}-${{ matrix.target.arch }}
+          name: telegram-sms-${{ matrix.target.os }}-${{ matrix.target.arch }}
+          path: telegram-sms-${{ matrix.target.os }}-${{ matrix.target.arch }}
 
   release:
     name: Release

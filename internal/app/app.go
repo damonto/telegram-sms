@@ -20,7 +20,12 @@ type app struct {
 }
 
 func NewApp(bot *gotgbot.Bot) App {
-	dispatcher := ext.NewDispatcher(nil)
+	dispatcher := ext.NewDispatcher(&ext.DispatcherOpts{
+		Error: func(b *gotgbot.Bot, ctx *ext.Context, err error) ext.DispatcherAction {
+			slog.Error("failed to dispatch", "error", err)
+			return ext.DispatcherActionNoop
+		},
+	})
 	updater := ext.NewUpdater(dispatcher, nil)
 
 	return &app{

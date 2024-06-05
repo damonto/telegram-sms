@@ -2,4 +2,10 @@ module github.com/damonto/telegram-sms
 
 go 1.21.0
 
-require github.com/PaulSonOfLars/gotgbot/v2 v2.0.0-rc.27
+require (
+	github.com/PaulSonOfLars/gotgbot/v2 v2.0.0-rc.27
+	github.com/godbus/dbus v4.1.0+incompatible
+	github.com/maltegrosse/go-modemmanager v0.1.3
+)
+
+require github.com/godbus/dbus/v5 v5.0.3

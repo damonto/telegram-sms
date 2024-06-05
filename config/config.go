@@ -5,7 +5,7 @@ import "errors"
 type Config struct {
 	BotToken     string
 	AdminId      int64
-	IseUICC      bool
+	IsEuicc      bool
 	DataDir      string
 	LpacVersion  string
 	DontDownload bool
@@ -24,7 +24,7 @@ func (c *Config) IsValid() error {
 	if c.BotToken == "" {
 		return ErrBotTokenRequired
 	}
-	if c.IseUICC && c.DataDir == "" {
+	if c.IsEuicc && c.DataDir == "" {
 		return ErrDataDirRequired
 	}
 	return nil

@@ -5,6 +5,7 @@ import (
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
+	"github.com/damonto/telegram-sms/internal/util"
 )
 
 type StartHandler struct{}
@@ -28,9 +29,9 @@ Thanks for using this bot.
 Your UID is *%d*
 	`
 	_, err := ctx.EffectiveMessage.Reply(b,
-		fmt.Sprintf(message, ctx.EffectiveUser.FirstName, ctx.EffectiveUser.LastName, ctx.EffectiveUser.Id),
+		util.EscapeText(fmt.Sprintf(message, ctx.EffectiveUser.FirstName, ctx.EffectiveUser.LastName, ctx.EffectiveUser.Id)),
 		&gotgbot.SendMessageOpts{
-			ParseMode: "markdown",
+			ParseMode: gotgbot.ParseModeMarkdownV2,
 		},
 	)
 	return err

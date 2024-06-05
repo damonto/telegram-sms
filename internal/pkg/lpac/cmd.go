@@ -22,35 +22,33 @@ func NewCmder(ctx context.Context, usbDevice string) *Cmder {
 func (c *Cmder) Run(arguments []string, dst any, progress Progress) error {
 	cmd := exec.CommandContext(c.ctx, "lpac", arguments...)
 	cmd.Env = append(cmd.Env, "LPAC_APDU=at")
-	cmd.Env = append(cmd.Env, "LPAC_DRIVER_AT_DEVICE="+c.usbDevice)
+	cmd.Env = append(cmd.Env, "AT_DEVICE="+c.usbDevice)
 
 	stdout, _ := cmd.StdoutPipe()
-	stdin, _ := cmd.StdinPipe()
-
 	if err := cmd.Start(); err != nil {
 		return err
 	}
 
-	cmdErr := c.process(stdout, stdin, dst, progress)
+	cmdErr := c.process(stdout, dst, progress)
 	if err := cmd.Wait(); err != nil {
 		slog.Error("command wait error", "error", err)
 	}
 	return cmdErr
 }
 
-func (c *Cmder) process(output io.ReadCloser, input io.WriteCloser, dst any, progress Progress) error {
+func (c *Cmder) process(output io.ReadCloser, dst any, progress Progress) error {
 	scanner := bufio.NewScanner(output)
 	scanner.Split(bufio.ScanLines)
 	var cmdErr error
 	for scanner.Scan() {
-		if err := c.handleOutput(scanner.Text(), input, dst, progress); err != nil {
+		if err := c.handleOutput(scanner.Text(), dst, progress); err != nil {
 			cmdErr = err
 		}
 	}
 	return cmdErr
 }
 
-func (c *Cmder) handleOutput(output string, input io.WriteCloser, dst any, progress Progress) error {
+func (c *Cmder) handleOutput(output string, dst any, progress Progress) error {
 	var commandOutput CommandOutput
 	if err := json.Unmarshal([]byte(output), &commandOutput); err != nil {
 		return err
