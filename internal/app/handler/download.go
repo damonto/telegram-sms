@@ -8,7 +8,7 @@ import (
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext/handlers"
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
-	"github.com/damonto/telegram-sms/internal/util"
+	"github.com/damonto/telegram-sms/internal/pkg/util"
 )
 
 type DownloadHandler struct {

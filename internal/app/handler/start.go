@@ -5,7 +5,7 @@ import (
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
-	"github.com/damonto/telegram-sms/internal/util"
+	"github.com/damonto/telegram-sms/internal/pkg/util"
 )
 
 type StartHandler struct{}
