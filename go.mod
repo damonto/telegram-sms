@@ -4,7 +4,6 @@ go 1.21.0
 
 require (
 	github.com/PaulSonOfLars/gotgbot/v2 v2.0.0-rc.27
-	github.com/godbus/dbus v4.1.0+incompatible
 	github.com/maltegrosse/go-modemmanager v0.1.3
 )
 
