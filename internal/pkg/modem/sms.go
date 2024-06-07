@@ -1,6 +1,6 @@
 package modem
 
-func (m *modem) SendSMS(number, message string) error {
+func (m *Modem) SendSMS(number, message string) error {
 	messaging, err := m.modem.GetMessaging()
 	if err != nil {
 		return err

@@ -28,7 +28,7 @@ Hello, *%s %s*!
 Thanks for using this bot.
 Your UID is *%d*
 	`
-	_, err := ctx.EffectiveMessage.Reply(b,
+	_, err := b.SendMessage(ctx.EffectiveChat.Id,
 		util.EscapeText(fmt.Sprintf(message, ctx.EffectiveUser.FirstName, ctx.EffectiveUser.LastName, ctx.EffectiveUser.Id)),
 		&gotgbot.SendMessageOpts{
 			ParseMode: gotgbot.ParseModeMarkdownV2,

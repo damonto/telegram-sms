@@ -12,7 +12,7 @@ var (
 	ErrPermissionDenied = errors.New("permission denied")
 )
 
-func RequiredAdmin(bot *gotgbot.Bot, ctx *ext.Context) error {
+func RequiredAdmin(b *gotgbot.Bot, ctx *ext.Context) error {
 	if ctx.EffectiveUser.Id == config.C.AdminId {
 		return nil
 	}

@@ -5,7 +5,7 @@ import (
 	"github.com/maltegrosse/go-modemmanager"
 )
 
-func (m *modem) call(objectPath dbus.ObjectPath, method string, args ...interface{}) error {
+func (m *Modem) call(objectPath dbus.ObjectPath, method string, args ...interface{}) error {
 	dbusConn, err := dbus.SystemBus()
 	if err != nil {
 		return err
@@ -14,7 +14,7 @@ func (m *modem) call(objectPath dbus.ObjectPath, method string, args ...interfac
 	return obj.Call(method, 0, args...).Err
 }
 
-func (m *modem) getProperty(objectPath dbus.ObjectPath, property string) (dbus.Variant, error) {
+func (m *Modem) getProperty(objectPath dbus.ObjectPath, property string) (dbus.Variant, error) {
 	dbusConn, err := dbus.SystemBus()
 	if err != nil {
 		return dbus.Variant{}, err
@@ -23,7 +23,7 @@ func (m *modem) getProperty(objectPath dbus.ObjectPath, property string) (dbus.V
 	return obj.GetProperty(property)
 }
 
-func (m *modem) systemBusPrivate() (*dbus.Conn, error) {
+func (m *Modem) systemBusPrivate() (*dbus.Conn, error) {
 	dbusConn, err := dbus.SystemBusPrivate()
 	if err != nil {
 		return nil, err

@@ -2,28 +2,34 @@ package lpac
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
 	"os/exec"
+	"path/filepath"
+
+	"github.com/damonto/telegram-sms/config"
 )
 
-type Cmder struct {
+type Cmd struct {
 	ctx       context.Context
 	usbDevice string
 }
 
-func NewCmder(ctx context.Context, usbDevice string) *Cmder {
-	return &Cmder{ctx: ctx, usbDevice: usbDevice}
+func NewCmd(ctx context.Context, usbDevice string) *Cmd {
+	return &Cmd{ctx: ctx, usbDevice: usbDevice}
 }
 
-func (c *Cmder) Run(arguments []string, dst any, progress Progress) error {
-	cmd := exec.CommandContext(c.ctx, "lpac", arguments...)
+func (c *Cmd) Run(arguments []string, dst any, progress Progress) error {
+	cmd := exec.CommandContext(c.ctx, filepath.Join(config.C.Dir, "lpac"), arguments...)
 	cmd.Env = append(cmd.Env, "LPAC_APDU=at")
 	cmd.Env = append(cmd.Env, "AT_DEVICE="+c.usbDevice)
 
+	stderr := bytes.Buffer{}
+	cmd.Stderr = &stderr
 	stdout, _ := cmd.StdoutPipe()
 	if err := cmd.Start(); err != nil {
 		return err
@@ -31,12 +37,12 @@ func (c *Cmder) Run(arguments []string, dst any, progress Progress) error {
 
 	cmdErr := c.process(stdout, dst, progress)
 	if err := cmd.Wait(); err != nil {
-		slog.Error("command wait error", "error", err)
+		slog.Error("command wait error", "error", err, "stderr", stderr.String())
 	}
 	return cmdErr
 }
 
-func (c *Cmder) process(output io.ReadCloser, dst any, progress Progress) error {
+func (c *Cmd) process(output io.ReadCloser, dst any, progress Progress) error {
 	scanner := bufio.NewScanner(output)
 	scanner.Split(bufio.ScanLines)
 	var cmdErr error
@@ -48,7 +54,7 @@ func (c *Cmder) process(output io.ReadCloser, dst any, progress Progress) error 
 	return cmdErr
 }
 
-func (c *Cmder) handleOutput(output string, dst any, progress Progress) error {
+func (c *Cmd) handleOutput(output string, dst any, progress Progress) error {
 	var commandOutput CommandOutput
 	if err := json.Unmarshal([]byte(output), &commandOutput); err != nil {
 		return err
@@ -65,7 +71,7 @@ func (c *Cmder) handleOutput(output string, dst any, progress Progress) error {
 	return nil
 }
 
-func (c *Cmder) handleLPAResponse(payload json.RawMessage, dst any) error {
+func (c *Cmd) handleLPAResponse(payload json.RawMessage, dst any) error {
 	var lpaPayload LPAPyaload
 	if err := json.Unmarshal(payload, &lpaPayload); err != nil {
 		return err
@@ -87,7 +93,7 @@ func (c *Cmder) handleLPAResponse(payload json.RawMessage, dst any) error {
 	return nil
 }
 
-func (c *Cmder) handleProgress(payload json.RawMessage, progress Progress) error {
+func (c *Cmd) handleProgress(payload json.RawMessage, progress Progress) error {
 	var progressPayload ProgressPayload
 	if err := json.Unmarshal(payload, &progressPayload); err != nil {
 		return err

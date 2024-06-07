@@ -10,18 +10,22 @@ import (
 )
 
 type SendHandler struct {
+	withModem
 	data map[int64]string
 }
 
 const (
-	SendSmsStatePhoneNumber = "phone_number"
-	SendSmsStateMessage     = "message"
+	SendSmsStatePhoneNumber = "sms_phone_number"
+	SendSmsStateMessage     = "sms_message"
 )
 
-func NewSendHandler() ConversationHandler {
-	return &SendHandler{
+func NewSendHandler(dispatcher *ext.Dispatcher) ConversationHandler {
+	h := &SendHandler{
 		data: make(map[int64]string, 1),
 	}
+	h.dispathcer = dispatcher
+	h.next = h.enter
+	return h
 }
 
 func (h *SendHandler) Command() string {
@@ -32,13 +36,6 @@ func (h *SendHandler) Description() string {
 	return "Send a message to a phone number"
 }
 
-func (h *SendHandler) Handle(b *gotgbot.Bot, ctx *ext.Context) error {
-	if _, err := ctx.EffectiveMessage.Reply(b, "Please enter the phone number you want to send the message to", nil); err != nil {
-		return err
-	}
-	return handlers.NextConversationState(SendSmsStatePhoneNumber)
-}
-
 func (h *SendHandler) Conversations() map[string]handlers.Response {
 	return map[string]handlers.Response{
 		SendSmsStatePhoneNumber: h.handlePhoneNumber,
@@ -46,8 +43,15 @@ func (h *SendHandler) Conversations() map[string]handlers.Response {
 	}
 }
 
+func (h *SendHandler) enter(b *gotgbot.Bot, ctx *ext.Context) error {
+	if _, err := b.SendMessage(ctx.EffectiveChat.Id, "Please enter the phone number you want to send the message to", nil); err != nil {
+		return err
+	}
+	return handlers.NextConversationState(SendSmsStatePhoneNumber)
+}
+
 func (h *SendHandler) handlePhoneNumber(b *gotgbot.Bot, ctx *ext.Context) error {
-	if _, err := ctx.EffectiveMessage.Reply(b, "Please enter the message you want to send", nil); err != nil {
+	if _, err := b.SendMessage(ctx.EffectiveChat.Id, "Please enter the message you want to send", nil); err != nil {
 		return err
 	}
 	h.data[ctx.EffectiveChat.Id] = ctx.EffectiveMessage.Text

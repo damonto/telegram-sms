@@ -8,7 +8,7 @@ const (
 	ModemSetPrimarySimSlot      = "org.freedesktop.ModemManager1.Modem.SetPrimarySimSlot"
 )
 
-func (m *modem) GetSimSlots() (uint32, error) {
+func (m *Modem) GetSimSlots() (uint32, error) {
 	prop, err := m.getProperty(m.modem.GetObjectPath(), ModemPropertySimSlots)
 	if err != nil {
 		return 0, err
@@ -16,7 +16,7 @@ func (m *modem) GetSimSlots() (uint32, error) {
 	return uint32(len(prop.Value().([]dbus.ObjectPath))), nil
 }
 
-func (m *modem) GetPrimarySimSlot() (uint32, error) {
+func (m *Modem) GetPrimarySimSlot() (uint32, error) {
 	prop, err := m.getProperty(m.modem.GetObjectPath(), ModemPropertyPrimarySimSlot)
 	if err != nil {
 		return 0, err
@@ -24,7 +24,7 @@ func (m *modem) GetPrimarySimSlot() (uint32, error) {
 	return prop.Value().(uint32), err
 }
 
-func (m *modem) SetPrimarySimSlot(slotId uint32) error {
+func (m *Modem) SetPrimarySimSlot(slotId uint32) error {
 	primarySlot, err := m.GetPrimarySimSlot()
 	if err != nil {
 		return err

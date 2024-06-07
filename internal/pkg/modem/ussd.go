@@ -1,7 +1,7 @@
 package modem
 
-func (m *Manager) RunUSSDCommand(command string) (string, error) {
-	three3gpp, err := m.modem.modem.Get3gpp()
+func (m *Modem) RunUSSDCommand(command string) (string, error) {
+	three3gpp, err := m.modem.Get3gpp()
 	if err != nil {
 		return "", err
 	}
@@ -13,8 +13,8 @@ func (m *Manager) RunUSSDCommand(command string) (string, error) {
 	return ussd.Initiate(command)
 }
 
-func (m *Manager) RespondUSSDCommand(response string) (string, error) {
-	three3gpp, err := m.modem.modem.Get3gpp()
+func (m *Modem) RespondUSSDCommand(response string) (string, error) {
+	three3gpp, err := m.modem.Get3gpp()
 	if err != nil {
 		return "", err
 	}

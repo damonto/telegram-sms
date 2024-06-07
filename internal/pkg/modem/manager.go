@@ -13,17 +13,18 @@ var (
 	ErrModemNotFound = errors.New("modem not found")
 )
 
-type modem struct {
+type Modem struct {
 	lock  sync.Mutex
 	modem modemmanager.Modem
 }
 
 type Manager struct {
-	modem  *modem
 	mmgr   modemmanager.ModemManager
-	modems map[string]*modem
+	modems map[string]*Modem
 	reboot chan struct{}
 }
+
+var Instance *Manager
 
 func NewManager() (*Manager, error) {
 	mmgr, err := modemmanager.NewModemManager()
@@ -37,11 +38,16 @@ func NewManager() (*Manager, error) {
 
 	m := &Manager{
 		mmgr:   mmgr,
-		modems: make(map[string]*modem, 1),
+		modems: make(map[string]*Modem, 1),
 		reboot: make(chan struct{}, 1),
 	}
 	go m.watch()
+	Instance = m
 	return m, nil
+}
+
+func GetManager() *Manager {
+	return Instance
 }
 
 func (m *Manager) watch() error {
@@ -62,15 +68,15 @@ func (m *Manager) watchModems() error {
 
 	hasNewModemAdded := false
 	for _, mm := range modems {
-		state, err := mm.GetState()
-		if err != nil {
-			return err
-		}
-		if state == modemmanager.MmModemStateDisabled {
-			if err := mm.Enable(); err != nil {
-				return err
-			}
-		}
+		// state, err := mm.GetState()
+		// if err != nil {
+		// 	return err
+		// }
+		// if state == modemmanager.MmModemStateDisabled {
+		// 	if err := mm.Enable(); err != nil {
+		// 		return err
+		// 	}
+		// }
 		modemId, err := mm.GetEquipmentIdentifier()
 		if err != nil {
 			return err
@@ -80,9 +86,9 @@ func (m *Manager) watchModems() error {
 				continue
 			}
 		}
-		slog.Info("new modem added", "modemId", modemId, "objectPath", m.modem.modem.GetObjectPath())
+		slog.Info("new modem added", "modemId", modemId, "objectPath", mm.GetObjectPath())
 		hasNewModemAdded = true
-		m.modems[modemId] = &modem{
+		m.modems[modemId] = &Modem{
 			modem: mm,
 		}
 	}
@@ -94,11 +100,11 @@ func (m *Manager) watchModems() error {
 	return nil
 }
 
-func (m *Manager) Modems() map[string]*modem {
+func (m *Manager) GetModems() map[string]*Modem {
 	return m.modems
 }
 
-func (m *Manager) Get(modemId string) (*modem, error) {
+func (m *Manager) GetModem(modemId string) (*Modem, error) {
 	modem, ok := m.modems[modemId]
 	if !ok {
 		return nil, ErrModemNotFound

@@ -48,7 +48,6 @@ func (r *Router) registerConverstaion(handler handler.ConversationHandler, middl
 			}, r),
 		}
 	}
-
 	r.dispatcher.AddHandler(handlers.NewConversation(
 		[]ext.Handler{handlers.NewCommand(handler.Command(), r.handler(handler, middleware))},
 		converstations,

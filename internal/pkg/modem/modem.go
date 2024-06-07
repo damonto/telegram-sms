@@ -11,15 +11,15 @@ var (
 	ErrNoATPortFound = errors.New("no at port found")
 )
 
-func (m *modem) Lock() {
+func (m *Modem) Lock() {
 	m.lock.Lock()
 }
 
-func (m *modem) Unlock() {
+func (m *Modem) Unlock() {
 	m.lock.Unlock()
 }
 
-func (m *modem) GetAtPort() (string, error) {
+func (m *Modem) GetAtPort() (string, error) {
 	ports, err := m.modem.GetPorts()
 	if err != nil {
 		return "", err
@@ -33,7 +33,11 @@ func (m *modem) GetAtPort() (string, error) {
 	return "", ErrNoATPortFound
 }
 
-func (m *modem) GetIccid() (string, error) {
+func (m *Modem) GetManufacturer() (string, error) {
+	return m.modem.GetManufacturer()
+}
+
+func (m *Modem) GetIccid() (string, error) {
 	sim, err := m.modem.GetSim()
 	if err != nil {
 		return "", err
@@ -41,7 +45,7 @@ func (m *modem) GetIccid() (string, error) {
 	return sim.GetSimIdentifier()
 }
 
-func (m *modem) GetImei() (string, error) {
+func (m *Modem) GetImei() (string, error) {
 	threeGpp, err := m.modem.Get3gpp()
 	if err != nil {
 		return "", err
@@ -49,7 +53,11 @@ func (m *modem) GetImei() (string, error) {
 	return threeGpp.GetImei()
 }
 
-func (m *modem) GetOperatorName() (string, error) {
+func (m *Modem) GetModel() (string, error) {
+	return m.modem.GetModel()
+}
+
+func (m *Modem) GetOperatorName() (string, error) {
 	threeGpp, err := m.modem.Get3gpp()
 	if err != nil {
 		return "", err
@@ -57,7 +65,7 @@ func (m *modem) GetOperatorName() (string, error) {
 	return threeGpp.GetOperatorName()
 }
 
-func (m *modem) GetSignalQuality() (uint32, error) {
+func (m *Modem) GetSignalQuality() (uint32, error) {
 	percent, _, err := m.modem.GetSignalQuality()
 	if err != nil {
 		return 0, err

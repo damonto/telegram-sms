@@ -9,15 +9,15 @@ import (
 	"github.com/maltegrosse/go-modemmanager"
 )
 
-type SMSSubscriber = func(modem modemmanager.Modem, sms modemmanager.Sms)
+type MessagingSubscriber = func(modem modemmanager.Modem, sms modemmanager.Sms)
 
-func (m *Manager) SubscribeSMS(subscriber SMSSubscriber) {
+func (m *Manager) SubscribeMessaging(subscriber MessagingSubscriber) {
 Subscriber:
 	stopChans := make([]chan struct{}, len(m.modems))
 	for _, modem := range m.modems {
 		stopChan := make(chan struct{}, 1)
 		stopChans = append(stopChans, stopChan)
-		go m.smsSubscriber(modem, stopChan, subscriber)
+		go m.messagingSubscriber(modem, stopChan, subscriber)
 	}
 
 	<-m.reboot
@@ -28,7 +28,7 @@ Subscriber:
 	goto Subscriber
 }
 
-func (m *Manager) smsSubscriber(modem *modem, stopChan chan struct{}, subscriber SMSSubscriber) error {
+func (m *Manager) messagingSubscriber(modem *Modem, stopChan chan struct{}, subscriber MessagingSubscriber) error {
 	messaging, err := modem.modem.GetMessaging()
 	if err != nil {
 		return err

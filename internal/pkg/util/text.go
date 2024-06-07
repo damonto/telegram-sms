@@ -1,7 +1,6 @@
 package util
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -11,6 +10,5 @@ func EscapeText(text string) string {
 	for _, replacement := range replacements {
 		text = strings.ReplaceAll(text, replacement, "\\"+replacement)
 	}
-	fmt.Println(text)
 	return text
 }

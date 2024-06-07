@@ -9,11 +9,10 @@ import (
 func (r *Router) routes() {
 	r.registerCommand(handler.NewStartHandler(), nil)
 	{
-		m := middleware.Use(middleware.RequiredAdmin)
-		r.registerConverstaion(handler.NewSendHandler(), m)
-
+		r.registerCommand(handler.NewModemHandler(), middleware.Use(middleware.RequiredAdmin))
+		r.registerConverstaion(handler.NewSendHandler(r.dispatcher), middleware.Use(middleware.RequiredAdmin))
 		if config.C.IsEuicc {
-			r.registerConverstaion(handler.NewDownloadHandler(), m)
+			r.registerConverstaion(handler.NewDownloadHandler(r.dispatcher), middleware.Use(middleware.RequiredAdmin))
 		}
 	}
 }

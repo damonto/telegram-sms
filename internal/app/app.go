@@ -10,7 +10,7 @@ import (
 )
 
 type App interface {
-	Start()
+	Start() error
 }
 
 type app struct {
@@ -27,7 +27,6 @@ func NewApp(bot *gotgbot.Bot) App {
 		},
 	})
 	updater := ext.NewUpdater(dispatcher, nil)
-
 	return &app{
 		bot:        bot,
 		dispatcher: dispatcher,
@@ -39,7 +38,7 @@ func (a *app) registerCoreServices() {
 	routes.NewRouter(a.bot, a.dispatcher).Register()
 }
 
-func (a *app) Start() {
+func (a *app) Start() error {
 	a.registerCoreServices()
 
 	err := a.updater.StartPolling(a.bot, &ext.PollingOpts{
@@ -52,8 +51,9 @@ func (a *app) Start() {
 	})
 	if err != nil {
 		slog.Error("failed to start polling", "error", err)
-		return
+		return err
 	}
 
 	a.updater.Idle()
+	return nil
 }

@@ -1,29 +1,36 @@
 package handler
 
 import (
-	"fmt"
+	"context"
+	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext/handlers"
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
+	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 )
 
 type DownloadHandler struct {
-	data map[int64]*lpac.ActivationCode
+	withModem
+	data map[int64]lpac.ActivationCode
 }
 
 const (
-	DownloadStateActivationCode   = "activation_code"
-	DownloadStateConfirmationCode = "confirmation_code"
+	DownloadStateActivationCode   = "esim_download_activation_code"
+	DownloadStateConfirmationCode = "esim_download_confirmation_code"
 )
 
-func NewDownloadHandler() ConversationHandler {
-	return &DownloadHandler{
-		data: make(map[int64]*lpac.ActivationCode, 1),
+func NewDownloadHandler(dispatcher *ext.Dispatcher) ConversationHandler {
+	h := &DownloadHandler{
+		data: make(map[int64]lpac.ActivationCode, 1),
 	}
+	h.dispathcer = dispatcher
+	h.next = h.enter
+	return h
 }
 
 func (h *DownloadHandler) Command() string {
@@ -34,14 +41,6 @@ func (h *DownloadHandler) Description() string {
 	return "Download an eSIM profile"
 }
 
-func (h *DownloadHandler) Handle(b *gotgbot.Bot, ctx *ext.Context) error {
-	_, err := ctx.EffectiveMessage.Reply(b, "Please send me the activation code or QR Code", nil)
-	if err != nil {
-		return err
-	}
-	return handlers.NextConversationState(DownloadStateActivationCode)
-}
-
 func (h *DownloadHandler) Conversations() map[string]handlers.Response {
 	return map[string]handlers.Response{
 		DownloadStateActivationCode:   h.handleActivationCode,
@@ -49,10 +48,18 @@ func (h *DownloadHandler) Conversations() map[string]handlers.Response {
 	}
 }
 
+func (h *DownloadHandler) enter(b *gotgbot.Bot, ctx *ext.Context) error {
+	_, err := b.SendMessage(ctx.EffectiveChat.Id, "Please send me the activation code or QR Code", nil)
+	if err != nil {
+		return err
+	}
+	return handlers.NextConversationState(DownloadStateActivationCode)
+}
+
 func (h *DownloadHandler) handleActivationCode(b *gotgbot.Bot, ctx *ext.Context) error {
 	activationCode := ctx.EffectiveMessage.Text
 	if activationCode == "" || !strings.HasPrefix(activationCode, "LPA:1$") {
-		_, err := ctx.EffectiveMessage.Reply(b, "Invalid activation code", nil)
+		_, err := b.SendMessage(ctx.EffectiveChat.Id, "Invalid activation code", nil)
 		if err != nil {
 			return err
 		}
@@ -60,13 +67,13 @@ func (h *DownloadHandler) handleActivationCode(b *gotgbot.Bot, ctx *ext.Context)
 	}
 
 	parts := strings.Split(activationCode, "$")
-	activationCodeStruct := &lpac.ActivationCode{
+	activationCodeStruct := lpac.ActivationCode{
 		SMDP:       parts[1],
 		MatchingId: parts[2],
 	}
 	if len(parts) == 5 && parts[4] == "1" {
 		h.data[ctx.EffectiveMessage.Chat.Id] = activationCodeStruct
-		_, err := ctx.EffectiveMessage.Reply(b, "Please send me the confirmation code", nil)
+		_, err := b.SendMessage(ctx.EffectiveChat.Id, "Please send me the confirmation code", nil)
 		if err != nil {
 			return err
 		}
@@ -74,11 +81,8 @@ func (h *DownloadHandler) handleActivationCode(b *gotgbot.Bot, ctx *ext.Context)
 	}
 
 	if err := h.download(b, ctx, activationCodeStruct); err != nil {
-		_, err := ctx.EffectiveMessage.Reply(b, "Failed to download profile", nil)
-		if err != nil {
-			return err
-		}
-		return handlers.EndConversation()
+		handlers.EndConversation()
+		return err
 	}
 	return handlers.EndConversation()
 }
@@ -86,7 +90,7 @@ func (h *DownloadHandler) handleActivationCode(b *gotgbot.Bot, ctx *ext.Context)
 func (h *DownloadHandler) handleConfirmationCode(b *gotgbot.Bot, ctx *ext.Context) error {
 	confirmationCode := ctx.EffectiveMessage.Text
 	if confirmationCode == "" {
-		_, err := ctx.EffectiveMessage.Reply(b, "Invalid confirmation code", nil)
+		_, err := b.SendMessage(ctx.EffectiveChat.Id, "Invalid confirmation code", nil)
 		if err != nil {
 			return err
 		}
@@ -98,16 +102,13 @@ func (h *DownloadHandler) handleConfirmationCode(b *gotgbot.Bot, ctx *ext.Contex
 	activationCode.ConfirmationCode = confirmationCode
 
 	if err := h.download(b, ctx, activationCode); err != nil {
-		_, err := ctx.EffectiveMessage.Reply(b, "Failed to download profile", nil)
-		if err != nil {
-			return err
-		}
-		return handlers.EndConversation()
+		handlers.EndConversation()
+		return err
 	}
 	return handlers.EndConversation()
 }
 
-func (h *DownloadHandler) download(b *gotgbot.Bot, ctx *ext.Context, activationCode *lpac.ActivationCode) error {
+func (h *DownloadHandler) download(b *gotgbot.Bot, ctx *ext.Context, activationCode lpac.ActivationCode) error {
 	text := "Downloading profile..."
 	message, err := b.SendMessage(ctx.EffectiveChat.Id, util.EscapeText(text), &gotgbot.SendMessageOpts{
 		ParseMode: gotgbot.ParseModeMarkdownV2,
@@ -115,6 +116,26 @@ func (h *DownloadHandler) download(b *gotgbot.Bot, ctx *ext.Context, activationC
 	if err != nil {
 		return err
 	}
-	fmt.Println(message.MessageId)
-	return nil
+
+	modem, err := modem.GetManager().GetModem(h.modemId)
+	if err != nil {
+		return err
+	}
+	usbDevice, err := modem.GetAtPort()
+	if err != nil {
+		return err
+	}
+
+	mctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	err = lpac.NewCmd(mctx, usbDevice).ProfileDownload(activationCode, func(current string) error {
+		text := "Downloading profile... \n" + current
+		_, _, err := message.EditText(b, text, nil)
+		return err
+	})
+	if err != nil {
+		slog.Info("failed to download profile", "error", err)
+		b.SendMessage(ctx.EffectiveChat.Id, "Failed to download profile, \n"+err.Error(), nil)
+	}
+	return err
 }
