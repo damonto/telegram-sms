@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -11,6 +12,8 @@ import (
 	"github.com/damonto/telegram-sms/internal/app"
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
+	"github.com/damonto/telegram-sms/internal/pkg/util"
+	"github.com/maltegrosse/go-modemmanager"
 )
 
 var Version string
@@ -58,11 +61,14 @@ func main() {
 		panic(err)
 	}
 
-	_, err = modem.NewManager()
+	manager, err := modem.NewManager()
 	if err != nil {
 		slog.Error("failed to create modem manager", "error", err)
 		panic(err)
 	}
+	go manager.SubscribeMessaging(func(modem *modem.Modem, sms modemmanager.Sms) {
+		subscribe(bot, modem, sms)
+	})
 
 	app := app.NewApp(bot)
 	go func() {
@@ -74,4 +80,25 @@ func main() {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt)
 	<-sig
+}
+
+func subscribe(bot *gotgbot.Bot, modem *modem.Modem, sms modemmanager.Sms) {
+	sender, _ := sms.GetNumber()
+	operatorName, _ := modem.GetOperatorName()
+	text, _ := sms.GetText()
+	imei, _ := modem.GetImei()
+	model, _ := modem.GetModel()
+	device := fmt.Sprintf("%s (%s)", model, imei)
+	slog.Info("SMS received", "device", device, "operatorName", operatorName, "sender", sender, "text", text)
+
+	template := `
+%s
+[*%s*] %s
+%s
+`
+	if _, err := bot.SendMessage(config.C.AdminId, util.EscapeText(fmt.Sprintf(template, device, operatorName, sender, text)), &gotgbot.SendMessageOpts{
+		ParseMode: gotgbot.ParseModeMarkdownV2,
+	}); err != nil {
+		slog.Error("failed to send message", "error", err)
+	}
 }

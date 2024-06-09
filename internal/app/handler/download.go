@@ -121,21 +121,25 @@ func (h *DownloadHandler) download(b *gotgbot.Bot, ctx *ext.Context, activationC
 	if err != nil {
 		return err
 	}
+	modem.Lock()
+	defer modem.Unlock()
+
 	usbDevice, err := modem.GetAtPort()
 	if err != nil {
 		return err
 	}
 
-	mctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	err = lpac.NewCmd(mctx, usbDevice).ProfileDownload(activationCode, func(current string) error {
+	err = lpac.NewCmd(timeoutCtx, usbDevice).ProfileDownload(activationCode, func(current string) error {
 		text := "Downloading profile... \n" + current
 		_, _, err := message.EditText(b, text, nil)
 		return err
 	})
 	if err != nil {
 		slog.Info("failed to download profile", "error", err)
-		b.SendMessage(ctx.EffectiveChat.Id, "Failed to download profile, \n"+err.Error(), nil)
+		message.EditText(b, "Failed to download profile\n"+err.Error(), nil)
+		return err
 	}
 	return err
 }

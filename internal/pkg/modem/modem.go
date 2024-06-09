@@ -57,12 +57,24 @@ func (m *Modem) GetModel() (string, error) {
 	return m.modem.GetModel()
 }
 
+func (m *Modem) GetRevision() (string, error) {
+	return m.modem.GetRevision()
+}
+
 func (m *Modem) GetOperatorName() (string, error) {
 	threeGpp, err := m.modem.Get3gpp()
 	if err != nil {
 		return "", err
 	}
 	return threeGpp.GetOperatorName()
+}
+
+func (m *Modem) GetICCID() (string, error) {
+	sim, err := m.modem.GetSim()
+	if err != nil {
+		return "", err
+	}
+	return sim.GetSimIdentifier()
 }
 
 func (m *Modem) GetSignalQuality() (uint32, error) {

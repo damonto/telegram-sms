@@ -66,17 +66,17 @@ func (m *Manager) watchModems() error {
 		return err
 	}
 
-	hasNewModemAdded := false
+	modemAdded := false
 	for _, mm := range modems {
-		// state, err := mm.GetState()
-		// if err != nil {
-		// 	return err
-		// }
-		// if state == modemmanager.MmModemStateDisabled {
-		// 	if err := mm.Enable(); err != nil {
-		// 		return err
-		// 	}
-		// }
+		state, err := mm.GetState()
+		if err != nil {
+			return err
+		}
+		if state == modemmanager.MmModemStateDisabled {
+			if err := mm.Enable(); err != nil {
+				return err
+			}
+		}
 		modemId, err := mm.GetEquipmentIdentifier()
 		if err != nil {
 			return err
@@ -87,14 +87,13 @@ func (m *Manager) watchModems() error {
 			}
 		}
 		slog.Info("new modem added", "modemId", modemId, "objectPath", mm.GetObjectPath())
-		hasNewModemAdded = true
+		modemAdded = true
 		m.modems[modemId] = &Modem{
 			modem: mm,
 		}
 	}
-
 	// If the modem is not in the list, add it, and send a signal to reboot the subscriber
-	if hasNewModemAdded {
+	if modemAdded {
 		m.reboot <- struct{}{}
 	}
 	return nil

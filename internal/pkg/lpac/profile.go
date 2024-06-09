@@ -12,23 +12,24 @@ type ActivationCode struct {
 }
 
 type Profile struct {
-	ICCID        string `json:"iccid"`
-	ISDPAid      string `json:"isdpAid"`
-	State        string `json:"profileState"`
-	Nickname     string `json:"profileNickname"`
-	ProviderName string `json:"serviceProviderName"`
-	ProfileName  string `json:"profileName"`
-	IconType     string `json:"iconType"`
-	Icon         string `json:"icon"`
-	Class        string `json:"profileClass"`
+	ICCID        string       `json:"iccid"`
+	ISDPAid      string       `json:"isdpAid"`
+	State        ProfileState `json:"profileState"`
+	Nickname     string       `json:"profileNickname"`
+	ProviderName string       `json:"serviceProviderName"`
+	ProfileName  string       `json:"profileName"`
+	IconType     string       `json:"iconType"`
+	Icon         string       `json:"icon"`
+	Class        string       `json:"profileClass"`
 }
 
 type DiscoveryResponse struct {
 	RspServerAddress string `json:"rspServerAddress"`
 }
 
-const (
-	ErrDeletionNotificationNotFound = "deletion notification not found"
+var (
+	ErrDeletionNotificationNotFound = errors.New("deletion notification not found")
+	ErrProfileNotFound              = errors.New("profile not found")
 )
 
 func (c *Cmd) ProfileList() ([]Profile, error) {
@@ -50,7 +51,7 @@ func (c *Cmd) ProfileInfo(ICCID string) (Profile, error) {
 			return profile, nil
 		}
 	}
-	return Profile{}, nil
+	return Profile{}, ErrProfileNotFound
 }
 
 func (c *Cmd) ProfileDownload(activationCode ActivationCode, progress Progress) error {
@@ -124,9 +125,13 @@ func (c *Cmd) ProfileDelete(ICCID string) error {
 		}
 	}
 	if deletionNotificationSeqNumber > 0 {
-		return errors.New(ErrDeletionNotificationNotFound)
+		return ErrDeletionNotificationNotFound
 	}
 	return c.NotificationProcess(deletionNotificationSeqNumber, false, nil)
+}
+
+func (c *Cmd) ProfileEnable(ICCID string) error {
+	return c.Run([]string{"profile", "enable", ICCID}, nil, nil)
 }
 
 func (c *Cmd) ProfileSetNickname(ICCID string, nickname string) error {

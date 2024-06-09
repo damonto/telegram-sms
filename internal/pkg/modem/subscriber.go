@@ -9,7 +9,7 @@ import (
 	"github.com/maltegrosse/go-modemmanager"
 )
 
-type MessagingSubscriber = func(modem modemmanager.Modem, sms modemmanager.Sms)
+type MessagingSubscriber = func(modem *Modem, sms modemmanager.Sms)
 
 func (m *Manager) SubscribeMessaging(subscriber MessagingSubscriber) {
 Subscriber:
@@ -21,7 +21,7 @@ Subscriber:
 	}
 
 	<-m.reboot
-	slog.Info("rebooting sms subscriber")
+	slog.Info("restart sms subscriber")
 	for _, stopChan := range stopChans {
 		stopChan <- struct{}{}
 	}
@@ -56,25 +56,21 @@ func (m *Manager) messagingSubscriber(modem *Modem, stopChan chan struct{}, subs
 				continue
 			}
 
-			state, err := sms.GetState()
-			if err != nil {
-				slog.Error("failed to get sms state", "error", err)
-				continue
-			}
-
-			if state == modemmanager.MmSmsStateReceiving {
-				for {
-					time.Sleep(1 * time.Second)
-					if state, err := sms.GetState(); state == modemmanager.MmSmsStateReceived && err == nil {
-						break
-					}
+			for {
+				time.Sleep(100 * time.Millisecond)
+				state, err := sms.GetState()
+				if err != nil {
+					slog.Error("failed to get sms state", "error", err)
+					break
+				}
+				if state == modemmanager.MmSmsStateSending || state == modemmanager.MmSmsStateSent {
+					break
+				}
+				if state == modemmanager.MmSmsStateReceived {
+					subscriber(modem, sms)
+					break
 				}
 			}
-
-			if state == modemmanager.MmSmsStateReceived {
-				subscriber(modem.modem, sms)
-			}
-			continue
 		case <-stopChan:
 			messaging.Unsubscribe()
 			return nil

@@ -7,6 +7,7 @@ import (
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext/handlers"
+	"github.com/damonto/telegram-sms/internal/pkg/modem"
 )
 
 type SendHandler struct {
@@ -63,9 +64,21 @@ func (h *SendHandler) handleMessage(b *gotgbot.Bot, ctx *ext.Context) error {
 	phoneNumber := h.data[ctx.EffectiveChat.Id]
 	delete(h.data, ctx.EffectiveChat.Id)
 
+	m, err := modem.GetManager().GetModem(h.modemId)
+	if err != nil {
+		return err
+	}
+	if err := m.SendSMS(phoneNumber, message); err != nil {
+		b.SendMessage(ctx.EffectiveChat.Id, fmt.Sprintf("Failed to send message to *%s*", phoneNumber), &gotgbot.SendMessageOpts{
+			ParseMode: gotgbot.ParseModeMarkdownV2,
+		})
+		return err
+	}
+
 	slog.Info("sending message", "phone_number", phoneNumber, "message", message)
 	b.SendMessage(ctx.EffectiveChat.Id, fmt.Sprintf("Your message has been sent to *%s*", phoneNumber), &gotgbot.SendMessageOpts{
 		ParseMode: gotgbot.ParseModeMarkdownV2,
 	})
+
 	return handlers.EndConversation()
 }

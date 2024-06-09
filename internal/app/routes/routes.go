@@ -13,6 +13,7 @@ func (r *Router) routes() {
 		r.registerConverstaion(handler.NewSendHandler(r.dispatcher), middleware.Use(middleware.RequiredAdmin))
 		if config.C.IsEuicc {
 			r.registerConverstaion(handler.NewDownloadHandler(r.dispatcher), middleware.Use(middleware.RequiredAdmin))
+			r.registerCommand(handler.NewProfileHandler(r.dispatcher), middleware.Use(middleware.RequiredAdmin))
 		}
 	}
 }

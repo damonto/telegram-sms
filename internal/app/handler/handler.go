@@ -48,7 +48,7 @@ func (h *withModem) Handle(b *gotgbot.Bot, ctx *ext.Context) error {
 			imei, _ := m.GetImei()
 			h.modemId = imei
 		}
-		slog.Info("Only one modem found, using it", "modemId", h.modemId)
+		slog.Info("only one modem found, using it", "modemId", h.modemId)
 		return h.next(b, ctx)
 	}
 	done := make(chan struct{}, 1)
@@ -60,7 +60,7 @@ func (h *withModem) Handle(b *gotgbot.Bot, ctx *ext.Context) error {
 }
 
 func (h *withModem) selectModem(modems map[string]*modem.Modem, done chan struct{}, b *gotgbot.Bot, ctx *ext.Context) error {
-	buttons := make([][]gotgbot.InlineKeyboardButton, len(modems))
+	buttons := make([][]gotgbot.InlineKeyboardButton, 0, len(modems))
 	for _, m := range modems {
 		imei, _ := m.GetImei()
 		model, _ := m.GetModel()
@@ -72,14 +72,6 @@ func (h *withModem) selectModem(modems map[string]*modem.Modem, done chan struct
 		})
 	}
 
-	if _, err := b.SendMessage(ctx.EffectiveChat.Id, "I found the following modems, please select one:", &gotgbot.SendMessageOpts{
-		ReplyMarkup: gotgbot.InlineKeyboardMarkup{
-			InlineKeyboard: buttons,
-		},
-	}); err != nil {
-		return err
-	}
-
 	h.dispathcer.AddHandler(handlers.NewCallback(filters.CallbackQuery(func(cq *gotgbot.CallbackQuery) bool {
 		return strings.HasPrefix(cq.Data, "modem_")
 	}), func(b *gotgbot.Bot, ctx *ext.Context) error {
@@ -87,5 +79,11 @@ func (h *withModem) selectModem(modems map[string]*modem.Modem, done chan struct
 		done <- struct{}{}
 		return nil
 	}))
-	return nil
+
+	_, err := b.SendMessage(ctx.EffectiveChat.Id, "I found the following modems, please select one:", &gotgbot.SendMessageOpts{
+		ReplyMarkup: gotgbot.InlineKeyboardMarkup{
+			InlineKeyboard: buttons,
+		},
+	})
+	return err
 }
