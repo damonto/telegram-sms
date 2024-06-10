@@ -2,7 +2,6 @@ package handler
 
 import (
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
@@ -25,39 +24,54 @@ type ConversationHandler interface {
 
 type withModem struct {
 	dispathcer *ext.Dispatcher
-	modemId    string
 	next       handlers.Response
+	notifier   map[int64]chan string
+	modems     map[int64]*modem.Modem
 }
 
 var (
 	ErrNextHandlerNotSet = fmt.Errorf("next handler not set")
 )
 
+func (h *withModem) Init() {
+	if h.notifier == nil {
+		h.notifier = make(map[int64]chan string)
+	}
+	if h.modems == nil {
+
+		h.modems = make(map[int64]*modem.Modem)
+	}
+}
+
 func (h *withModem) Handle(b *gotgbot.Bot, ctx *ext.Context) error {
 	if h.next == nil {
 		return ErrNextHandlerNotSet
 	}
+	h.Init()
 	modems := modem.GetManager().GetModems()
 	if len(modems) == 0 {
 		return modem.ErrModemNotFound
 	}
 	if len(modems) == 1 {
 		for _, m := range modems {
-			imei, _ := m.GetImei()
-			h.modemId = imei
+			h.modems[ctx.EffectiveChat.Id] = m
 		}
-		slog.Info("only one modem found, using it", "modemId", h.modemId)
 		return h.next(b, ctx)
 	}
-	done := make(chan struct{}, 1)
-	if err := h.selectModem(modems, done, b, ctx); err != nil {
+
+	h.notifier[ctx.EffectiveChat.Id] = make(chan string, 1)
+	if err := h.selectModem(modems, b, ctx); err != nil {
 		return err
 	}
-	<-done
+	modem, err := modem.GetManager().GetModem(<-h.notifier[ctx.EffectiveChat.Id])
+	if err != nil {
+		return err
+	}
+	h.modems[ctx.EffectiveChat.Id] = modem
 	return h.next(b, ctx)
 }
 
-func (h *withModem) selectModem(modems map[string]*modem.Modem, done chan struct{}, b *gotgbot.Bot, ctx *ext.Context) error {
+func (h *withModem) selectModem(modems map[string]*modem.Modem, b *gotgbot.Bot, ctx *ext.Context) error {
 	buttons := make([][]gotgbot.InlineKeyboardButton, 0, len(modems))
 	for _, m := range modems {
 		imei, _ := m.GetImei()
@@ -73,11 +87,8 @@ func (h *withModem) selectModem(modems map[string]*modem.Modem, done chan struct
 	h.dispathcer.AddHandler(handlers.NewCallback(filters.CallbackQuery(func(cq *gotgbot.CallbackQuery) bool {
 		return strings.HasPrefix(cq.Data, "modem_")
 	}), func(b *gotgbot.Bot, ctx *ext.Context) error {
-		h.modemId = strings.TrimPrefix(ctx.CallbackQuery.Data, "modem_")
-		done <- struct{}{}
-		_, err := ctx.Update.CallbackQuery.Answer(b, &gotgbot.AnswerCallbackQueryOpts{
-			Text: "OK. You've selected the modem with IMEI " + h.modemId,
-		})
+		h.notifier[ctx.EffectiveChat.Id] <- strings.TrimPrefix(ctx.CallbackQuery.Data, "modem_")
+		_, err := b.DeleteMessage(ctx.EffectiveChat.Id, ctx.EffectiveMessage.MessageId, nil)
 		return err
 	}))
 
@@ -89,12 +100,16 @@ func (h *withModem) selectModem(modems map[string]*modem.Modem, done chan struct
 	return err
 }
 
-func (h *withModem) modem() (*modem.Modem, error) {
-	return modem.GetManager().GetModem(h.modemId)
+func (h *withModem) modem(ctx *ext.Context) (*modem.Modem, error) {
+	m, ok := h.modems[ctx.EffectiveChat.Id]
+	if !ok {
+		return nil, modem.ErrModemNotFound
+	}
+	return m, nil
 }
 
-func (h *withModem) usbDevice() (string, error) {
-	m, err := h.modem()
+func (h *withModem) usbDevice(ctx *ext.Context) (string, error) {
+	m, err := h.modem(ctx)
 	if err != nil {
 		return "", err
 	}

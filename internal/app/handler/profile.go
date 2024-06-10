@@ -31,7 +31,7 @@ const (
 
 func NewProfileHandler(dispatcher *ext.Dispatcher) ConversationHandler {
 	h := &ProfileHandler{
-		data: make(map[int64]string, 1),
+		data: make(map[int64]string),
 	}
 	h.dispathcer = dispatcher
 	h.next = h.enter
@@ -55,12 +55,12 @@ func (h *ProfileHandler) Conversations() map[string]handlers.Response {
 }
 
 func (h *ProfileHandler) enter(b *gotgbot.Bot, ctx *ext.Context) error {
-	modem, err := h.modem()
+	modem, err := h.modem(ctx)
 	if err != nil {
 		return err
 	}
 	modem.Lock()
-	usbDevice, err := h.usbDevice()
+	usbDevice, err := h.usbDevice(ctx)
 	if err != nil {
 		return err
 	}
@@ -75,21 +75,6 @@ func (h *ProfileHandler) enter(b *gotgbot.Bot, ctx *ext.Context) error {
 		_, err := b.SendMessage(ctx.EffectiveChat.Id, "No profiles found", nil)
 		return err
 	}
-
-	done := make(chan struct{}, 1)
-	h.dispathcer.AddHandler(handlers.NewCallback(filters.CallbackQuery(func(cq *gotgbot.CallbackQuery) bool {
-		return strings.HasPrefix(cq.Data, "profile_")
-	}), func(b *gotgbot.Bot, ctx *ext.Context) error {
-		ICCID := strings.TrimPrefix(ctx.CallbackQuery.Data, "profile_")
-		h.data[ctx.EffectiveChat.Id] = ICCID
-		done <- struct{}{}
-		_, err := ctx.Update.CallbackQuery.Answer(b, nil)
-		if err != nil {
-			return err
-		}
-		return h.handleAskAction(b, ctx)
-	}))
-
 	message, buttons := h.toTextMessage(profiles)
 	if _, err := b.SendMessage(ctx.EffectiveChat.Id, util.EscapeText(message), &gotgbot.SendMessageOpts{
 		ParseMode: gotgbot.ParseModeMarkdownV2,
@@ -99,7 +84,24 @@ func (h *ProfileHandler) enter(b *gotgbot.Bot, ctx *ext.Context) error {
 	}); err != nil {
 		return err
 	}
-	<-done
+
+	h.dispathcer.AddHandler(handlers.NewCallback(filters.CallbackQuery(func(cq *gotgbot.CallbackQuery) bool {
+		return strings.HasPrefix(cq.Data, "profile_")
+	}), func(b *gotgbot.Bot, ctx *ext.Context) error {
+		ICCID := strings.TrimPrefix(ctx.CallbackQuery.Data, "profile_")
+		_, _, err := b.EditMessageReplyMarkup(&gotgbot.EditMessageReplyMarkupOpts{
+			ChatId:    ctx.EffectiveChat.Id,
+			MessageId: ctx.EffectiveMessage.MessageId,
+			ReplyMarkup: gotgbot.InlineKeyboardMarkup{
+				InlineKeyboard: [][]gotgbot.InlineKeyboardButton{},
+			},
+		})
+		if err != nil {
+			return err
+		}
+		h.data[ctx.EffectiveChat.Id] = ICCID
+		return h.handleAskAction(b, ctx)
+	}))
 	return handlers.NextConversationState(ProfileStateHandleAction)
 }
 
@@ -165,13 +167,13 @@ func (h *ProfileHandler) handleAction(b *gotgbot.Bot, ctx *ext.Context) error {
 }
 
 func (h *ProfileHandler) handleAskAction(b *gotgbot.Bot, ctx *ext.Context) error {
-	modem, err := h.modem()
+	modem, err := h.modem(ctx)
 	if err != nil {
 		return err
 	}
 	modem.Lock()
 	defer modem.Unlock()
-	usbDevice, err := h.usbDevice()
+	usbDevice, err := h.usbDevice(ctx)
 	if err != nil {
 		return err
 	}
@@ -216,13 +218,13 @@ func (h *ProfileHandler) handleActionDelete(b *gotgbot.Bot, ctx *ext.Context) er
 		}
 		return handlers.EndConversation()
 	}
-	modem, err := h.modem()
+	modem, err := h.modem(ctx)
 	if err != nil {
 		return err
 	}
 	modem.Lock()
 	defer modem.Unlock()
-	usbDevice, err := h.usbDevice()
+	usbDevice, err := h.usbDevice(ctx)
 	if err != nil {
 		return err
 	}
@@ -232,20 +234,20 @@ func (h *ProfileHandler) handleActionDelete(b *gotgbot.Bot, ctx *ext.Context) er
 		return err
 	}
 	delete(h.data, ctx.EffectiveChat.Id)
-	if _, err = b.SendMessage(ctx.EffectiveChat.Id, "Profile deleted.", nil); err != nil {
+	if _, err = b.SendMessage(ctx.EffectiveChat.Id, "Profile deleted. /profiles", nil); err != nil {
 		return err
 	}
 	return handlers.EndConversation()
 }
 
 func (h *ProfileHandler) handleActionEnable(b *gotgbot.Bot, ctx *ext.Context) error {
-	modem, err := h.modem()
+	modem, err := h.modem(ctx)
 	if err != nil {
 		return err
 	}
 	modem.Lock()
 	defer modem.Unlock()
-	usbDevice, err := h.usbDevice()
+	usbDevice, err := h.usbDevice(ctx)
 	if err != nil {
 		return err
 	}
@@ -258,20 +260,20 @@ func (h *ProfileHandler) handleActionEnable(b *gotgbot.Bot, ctx *ext.Context) er
 	if err := modem.Restart(); err != nil {
 		return err
 	}
-	if _, err = b.SendMessage(ctx.EffectiveChat.Id, "Profile enabled.", nil); err != nil {
+	if _, err = b.SendMessage(ctx.EffectiveChat.Id, "Profile enabled. /profiles", nil); err != nil {
 		return err
 	}
 	return handlers.EndConversation()
 }
 
 func (h *ProfileHandler) handleActionRename(b *gotgbot.Bot, ctx *ext.Context) error {
-	modem, err := h.modem()
+	modem, err := h.modem(ctx)
 	if err != nil {
 		return err
 	}
 	modem.Lock()
 	defer modem.Unlock()
-	usbDevice, err := h.usbDevice()
+	usbDevice, err := h.usbDevice(ctx)
 	if err != nil {
 		return err
 	}
@@ -281,7 +283,7 @@ func (h *ProfileHandler) handleActionRename(b *gotgbot.Bot, ctx *ext.Context) er
 		return err
 	}
 	delete(h.data, ctx.EffectiveChat.Id)
-	if _, err = b.SendMessage(ctx.EffectiveChat.Id, "Profile renamed.", nil); err != nil {
+	if _, err = b.SendMessage(ctx.EffectiveChat.Id, "Profile renamed. /profiles", nil); err != nil {
 		return err
 	}
 	return handlers.EndConversation()

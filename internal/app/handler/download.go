@@ -115,14 +115,14 @@ func (h *DownloadHandler) download(b *gotgbot.Bot, ctx *ext.Context, activationC
 	if err != nil {
 		return err
 	}
-	modem, err := h.modem()
+	modem, err := h.modem(ctx)
 	if err != nil {
 		return err
 	}
 	modem.Lock()
 	defer modem.Unlock()
 
-	usbDevice, err := h.usbDevice()
+	usbDevice, err := h.usbDevice(ctx)
 	if err != nil {
 		return err
 	}
