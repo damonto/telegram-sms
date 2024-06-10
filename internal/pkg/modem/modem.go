@@ -1,8 +1,11 @@
 package modem
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"log/slog"
+	"os"
 
 	"github.com/maltegrosse/go-modemmanager"
 )
@@ -17,6 +20,31 @@ func (m *Modem) Lock() {
 
 func (m *Modem) Unlock() {
 	m.lock.Unlock()
+}
+
+func (m *Modem) Restart() error {
+	usbDevice, err := m.GetAtPort()
+	if err != nil {
+		return err
+	}
+	f, err := os.OpenFile(usbDevice, os.O_RDWR, 0666)
+	if err != nil {
+		slog.Error("failed to open file", "error", err)
+		return err
+	}
+	defer f.Close()
+	// Only tested on Quectel
+	if _, err := f.WriteString("AT+CFUN=1,1\r\n"); err != nil {
+		return err
+	}
+	b := make([]byte, 32)
+	if _, err := f.Read(b); err != nil {
+		return err
+	}
+	if !bytes.Contains(b, []byte("OK")) {
+		return errors.New(string(b))
+	}
+	return nil
 }
 
 func (m *Modem) GetAtPort() (string, error) {

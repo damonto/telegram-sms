@@ -21,7 +21,7 @@ Subscriber:
 	}
 
 	<-m.reboot
-	slog.Info("restart sms subscriber")
+	slog.Info("got reboot signal, restarting messaging subscriber")
 	for _, stopChan := range stopChans {
 		stopChan <- struct{}{}
 	}
@@ -34,11 +34,11 @@ func (m *Manager) messagingSubscriber(modem *Modem, stopChan chan struct{}, subs
 		return err
 	}
 
+	slog.Info("subscribing to sms signals", "modem", modem.modem.GetObjectPath())
 	dbusConn, err := modem.systemBusPrivate()
 	if err != nil {
 		return err
 	}
-
 	dbusConn.BusObject().Call(
 		"org.freedesktop.DBus.AddMatch",
 		0,

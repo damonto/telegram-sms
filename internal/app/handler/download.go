@@ -10,7 +10,6 @@ import (
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext/handlers"
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
-	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 )
 
@@ -49,7 +48,7 @@ func (h *DownloadHandler) Conversations() map[string]handlers.Response {
 }
 
 func (h *DownloadHandler) enter(b *gotgbot.Bot, ctx *ext.Context) error {
-	_, err := b.SendMessage(ctx.EffectiveChat.Id, "Please send me the activation code or QR Code", nil)
+	_, err := b.SendMessage(ctx.EffectiveChat.Id, "Please send me the activation code.", nil)
 	if err != nil {
 		return err
 	}
@@ -59,7 +58,7 @@ func (h *DownloadHandler) enter(b *gotgbot.Bot, ctx *ext.Context) error {
 func (h *DownloadHandler) handleActivationCode(b *gotgbot.Bot, ctx *ext.Context) error {
 	activationCode := ctx.EffectiveMessage.Text
 	if activationCode == "" || !strings.HasPrefix(activationCode, "LPA:1$") {
-		_, err := b.SendMessage(ctx.EffectiveChat.Id, "Invalid activation code", nil)
+		_, err := b.SendMessage(ctx.EffectiveChat.Id, "Invalid activation code.", nil)
 		if err != nil {
 			return err
 		}
@@ -116,30 +115,29 @@ func (h *DownloadHandler) download(b *gotgbot.Bot, ctx *ext.Context, activationC
 	if err != nil {
 		return err
 	}
-
-	modem, err := modem.GetManager().GetModem(h.modemId)
+	modem, err := h.modem()
 	if err != nil {
 		return err
 	}
 	modem.Lock()
 	defer modem.Unlock()
 
-	usbDevice, err := modem.GetAtPort()
+	usbDevice, err := h.usbDevice()
 	if err != nil {
 		return err
 	}
 
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	err = lpac.NewCmd(timeoutCtx, usbDevice).ProfileDownload(activationCode, func(current string) error {
+	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileDownload(activationCode, func(current string) error {
 		text := "Downloading profile... \n" + current
 		_, _, err := message.EditText(b, text, nil)
 		return err
-	})
-	if err != nil {
+	}); err != nil {
 		slog.Info("failed to download profile", "error", err)
 		message.EditText(b, "Failed to download profile\n"+err.Error(), nil)
 		return err
 	}
+	_, _, err = message.EditText(b, "Congratulations! Your profile has been downloaded.", nil)
 	return err
 }

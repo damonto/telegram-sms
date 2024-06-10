@@ -37,12 +37,10 @@ func (h *withModem) Handle(b *gotgbot.Bot, ctx *ext.Context) error {
 	if h.next == nil {
 		return ErrNextHandlerNotSet
 	}
-
 	modems := modem.GetManager().GetModems()
 	if len(modems) == 0 {
 		return modem.ErrModemNotFound
 	}
-
 	if len(modems) == 1 {
 		for _, m := range modems {
 			imei, _ := m.GetImei()
@@ -77,7 +75,10 @@ func (h *withModem) selectModem(modems map[string]*modem.Modem, done chan struct
 	}), func(b *gotgbot.Bot, ctx *ext.Context) error {
 		h.modemId = strings.TrimPrefix(ctx.CallbackQuery.Data, "modem_")
 		done <- struct{}{}
-		return nil
+		_, err := ctx.Update.CallbackQuery.Answer(b, &gotgbot.AnswerCallbackQueryOpts{
+			Text: "OK. You've selected the modem with IMEI " + h.modemId,
+		})
+		return err
 	}))
 
 	_, err := b.SendMessage(ctx.EffectiveChat.Id, "I found the following modems, please select one:", &gotgbot.SendMessageOpts{
@@ -86,4 +87,16 @@ func (h *withModem) selectModem(modems map[string]*modem.Modem, done chan struct
 		},
 	})
 	return err
+}
+
+func (h *withModem) modem() (*modem.Modem, error) {
+	return modem.GetManager().GetModem(h.modemId)
+}
+
+func (h *withModem) usbDevice() (string, error) {
+	m, err := h.modem()
+	if err != nil {
+		return "", err
+	}
+	return m.GetAtPort()
 }
