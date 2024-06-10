@@ -88,18 +88,16 @@ func (h *ProfileHandler) enter(b *gotgbot.Bot, ctx *ext.Context) error {
 	h.dispathcer.AddHandler(handlers.NewCallback(filters.CallbackQuery(func(cq *gotgbot.CallbackQuery) bool {
 		return strings.HasPrefix(cq.Data, "profile_")
 	}), func(b *gotgbot.Bot, ctx *ext.Context) error {
-		ICCID := strings.TrimPrefix(ctx.CallbackQuery.Data, "profile_")
-		_, _, err := b.EditMessageReplyMarkup(&gotgbot.EditMessageReplyMarkupOpts{
+		if _, _, err := b.EditMessageReplyMarkup(&gotgbot.EditMessageReplyMarkupOpts{
 			ChatId:    ctx.EffectiveChat.Id,
 			MessageId: ctx.EffectiveMessage.MessageId,
 			ReplyMarkup: gotgbot.InlineKeyboardMarkup{
 				InlineKeyboard: [][]gotgbot.InlineKeyboardButton{},
 			},
-		})
-		if err != nil {
+		}); err != nil {
 			return err
 		}
-		h.data[ctx.EffectiveChat.Id] = ICCID
+		h.data[ctx.EffectiveChat.Id] = strings.TrimPrefix(ctx.CallbackQuery.Data, "profile_")
 		return h.handleAskAction(b, ctx)
 	}))
 	return handlers.NextConversationState(ProfileStateHandleAction)
