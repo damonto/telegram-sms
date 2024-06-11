@@ -4,14 +4,24 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/maltegrosse/go-modemmanager"
 )
 
 var (
 	ErrNoATPortFound = errors.New("no at port found")
+
+	defaultRebootCommand = "AT+CFUN=1,1"
+	rebootCommands       = map[string]string{
+		"quectel": "AT+QPOWD=1",
+		"fibocom": "AT+CPWROFF",
+		"simcom":  "AT+CPOF",
+	}
 )
 
 func (m *Modem) Lock() {
@@ -33,18 +43,32 @@ func (m *Modem) Restart() error {
 		return err
 	}
 	defer f.Close()
-	// Only tested on Quectel
-	if _, err := f.WriteString("AT+CFUN=1,1\r\n"); err != nil {
+	if _, err := f.WriteString(m.rebootCommand() + "\r\n"); err != nil {
 		return err
 	}
-	b := make([]byte, 32)
-	if _, err := f.Read(b); err != nil {
+	time.Sleep(50 * time.Millisecond)
+	b := make([]byte, 16)
+	if _, err := f.Read(b); err != nil && err != io.EOF {
 		return err
 	}
-	if !bytes.Contains(b, []byte("OK")) {
+	if bytes.Contains(b, []byte("ERR")) {
 		return errors.New(string(b))
 	}
 	return nil
+}
+
+func (m *Modem) rebootCommand() string {
+	model, err := m.GetModel()
+	if err != nil {
+		return defaultRebootCommand
+	}
+
+	for k, v := range rebootCommands {
+		if strings.Contains(strings.ToLower(model), k) {
+			return v
+		}
+	}
+	return defaultRebootCommand
 }
 
 func (m *Modem) GetAtPort() (string, error) {
