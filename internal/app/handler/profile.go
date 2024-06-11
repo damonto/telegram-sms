@@ -211,7 +211,7 @@ What do you want to do with this profile?
 
 func (h *ProfileHandler) handleActionDelete(b *gotgbot.Bot, ctx *ext.Context) error {
 	if ctx.EffectiveMessage.Text != "Yes" {
-		if _, err := b.SendMessage(ctx.EffectiveChat.Id, "Profile not deleted.", nil); err != nil {
+		if _, err := b.SendMessage(ctx.EffectiveChat.Id, "Canceled! Your profile won't be deleted.", nil); err != nil {
 			return err
 		}
 		return handlers.EndConversation()
@@ -232,7 +232,7 @@ func (h *ProfileHandler) handleActionDelete(b *gotgbot.Bot, ctx *ext.Context) er
 		return err
 	}
 	delete(h.data, ctx.EffectiveChat.Id)
-	if _, err = b.SendMessage(ctx.EffectiveChat.Id, "Profile deleted. /profiles", nil); err != nil {
+	if _, err = b.SendMessage(ctx.EffectiveChat.Id, "Your profile has been deleted. /profiles", nil); err != nil {
 		return err
 	}
 	return handlers.EndConversation()
@@ -258,7 +258,7 @@ func (h *ProfileHandler) handleActionEnable(b *gotgbot.Bot, ctx *ext.Context) er
 	if err := modem.Restart(); err != nil {
 		return err
 	}
-	if _, err = b.SendMessage(ctx.EffectiveChat.Id, "Profile enabled. /profiles", nil); err != nil {
+	if _, err = b.SendMessage(ctx.EffectiveChat.Id, "Your profile has been enabled. Please wait a moment for it to take effect. /profiles", nil); err != nil {
 		return err
 	}
 	return handlers.EndConversation()
@@ -281,7 +281,9 @@ func (h *ProfileHandler) handleActionRename(b *gotgbot.Bot, ctx *ext.Context) er
 		return err
 	}
 	delete(h.data, ctx.EffectiveChat.Id)
-	if _, err = b.SendMessage(ctx.EffectiveChat.Id, "Profile renamed. /profiles", nil); err != nil {
+	if _, err = b.SendMessage(ctx.EffectiveChat.Id, util.EscapeText(fmt.Sprintf("Your profile has been renamed to *%s* . /profiles", ctx.EffectiveMessage.Text)), &gotgbot.SendMessageOpts{
+		ParseMode: gotgbot.ParseModeMarkdownV2,
+	}); err != nil {
 		return err
 	}
 	return handlers.EndConversation()
