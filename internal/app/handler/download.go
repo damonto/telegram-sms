@@ -99,7 +99,6 @@ func (h *DownloadHandler) handleConfirmationCode(b *gotgbot.Bot, ctx *ext.Contex
 	activationCode := h.data[ctx.EffectiveMessage.Chat.Id]
 	delete(h.data, ctx.EffectiveMessage.Chat.Id)
 	activationCode.ConfirmationCode = confirmationCode
-
 	if err := h.download(b, ctx, activationCode); err != nil {
 		handlers.EndConversation()
 		return err
@@ -108,7 +107,7 @@ func (h *DownloadHandler) handleConfirmationCode(b *gotgbot.Bot, ctx *ext.Contex
 }
 
 func (h *DownloadHandler) download(b *gotgbot.Bot, ctx *ext.Context, activationCode lpac.ActivationCode) error {
-	text := "Downloading profile..."
+	text := "Downloading..."
 	message, err := b.SendMessage(ctx.EffectiveChat.Id, util.EscapeText(text), &gotgbot.SendMessageOpts{
 		ParseMode: gotgbot.ParseModeMarkdownV2,
 	})
@@ -130,7 +129,7 @@ func (h *DownloadHandler) download(b *gotgbot.Bot, ctx *ext.Context, activationC
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileDownload(activationCode, func(current string) error {
-		text := "Downloading profile... \n" + current
+		text := "Downloading... \n" + current
 		_, _, err := message.EditText(b, text, nil)
 		return err
 	}); err != nil {
@@ -138,6 +137,6 @@ func (h *DownloadHandler) download(b *gotgbot.Bot, ctx *ext.Context, activationC
 		message.EditText(b, "Failed to download profile\n"+err.Error(), nil)
 		return err
 	}
-	_, _, err = message.EditText(b, "Congratulations! Your profile has been downloaded.", nil)
+	_, _, err = message.EditText(b, "Congratulations! Your profile has been downloaded. /profiles", nil)
 	return err
 }
