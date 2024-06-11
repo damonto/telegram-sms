@@ -60,6 +60,7 @@ func (h *ProfileHandler) enter(b *gotgbot.Bot, ctx *ext.Context) error {
 		return err
 	}
 	modem.Lock()
+	defer modem.Unlock()
 	usbDevice, err := h.usbDevice(ctx)
 	if err != nil {
 		return err
@@ -67,7 +68,6 @@ func (h *ProfileHandler) enter(b *gotgbot.Bot, ctx *ext.Context) error {
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	profiles, err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileList()
-	modem.Unlock()
 	if err != nil {
 		return err
 	}
