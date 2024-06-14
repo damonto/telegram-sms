@@ -71,7 +71,12 @@ func (m *Modem) RunATCommand(command string) (string, error) {
 		return "", err
 	}
 
-	t, err := term.Open(usbDevice, term.Speed(115200), term.RawMode)
+	// Seriously, this is a hack.
+	// I don't know what happened, but If I run the AT command at the first port, it may cause the "lpac profile list" command to hang.
+	// So I just increase the port number by 1 and it works.
+	// Maybe it's a bug of Quectel EC20 modem.
+	usbDevice = usbDevice[:len(usbDevice)-1] + fmt.Sprint(int(usbDevice[len(usbDevice)-1]-'0')+1)
+	t, err := term.Open(usbDevice, term.Speed(9600), term.RawMode)
 	if err != nil {
 		return "", err
 	}

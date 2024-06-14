@@ -68,7 +68,6 @@ func (h *ProfileHandler) enter(b *gotgbot.Bot, ctx *ext.Context) error {
 	}
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	fmt.Println(usbDevice)
 	profiles, err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileList()
 	if err != nil {
 		return err
