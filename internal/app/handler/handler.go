@@ -35,7 +35,7 @@ var (
 	ErrNoEuiccModemFound = fmt.Errorf("no eUICC modem found")
 )
 
-func (h *modemHandler) Init() {
+func (h *modemHandler) init() {
 	if h.notifier == nil {
 		h.notifier = make(map[int64]chan string)
 	}
@@ -48,7 +48,7 @@ func (h *modemHandler) Handle(b *gotgbot.Bot, ctx *ext.Context) error {
 	if h.next == nil {
 		return ErrNextHandlerNotSet
 	}
-	h.Init()
+	h.init()
 
 	modems := modem.GetManager().GetModems()
 	if len(modems) == 0 {
