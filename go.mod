@@ -7,4 +7,9 @@ require (
 	github.com/maltegrosse/go-modemmanager v0.1.3
 )
 
-require github.com/godbus/dbus/v5 v5.1.0
+require (
+	github.com/godbus/dbus/v5 v5.1.0
+	github.com/pkg/term v1.1.0
+)
+
+require golang.org/x/sys v0.21.0 // indirect

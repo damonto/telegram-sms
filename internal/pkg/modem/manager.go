@@ -14,8 +14,9 @@ var (
 )
 
 type Modem struct {
-	lock  sync.Mutex
-	modem modemmanager.Modem
+	lock    sync.Mutex
+	IsEuicc bool
+	modem   modemmanager.Modem
 }
 
 type Manager struct {
@@ -88,9 +89,11 @@ func (m *Manager) watchModems() error {
 		}
 		slog.Info("new modem added", "modemId", modemId, "objectPath", mm.GetObjectPath())
 		modemAdded = true
-		m.modems[modemId] = &Modem{
+		nm := &Modem{
 			modem: mm,
 		}
+		nm.IsEuicc = nm.isEuicc()
+		m.modems[modemId] = nm
 	}
 	// If the modem is not in the list, add it, and send a signal to reboot the subscriber
 	if modemAdded {

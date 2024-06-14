@@ -26,7 +26,6 @@ func init() {
 
 	flag.StringVar(&config.C.BotToken, "bot-token", "", "telegram bot token")
 	flag.Int64Var(&config.C.AdminId, "admin-id", 0, "telegram admin id")
-	flag.BoolVar(&config.C.IsEuicc, "euicc", false, "enable eUICC features")
 	flag.StringVar(&config.C.Version, "version", "v2.0.1", "the version of lpac to download")
 	flag.StringVar(&config.C.Dir, "dir", dir, "the directory to store lpac")
 	flag.BoolVar(&config.C.DontDownload, "dont-download", false, "don't download lpac binary")
@@ -51,7 +50,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if !config.C.DontDownload && config.C.IsEuicc {
+	if !config.C.DontDownload {
 		lpac.Download(config.C.Dir, config.C.Version)
 	}
 

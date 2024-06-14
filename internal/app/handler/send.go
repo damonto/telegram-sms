@@ -10,7 +10,7 @@ import (
 )
 
 type SendHandler struct {
-	withModem
+	modemHandler
 	data map[int64]string
 }
 

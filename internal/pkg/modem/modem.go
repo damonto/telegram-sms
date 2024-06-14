@@ -1,16 +1,18 @@
 package modem
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
-	"os"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/maltegrosse/go-modemmanager"
+	"github.com/pkg/term"
 )
 
 var (
@@ -32,29 +34,66 @@ func (m *Modem) Unlock() {
 	m.lock.Unlock()
 }
 
+func (m *Modem) isEuicc() bool {
+	m.Lock()
+	defer m.Unlock()
+
+	m.RunATCommand("AT+CCHC=1")
+	m.RunATCommand("AT+CCHC=2")
+	m.RunATCommand("AT+CCHC=3")
+
+	response, err := m.RunATCommand("AT+CCHO=\"A0000005591010FFFFFFFF8900000100\"")
+	if err != nil || !strings.Contains(response, "+CCHO") {
+		slog.Error("failed to open ISD-R channel", "error", err, "response", response)
+		return false
+	}
+	channelId := regexp.MustCompile(`\d+`).FindString(response)
+	if _, err = m.RunATCommand(fmt.Sprintf("AT+CCHC=%s", channelId)); err != nil {
+		slog.Error("failed to close ISD-R channel", "error", err)
+		return false
+	}
+	return true
+}
+
 func (m *Modem) Restart() error {
+	m.Lock()
+	defer m.Unlock()
+	response, err := m.RunATCommand(m.rebootCommand())
+	if !strings.Contains(response, "OK") {
+		return errors.New("failed to reboot modem" + response)
+	}
+	return err
+}
+
+func (m *Modem) RunATCommand(command string) (string, error) {
 	usbDevice, err := m.GetAtPort()
 	if err != nil {
-		return err
+		return "", err
 	}
-	f, err := os.OpenFile(usbDevice, os.O_RDWR, 0666)
+
+	t, err := term.Open(usbDevice, term.Speed(115200), term.RawMode)
 	if err != nil {
-		slog.Error("failed to open file", "error", err)
-		return err
+		return "", err
 	}
-	defer f.Close()
-	if _, err := f.WriteString(m.rebootCommand() + "\r\n"); err != nil {
-		return err
+	t.SetReadTimeout(200 * time.Millisecond)
+	defer t.Close()
+
+	var data bytes.Buffer
+	buf := bufio.NewWriter(&data)
+	slog.Debug("running AT command", "command", command)
+	if _, err := t.Write([]byte(command + "\r\n")); err != nil {
+		return "", err
 	}
-	time.Sleep(50 * time.Millisecond)
-	b := make([]byte, 16)
-	if _, err := f.Read(b); err != nil && err != io.EOF {
-		return err
+	if _, err = io.Copy(buf, t); err != nil {
+		return "", err
 	}
-	if bytes.Contains(b, []byte("ERR")) {
-		return errors.New(string(b))
-	}
-	return nil
+	buf.Flush()
+	t.Flush()
+	t.Close()
+
+	response := strings.Replace(data.String(), command, "", 1)
+	slog.Debug("AT command response", "command", command, "response", response)
+	return response, nil
 }
 
 func (m *Modem) rebootCommand() string {

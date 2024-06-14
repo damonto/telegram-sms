@@ -22,36 +22,52 @@ type ConversationHandler interface {
 	Conversations() map[string]handlers.Response
 }
 
-type withModem struct {
-	dispathcer *ext.Dispatcher
-	next       handlers.Response
-	notifier   map[int64]chan string
-	modems     map[int64]*modem.Modem
+type modemHandler struct {
+	dispathcer    *ext.Dispatcher
+	next          handlers.Response
+	requiredEuicc bool
+	notifier      map[int64]chan string
+	modems        map[int64]*modem.Modem
 }
 
 var (
 	ErrNextHandlerNotSet = fmt.Errorf("next handler not set")
+	ErrNoEuiccModemFound = fmt.Errorf("no eUICC modem found")
 )
 
-func (h *withModem) Init() {
+func (h *modemHandler) Init() {
 	if h.notifier == nil {
 		h.notifier = make(map[int64]chan string)
 	}
 	if h.modems == nil {
-
 		h.modems = make(map[int64]*modem.Modem)
 	}
 }
 
-func (h *withModem) Handle(b *gotgbot.Bot, ctx *ext.Context) error {
+func (h *modemHandler) Handle(b *gotgbot.Bot, ctx *ext.Context) error {
 	if h.next == nil {
 		return ErrNextHandlerNotSet
 	}
 	h.Init()
+
 	modems := modem.GetManager().GetModems()
 	if len(modems) == 0 {
 		return modem.ErrModemNotFound
 	}
+
+	if h.requiredEuicc {
+		for k, m := range modems {
+			if !m.IsEuicc {
+				delete(modems, k)
+			}
+		}
+
+		if len(modems) == 0 {
+			b.SendMessage(ctx.EffectiveChat.Id, "No eUICC modems found", nil)
+			return ErrNoEuiccModemFound
+		}
+	}
+
 	if len(modems) == 1 {
 		for _, m := range modems {
 			h.modems[ctx.EffectiveChat.Id] = m
@@ -71,7 +87,7 @@ func (h *withModem) Handle(b *gotgbot.Bot, ctx *ext.Context) error {
 	return h.next(b, ctx)
 }
 
-func (h *withModem) selectModem(modems map[string]*modem.Modem, b *gotgbot.Bot, ctx *ext.Context) error {
+func (h *modemHandler) selectModem(modems map[string]*modem.Modem, b *gotgbot.Bot, ctx *ext.Context) error {
 	buttons := make([][]gotgbot.InlineKeyboardButton, 0, len(modems))
 	for _, m := range modems {
 		imei, _ := m.GetImei()
@@ -100,7 +116,7 @@ func (h *withModem) selectModem(modems map[string]*modem.Modem, b *gotgbot.Bot, 
 	return err
 }
 
-func (h *withModem) modem(ctx *ext.Context) (*modem.Modem, error) {
+func (h *modemHandler) modem(ctx *ext.Context) (*modem.Modem, error) {
 	m, ok := h.modems[ctx.EffectiveChat.Id]
 	if !ok {
 		return nil, modem.ErrModemNotFound
@@ -108,7 +124,7 @@ func (h *withModem) modem(ctx *ext.Context) (*modem.Modem, error) {
 	return m, nil
 }
 
-func (h *withModem) usbDevice(ctx *ext.Context) (string, error) {
+func (h *modemHandler) usbDevice(ctx *ext.Context) (string, error) {
 	m, err := h.modem(ctx)
 	if err != nil {
 		return "", err

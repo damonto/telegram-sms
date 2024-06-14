@@ -5,7 +5,6 @@ import "errors"
 type Config struct {
 	BotToken     string
 	AdminId      int64
-	IsEuicc      bool
 	Dir          string
 	Version      string
 	DontDownload bool

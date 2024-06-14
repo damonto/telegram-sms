@@ -14,7 +14,7 @@ import (
 )
 
 type DownloadHandler struct {
-	withModem
+	modemHandler
 	data map[int64]lpac.ActivationCode
 }
 
@@ -27,6 +27,7 @@ func NewDownloadHandler(dispatcher *ext.Dispatcher) ConversationHandler {
 	h := &DownloadHandler{
 		data: make(map[int64]lpac.ActivationCode, 1),
 	}
+	h.requiredEuicc = true
 	h.dispathcer = dispatcher
 	h.next = h.enter
 	return h
