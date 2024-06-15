@@ -12,5 +12,6 @@ func (r *Router) routes() {
 		r.registerConverstaion(handler.NewSendHandler(r.dispatcher), middleware.Use(middleware.RequiredAdmin))
 		r.registerConverstaion(handler.NewDownloadHandler(r.dispatcher), middleware.Use(middleware.RequiredAdmin))
 		r.registerConverstaion(handler.NewProfileHandler(r.dispatcher), middleware.Use(middleware.RequiredAdmin))
+		r.registerCommand(handler.NewChipHandler(r.dispatcher), middleware.Use(middleware.RequiredAdmin))
 	}
 }

@@ -14,7 +14,7 @@ import (
 
 type ModemHandler struct{}
 
-func NewModemHandler() Handler {
+func NewModemHandler() CommandHandler {
 	return &ModemHandler{}
 }
 

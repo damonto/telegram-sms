@@ -11,14 +11,14 @@ import (
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
 )
 
-type Handler interface {
+type CommandHandler interface {
 	Command() string
 	Description() string
 	Handle(bot *gotgbot.Bot, ctx *ext.Context) error
 }
 
 type ConversationHandler interface {
-	Handler
+	CommandHandler
 	Conversations() map[string]handlers.Response
 }
 

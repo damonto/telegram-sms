@@ -10,7 +10,7 @@ import (
 
 type StartHandler struct{}
 
-func NewStartHandler() Handler {
+func NewStartHandler() CommandHandler {
 	return &StartHandler{}
 }
 

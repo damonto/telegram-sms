@@ -24,7 +24,7 @@ func NewRouter(bot *gotgbot.Bot, dispatcher *ext.Dispatcher) *Router {
 	}
 }
 
-func (r *Router) addCommand(handler handler.Handler) {
+func (r *Router) addCommand(handler handler.CommandHandler) {
 	r.commands[handler.Command()] = handler.Description()
 }
 
@@ -62,12 +62,12 @@ func (r *Router) registerConverstaion(handler handler.ConversationHandler, middl
 	))
 }
 
-func (r *Router) registerCommand(handler handler.Handler, middleware *middleware.Middleware) {
+func (r *Router) registerCommand(handler handler.CommandHandler, middleware *middleware.Middleware) {
 	r.addCommand(handler)
 	r.dispatcher.AddHandler(handlers.NewCommand(handler.Command(), r.handler(handler, middleware)))
 }
 
-func (r *Router) handler(handler handler.Handler, middleware *middleware.Middleware) handlers.Response {
+func (r *Router) handler(handler handler.CommandHandler, middleware *middleware.Middleware) handlers.Response {
 	if middleware != nil {
 		return middleware.Next(handler.Handle).Handle
 	}
