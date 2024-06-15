@@ -78,8 +78,8 @@ func (m *Modem) RunATCommand(command string) (string, error) {
 	t := unix.Termios{
 		Iflag:  unix.IGNPAR,
 		Cflag:  unix.CREAD | unix.CLOCAL | unix.CS8 | unix.B9600,
-		Ispeed: 9600,
-		Ospeed: 9600,
+		Ispeed: unix.B9600,
+		Ospeed: unix.B9600,
 	}
 	t.Cc[unix.VMIN] = 0
 	t.Cc[unix.VTIME] = 10 // 1 second
