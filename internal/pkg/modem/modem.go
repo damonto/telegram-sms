@@ -53,10 +53,7 @@ func (m *Modem) isEuicc() bool {
 }
 
 func (m *Modem) Restart() error {
-	response, err := m.RunATCommand(m.rebootCommand())
-	if !strings.Contains(response, "OK") {
-		return errors.New("failed to reboot modem" + response)
-	}
+	_, err := m.RunATCommand(m.rebootCommand())
 	return err
 }
 
@@ -102,16 +99,16 @@ func (m *Modem) RunATCommand(command string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		response += line
-		if strings.Contains(line, "OK") || strings.Contains(line, "ERR") {
+		if strings.Contains(line, "OK") {
 			break
 		}
+		if strings.Contains(line, "ERR") {
+			return "", errors.New("failed to execute AT command: " + line)
+		}
+		response += line
 	}
 	response = strings.Replace(strings.TrimSpace(response), command, "", 1)
 	slog.Info("AT command executed", "command", command, "response", response)
-	if strings.Contains(response, "ERR") {
-		return "", errors.New("failed to execute AT command: " + response)
-	}
 	return response, nil
 }
 
