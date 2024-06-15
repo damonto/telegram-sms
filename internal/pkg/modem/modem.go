@@ -2,17 +2,16 @@ package modem
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
+	"os"
 	"regexp"
 	"strings"
-	"time"
+	"unsafe"
 
 	"github.com/maltegrosse/go-modemmanager"
-	"github.com/pkg/term"
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -35,9 +34,6 @@ func (m *Modem) Unlock() {
 }
 
 func (m *Modem) isEuicc() bool {
-	m.Lock()
-	defer m.Unlock()
-
 	m.RunATCommand("AT+CCHC=1")
 	m.RunATCommand("AT+CCHC=2")
 	m.RunATCommand("AT+CCHC=3")
@@ -47,6 +43,7 @@ func (m *Modem) isEuicc() bool {
 		slog.Error("failed to open ISD-R channel", "error", err, "response", response)
 		return false
 	}
+
 	channelId := regexp.MustCompile(`\d+`).FindString(response)
 	if _, err = m.RunATCommand(fmt.Sprintf("AT+CCHC=%s", channelId)); err != nil {
 		slog.Error("failed to close ISD-R channel", "error", err)
@@ -56,8 +53,6 @@ func (m *Modem) isEuicc() bool {
 }
 
 func (m *Modem) Restart() error {
-	m.Lock()
-	defer m.Unlock()
 	response, err := m.RunATCommand(m.rebootCommand())
 	if !strings.Contains(response, "OK") {
 		return errors.New("failed to reboot modem" + response)
@@ -66,38 +61,57 @@ func (m *Modem) Restart() error {
 }
 
 func (m *Modem) RunATCommand(command string) (string, error) {
+	m.Lock()
+	defer m.Unlock()
+
 	usbDevice, err := m.GetAtPort()
 	if err != nil {
 		return "", err
 	}
 
-	// Seriously, this is a hack.
-	// I don't know what happened, but If I run the AT command at the first port, it may cause the "lpac profile list" command to hang.
-	// So I just increase the port number by 1 and it works.
-	// Maybe it's a bug of Quectel EC20 modem.
-	usbDevice = usbDevice[:len(usbDevice)-1] + fmt.Sprint(int(usbDevice[len(usbDevice)-1]-'0')+1)
-	t, err := term.Open(usbDevice, term.Speed(9600), term.RawMode)
+	port, err := os.OpenFile(usbDevice, os.O_RDWR|unix.O_NOCTTY|unix.O_NONBLOCK, 0666)
 	if err != nil {
 		return "", err
 	}
-	t.SetReadTimeout(200 * time.Millisecond)
-	defer t.Close()
+	defer port.Close()
 
-	var data bytes.Buffer
-	buf := bufio.NewWriter(&data)
-	slog.Debug("running AT command", "command", command)
-	if _, err := t.Write([]byte(command + "\r\n")); err != nil {
+	t := unix.Termios{
+		Iflag:  unix.IGNPAR,
+		Cflag:  unix.CREAD | unix.CLOCAL | unix.CS8 | unix.B9600 | unix.CSTOPB,
+		Ispeed: 9600,
+		Ospeed: 9600,
+	}
+	t.Cc[unix.VMIN] = 0
+	t.Cc[unix.VTIME] = 10 // 1 second
+	if _, _, errno := unix.Syscall6(unix.SYS_IOCTL, uintptr(port.Fd()), unix.TCSETS, uintptr(unsafe.Pointer(&t)), 0, 0, 0); errno != 0 {
+		return "", errors.New("failed to set termios: " + errno.Error())
+	}
+
+	if err := unix.SetNonblock(int(port.Fd()), false); err != nil {
+		return "", errors.New("failed to set nonblock: " + err.Error())
+	}
+
+	if _, err := port.WriteString(command + "\r\n"); err != nil {
 		return "", err
 	}
-	if _, err = io.Copy(buf, t); err != nil {
-		return "", err
-	}
-	buf.Flush()
-	t.Flush()
-	t.Close()
 
-	response := strings.Replace(data.String(), command, "", 1)
-	slog.Debug("AT command response", "command", command, "response", response)
+	reader := bufio.NewReader(port)
+	var response string
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return "", err
+		}
+		response += line
+		if strings.Contains(line, "OK") || strings.Contains(line, "ERR") {
+			break
+		}
+	}
+	response = strings.Replace(strings.TrimSpace(response), command, "", 1)
+	slog.Info("AT command executed", "command", command, "response", response)
+	if strings.Contains(response, "ERR") {
+		return "", errors.New("failed to execute AT command: " + response)
+	}
 	return response, nil
 }
 
