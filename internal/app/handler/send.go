@@ -24,7 +24,7 @@ func NewSendHandler(dispatcher *ext.Dispatcher) ConversationHandler {
 		data: make(map[int64]string, 1),
 	}
 	h.dispathcer = dispatcher
-	h.next = h.enter
+	h.next = h.nextHandle
 	return h
 }
 
@@ -43,15 +43,15 @@ func (h *SendHandler) Conversations() map[string]handlers.Response {
 	}
 }
 
-func (h *SendHandler) enter(b *gotgbot.Bot, ctx *ext.Context) error {
-	if _, err := b.SendMessage(ctx.EffectiveChat.Id, "Please enter the phone number you want to send the message to", nil); err != nil {
+func (h *SendHandler) nextHandle(b *gotgbot.Bot, ctx *ext.Context) error {
+	if _, err := b.SendMessage(ctx.EffectiveChat.Id, "Please nextHandle the phone number you want to send the message to", nil); err != nil {
 		return err
 	}
 	return handlers.NextConversationState(SendSmsStatePhoneNumber)
 }
 
 func (h *SendHandler) handlePhoneNumber(b *gotgbot.Bot, ctx *ext.Context) error {
-	if _, err := b.SendMessage(ctx.EffectiveChat.Id, "Please enter the message you want to send", nil); err != nil {
+	if _, err := b.SendMessage(ctx.EffectiveChat.Id, "Please nextHandle the message you want to send", nil); err != nil {
 		return err
 	}
 	h.data[ctx.EffectiveChat.Id] = ctx.EffectiveMessage.Text

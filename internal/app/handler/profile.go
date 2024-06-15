@@ -35,7 +35,7 @@ func NewProfileHandler(dispatcher *ext.Dispatcher) ConversationHandler {
 	}
 	h.requiredEuicc = true
 	h.dispathcer = dispatcher
-	h.next = h.enter
+	h.next = h.nextHandle
 	return h
 }
 
@@ -55,7 +55,7 @@ func (h *ProfileHandler) Conversations() map[string]handlers.Response {
 	}
 }
 
-func (h *ProfileHandler) enter(b *gotgbot.Bot, ctx *ext.Context) error {
+func (h *ProfileHandler) nextHandle(b *gotgbot.Bot, ctx *ext.Context) error {
 	modem, err := h.modem(ctx)
 	if err != nil {
 		return err
@@ -106,9 +106,8 @@ func (h *ProfileHandler) enter(b *gotgbot.Bot, ctx *ext.Context) error {
 
 func (h *ProfileHandler) toTextMessage(profiles []lpac.Profile) (string, [][]gotgbot.InlineKeyboardButton) {
 	template := `
-Name: %s
-ICCID: %s
-State: *%s*
+%s *%s*
+%s
 	`
 	var message string
 	buttons := make([][]gotgbot.InlineKeyboardButton, 0, len(profiles))
@@ -119,10 +118,16 @@ State: *%s*
 		} else {
 			name += p.ProfileName
 		}
-		message += fmt.Sprintf(template, name, p.ICCID, p.State)
+		var emoji string
+		if p.State == lpac.ProfileStateEnabled {
+			emoji = "✅"
+		} else {
+			emoji = "🅾️"
+		}
+		message += fmt.Sprintf(template, emoji, name, p.ICCID)
 		buttons = append(buttons, []gotgbot.InlineKeyboardButton{
 			{
-				Text:         fmt.Sprintf("%s (%s)", name, p.ICCID),
+				Text:         fmt.Sprintf("%s (%s)", name, p.ICCID[15:]),
 				CallbackData: "profile_" + p.ICCID,
 			},
 		})

@@ -29,7 +29,7 @@ func NewDownloadHandler(dispatcher *ext.Dispatcher) ConversationHandler {
 	}
 	h.requiredEuicc = true
 	h.dispathcer = dispatcher
-	h.next = h.enter
+	h.next = h.nextHandle
 	return h
 }
 
@@ -48,7 +48,7 @@ func (h *DownloadHandler) Conversations() map[string]handlers.Response {
 	}
 }
 
-func (h *DownloadHandler) enter(b *gotgbot.Bot, ctx *ext.Context) error {
+func (h *DownloadHandler) nextHandle(b *gotgbot.Bot, ctx *ext.Context) error {
 	_, err := b.SendMessage(ctx.EffectiveChat.Id, "Please send me the activation code.", nil)
 	if err != nil {
 		return err
@@ -108,7 +108,7 @@ func (h *DownloadHandler) handleConfirmationCode(b *gotgbot.Bot, ctx *ext.Contex
 }
 
 func (h *DownloadHandler) download(b *gotgbot.Bot, ctx *ext.Context, activationCode lpac.ActivationCode) error {
-	text := "Downloading..."
+	text := "⏳Downloading..."
 	message, err := b.SendMessage(ctx.EffectiveChat.Id, util.EscapeText(text), &gotgbot.SendMessageOpts{
 		ParseMode: gotgbot.ParseModeMarkdownV2,
 	})
@@ -130,7 +130,7 @@ func (h *DownloadHandler) download(b *gotgbot.Bot, ctx *ext.Context, activationC
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileDownload(activationCode, func(current string) error {
-		text := "Downloading... \n" + current
+		text := "⏳Downloading... \n" + current
 		_, _, err := message.EditText(b, text, nil)
 		return err
 	}); err != nil {

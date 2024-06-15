@@ -88,7 +88,7 @@ func subscribe(bot *gotgbot.Bot, modem *modem.Modem, sms modemmanager.Sms) {
 	imei, _ := modem.GetImei()
 	model, _ := modem.GetModel()
 	device := fmt.Sprintf("%s (%s)", model, imei)
-	slog.Info("SMS received", "device", device, "operatorName", operatorName, "sender", sender, "text", text)
+	slog.Info("new SMS received", "device", device, "operatorName", operatorName, "sender", sender, "text", text)
 
 	template := `
 %s
