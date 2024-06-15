@@ -60,7 +60,7 @@ Free Space: %d KiB
 Sign Keys:
 %s
 `
-	country, manufacturer, productName := util.FindeUICCManifest(chip.EID)
+	country, manufacturer, productName := util.FindEum(chip.EID)
 	var manufacturerReplacement string
 	if country != "" {
 		manufacturerReplacement += string(0x1F1E6+rune(country[0])-'A') + string(0x1F1E6+rune(country[1])-'A')
