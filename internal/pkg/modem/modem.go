@@ -77,7 +77,7 @@ func (m *Modem) RunATCommand(command string) (string, error) {
 
 	t := unix.Termios{
 		Iflag:  unix.IGNPAR,
-		Cflag:  unix.CREAD | unix.CLOCAL | unix.CS8 | unix.B9600 | unix.CSTOPB,
+		Cflag:  unix.CREAD | unix.CLOCAL | unix.CS8 | unix.B9600,
 		Ispeed: 9600,
 		Ospeed: 9600,
 	}
