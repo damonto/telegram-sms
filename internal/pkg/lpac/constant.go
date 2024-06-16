@@ -13,7 +13,7 @@ const (
 	CommandAPDUFuncTransmit        Command = "transmit"
 )
 
-var HumanReadableSteps = map[string]string{
+var HumanReadableFlow = map[string]string{
 	"es9p_initiate_authentication":         "Initiating authentication",
 	"es9p_authenticate_client":             "Authenticating client",
 	"es9p_handle_notification":             "Handling notification",

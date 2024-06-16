@@ -98,7 +98,7 @@ func (c *Cmd) handleProgress(payload json.RawMessage, progress Progress) error {
 	if err := json.Unmarshal(payload, &progressPayload); err != nil {
 		return err
 	}
-	if step, ok := HumanReadableSteps[progressPayload.Message]; ok {
+	if step, ok := HumanReadableFlow[progressPayload.Message]; ok {
 		return progress(step)
 	}
 	return progress(progressPayload.Message)

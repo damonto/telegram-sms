@@ -22,7 +22,7 @@ func HandleSendCommand(c telebot.Context) error {
 	h := &SendHandler{}
 	h.setModem(c)
 	h.conversation = conversation.New(c)
-	h.conversation.Steps(map[string]telebot.HandlerFunc{
+	h.conversation.Flow(map[string]telebot.HandlerFunc{
 		SendAskPhoneNumber: h.handlePhoneNumber,
 		SendAskMessage:     h.handleMessage,
 	})

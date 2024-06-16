@@ -32,7 +32,7 @@ func HandleProfilesCommand(c telebot.Context) error {
 	h := &ProfileHandler{}
 	h.setModem(c)
 	h.conversation = conversation.New(c)
-	h.conversation.Steps(map[string]telebot.HandlerFunc{
+	h.conversation.Flow(map[string]telebot.HandlerFunc{
 		ProfileStateHandleAction: h.handleAction,
 		ProfileStateActionRename: h.handleActionRename,
 		ProfileStateActionDelete: h.handleActionDelete,

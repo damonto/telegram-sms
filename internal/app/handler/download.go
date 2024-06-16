@@ -27,7 +27,7 @@ func HandleDownloadCommand(c telebot.Context) error {
 	h := &DownloadHandler{}
 	h.setModem(c)
 	h.conversation = conversation.New(c)
-	h.conversation.Steps(map[string]telebot.HandlerFunc{
+	h.conversation.Flow(map[string]telebot.HandlerFunc{
 		DownloadAskActivationCode:   h.handleActivationCode,
 		DownloadAskConfirmationCode: h.handleConfirmationCode,
 	})

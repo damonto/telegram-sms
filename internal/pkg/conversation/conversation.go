@@ -8,7 +8,7 @@ import (
 )
 
 type Conversation interface {
-	Steps(steps map[string]telebot.HandlerFunc)
+	Flow(steps map[string]telebot.HandlerFunc)
 	Next(next string)
 	Done()
 }
@@ -58,7 +58,7 @@ func New(ctx telebot.Context) Conversation {
 	return conversation
 }
 
-func (c *conversation) Steps(steps map[string]telebot.HandlerFunc) {
+func (c *conversation) Flow(steps map[string]telebot.HandlerFunc) {
 	c.steps = steps
 }
 
