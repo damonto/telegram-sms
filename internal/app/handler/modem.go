@@ -4,33 +4,17 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
-	"github.com/PaulSonOfLars/gotgbot/v2"
-	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
-	"github.com/damonto/telegram-sms/internal/pkg/util"
+	"gopkg.in/telebot.v3"
 )
 
-type ModemHandler struct{}
-
-func NewModemHandler() CommandHandler {
-	return &ModemHandler{}
-}
-
-func (h *ModemHandler) Command() string {
-	return "modems"
-}
-
-func (h *ModemHandler) Description() string {
-	return "List all modems"
-}
-
-func (h *ModemHandler) Handle(b *gotgbot.Bot, ctx *ext.Context) error {
+func HandleModemsCommand(c telebot.Context) error {
 	modems := modem.GetManager().GetModems()
 	if len(modems) == 0 {
-		_, err := b.SendMessage(ctx.EffectiveChat.Id, "No modems found", nil)
-		return err
+		return c.Send("No modems found")
 	}
 
 	template := `
@@ -43,6 +27,7 @@ Network: %s
 ICCID: %s
 EID: %s
 `
+	var message string
 	for _, m := range modems {
 		manufacturer, _ := m.GetManufacturer()
 		model, _ := m.GetModel()
@@ -52,7 +37,7 @@ EID: %s
 		network, _ := m.GetOperatorName()
 		ICCID, _ := m.GetICCID()
 
-		var eid string
+		var EID string
 		if m.IsEuicc {
 			usbDevice, err := m.GetAtPort()
 			if err != nil {
@@ -62,19 +47,12 @@ EID: %s
 			info, err := lpac.NewCmd(context.Background(), usbDevice).Info()
 			m.Unlock()
 			if err != nil {
-				slog.Error("failed to get eSIM info", "error", err)
+				slog.Error("failed to get eUICC info", "error", err)
 			} else {
-				eid = info.EID
+				EID = info.EID
 			}
 		}
-
-		_, err := b.SendMessage(ctx.EffectiveChat.Id,
-			util.EscapeText(fmt.Sprintf(template, manufacturer, model, revision, imei, signal, network, ICCID, eid)), &gotgbot.SendMessageOpts{
-				ParseMode: gotgbot.ParseModeMarkdownV2,
-			})
-		if err != nil {
-			return err
-		}
+		message += fmt.Sprintf(template, manufacturer, model, revision, imei, signal, network, ICCID, EID) + "\n"
 	}
-	return nil
+	return c.Send(strings.TrimRight(message, "\n"))
 }

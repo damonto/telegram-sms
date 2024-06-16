@@ -6,14 +6,15 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"time"
 
-	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/damonto/telegram-sms/config"
 	"github.com/damonto/telegram-sms/internal/app"
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 	"github.com/maltegrosse/go-modemmanager"
+	"gopkg.in/telebot.v3"
 )
 
 var Version string
@@ -54,34 +55,35 @@ func main() {
 		lpac.Download(config.C.Dir, config.C.Version)
 	}
 
-	bot, err := gotgbot.NewBot(config.C.BotToken, nil)
+	bot, err := telebot.NewBot(telebot.Settings{
+		Token:  config.C.BotToken,
+		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
+	})
 	if err != nil {
 		slog.Error("failed to create bot", "error", err)
 		panic(err)
 	}
 
-	manager, err := modem.NewManager()
+	mmgr, err := modem.NewManager()
 	if err != nil {
 		slog.Error("failed to create modem manager", "error", err)
 		panic(err)
 	}
-	go manager.SubscribeMessaging(func(modem *modem.Modem, sms modemmanager.Sms) {
-		subscribe(bot, modem, sms)
-	})
 
-	app := app.NewApp(bot)
 	go func() {
-		if err := app.Start(); err != nil {
-			panic(err)
-		}
+		mmgr.SubscribeMessaging(func(modem *modem.Modem, sms modemmanager.Sms) {
+			subscribe(bot, modem, sms)
+		})
 	}()
+
+	go app.NewApp(bot).Start()
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt)
 	<-sig
 }
 
-func subscribe(bot *gotgbot.Bot, modem *modem.Modem, sms modemmanager.Sms) {
+func subscribe(bot *telebot.Bot, modem *modem.Modem, sms modemmanager.Sms) {
 	sender, _ := sms.GetNumber()
 	operatorName, _ := modem.GetOperatorName()
 	text, _ := sms.GetText()
@@ -95,8 +97,8 @@ func subscribe(bot *gotgbot.Bot, modem *modem.Modem, sms modemmanager.Sms) {
 [*%s*] %s
 %s
 `
-	if _, err := bot.SendMessage(config.C.AdminId, util.EscapeText(fmt.Sprintf(template, device, operatorName, sender, text)), &gotgbot.SendMessageOpts{
-		ParseMode: gotgbot.ParseModeMarkdownV2,
+	if _, err := bot.Send(telebot.ChatID(config.C.AdminId), util.EscapeText(fmt.Sprintf(template, device, operatorName, sender, text)), &telebot.SendOptions{
+		ParseMode: telebot.ModeMarkdownV2,
 	}); err != nil {
 		slog.Error("failed to send message", "error", err)
 	}

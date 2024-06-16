@@ -56,7 +56,7 @@ func FincCertificateIssuer(keyID string) string {
 	return keyID
 }
 
-func FindEum(eid string) (string, string, string) {
+func MatchEUM(eid string) (string, string, string) {
 	var country, manufacturer, productName string
 	for _, manifest := range EUMs {
 		if strings.HasPrefix(eid, manifest.EUM) {

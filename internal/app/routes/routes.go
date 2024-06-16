@@ -1,17 +1,46 @@
 package routes
 
 import (
+	"github.com/damonto/telegram-sms/config"
 	"github.com/damonto/telegram-sms/internal/app/handler"
-	"github.com/damonto/telegram-sms/internal/app/middleware"
+	mmiddleware "github.com/damonto/telegram-sms/internal/app/middleware"
+	"gopkg.in/telebot.v3/middleware"
 )
 
+func (r *Router) commands() map[string]string {
+	return map[string]string{
+		"/send":     "Send SMS to a phone number",
+		"/modems":   "List all available modems",
+		"/chip":     "List all installed eSIM profiles",
+		"/download": "Download eSIM profile",
+		"/profiles": "Manage eSIM profiles",
+	}
+}
+
 func (r *Router) routes() {
-	r.registerCommand(handler.NewStartHandler(), nil)
+	r.bot.Handle("/start", handler.HandleStartCommand)
 	{
-		r.registerCommand(handler.NewModemHandler(), middleware.Use(middleware.RequiredAdmin))
-		r.registerConverstaion(handler.NewSendHandler(r.dispatcher), middleware.Use(middleware.RequiredAdmin))
-		r.registerConverstaion(handler.NewDownloadHandler(r.dispatcher), middleware.Use(middleware.RequiredAdmin))
-		r.registerConverstaion(handler.NewProfileHandler(r.dispatcher), middleware.Use(middleware.RequiredAdmin))
-		r.registerCommand(handler.NewChipHandler(r.dispatcher), middleware.Use(middleware.RequiredAdmin))
+		g := r.bot.Group()
+		g.Use(middleware.Whitelist(config.C.AdminId))
+
+		g.Handle("/modems", handler.HandleModemsCommand)
+	}
+
+	{
+		g := r.bot.Group()
+		g.Use(middleware.Whitelist(config.C.AdminId))
+		g.Use(mmiddleware.SelectModem(false))
+
+		g.Handle("/send", handler.HandleSendCommand)
+	}
+
+	{
+		g := r.bot.Group()
+		g.Use(middleware.Whitelist(config.C.AdminId))
+		g.Use(mmiddleware.SelectModem(true))
+
+		g.Handle("/chip", handler.HandleChipCommand)
+		g.Handle("/profiles", handler.HandleProfilesCommand)
+		g.Handle("/download", handler.HandleDownloadCommand)
 	}
 }

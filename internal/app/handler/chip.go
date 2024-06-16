@@ -6,43 +6,25 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PaulSonOfLars/gotgbot/v2"
-	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
+	"gopkg.in/telebot.v3"
 )
 
 type ChipHandler struct {
-	modemHandler
-	data map[int64]string
+	handler
 }
 
-func NewChipHandler(dispatcher *ext.Dispatcher) CommandHandler {
-	h := &ChipHandler{
-		data: make(map[int64]string, 1),
-	}
-	h.dispathcer = dispatcher
-	h.requiredEuicc = true
-	h.next = h.nextHandle
-	return h
+func HandleChipCommand(c telebot.Context) error {
+	h := &ChipHandler{}
+	h.setModem(c)
+	return h.Handle(c)
 }
 
-func (h *ChipHandler) Command() string {
-	return "chip"
-}
-
-func (h *ChipHandler) Description() string {
-	return "Get the eUICC chip information"
-}
-
-func (h *ChipHandler) nextHandle(b *gotgbot.Bot, ctx *ext.Context) error {
-	modem, err := h.modem(ctx)
-	if err != nil {
-		return err
-	}
-	modem.Lock()
-	defer modem.Unlock()
-	usbDevice, err := h.usbDevice(ctx)
+func (h *ChipHandler) Handle(c telebot.Context) error {
+	h.modem.Lock()
+	defer h.modem.Unlock()
+	usbDevice, err := h.modem.GetAtPort()
 	if err != nil {
 		return err
 	}
@@ -60,7 +42,7 @@ Free Space: %d KiB
 Sign Keys:
 %s
 `
-	country, manufacturer, productName := util.FindEum(chip.EID)
+	country, manufacturer, productName := util.MatchEUM(chip.EID)
 	var manufacturerReplacement string
 	if country != "" {
 		manufacturerReplacement += string(0x1F1E6+rune(country[0])-'A') + string(0x1F1E6+rune(country[1])-'A')
@@ -80,11 +62,16 @@ Sign Keys:
 	}
 	keysReplacement = strings.TrimSuffix(keysReplacement, "\n")
 
-	_, err = b.SendMessage(ctx.EffectiveChat.Id,
-		util.EscapeText(fmt.Sprintf(message, chip.EID, manufacturerReplacement, chip.EUICCInfo2.ExtCardResource.FreeNonVolatileMemory/1024, keysReplacement)),
-		&gotgbot.SendMessageOpts{
-			ParseMode: gotgbot.ParseModeMarkdownV2,
+	return c.Send(
+		util.EscapeText(fmt.Sprintf(
+			message,
+			chip.EID,
+			manufacturerReplacement,
+			chip.EUICCInfo2.ExtCardResource.FreeNonVolatileMemory/1024,
+			keysReplacement,
+		)),
+		&telebot.SendOptions{
+			ParseMode: telebot.ModeMarkdownV2,
 		},
 	)
-	return err
 }

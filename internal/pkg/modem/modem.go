@@ -88,6 +88,7 @@ func (m *Modem) RunATCommand(command string) (string, error) {
 		return "", errors.New("failed to set nonblock: " + err.Error())
 	}
 
+	slog.Debug("running AT command", "command", command)
 	if _, err := port.WriteString(command + "\r\n"); err != nil {
 		return "", err
 	}
@@ -108,7 +109,7 @@ func (m *Modem) RunATCommand(command string) (string, error) {
 		response += line
 	}
 	response = strings.Replace(strings.TrimSpace(response), command, "", 1)
-	slog.Info("AT command executed", "command", command, "response", response)
+	slog.Debug("AT command executed", "command", command, "response", response)
 	return response, nil
 }
 

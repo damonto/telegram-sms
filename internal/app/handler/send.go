@@ -2,82 +2,60 @@ package handler
 
 import (
 	"fmt"
-	"log/slog"
 
-	"github.com/PaulSonOfLars/gotgbot/v2"
-	"github.com/PaulSonOfLars/gotgbot/v2/ext"
-	"github.com/PaulSonOfLars/gotgbot/v2/ext/handlers"
+	"github.com/damonto/telegram-sms/internal/pkg/conversation"
+	"gopkg.in/telebot.v3"
 )
 
 type SendHandler struct {
-	modemHandler
-	data map[int64]string
+	handler
+	phoneNumber  string
+	conversation conversation.Conversation
 }
 
 const (
-	SendSmsStatePhoneNumber = "sms_phone_number"
-	SendSmsStateMessage     = "sms_message"
+	SendAskPhoneNumber = "send_ask_phone_number"
+	SendAskMessage     = "send_ask_message"
 )
 
-func NewSendHandler(dispatcher *ext.Dispatcher) ConversationHandler {
-	h := &SendHandler{
-		data: make(map[int64]string, 1),
-	}
-	h.dispathcer = dispatcher
-	h.next = h.nextHandle
-	return h
-}
-
-func (h *SendHandler) Command() string {
-	return "send"
-}
-
-func (h *SendHandler) Description() string {
-	return "Send a message to a phone number"
-}
-
-func (h *SendHandler) Conversations() map[string]handlers.Response {
-	return map[string]handlers.Response{
-		SendSmsStatePhoneNumber: h.handlePhoneNumber,
-		SendSmsStateMessage:     h.handleMessage,
-	}
-}
-
-func (h *SendHandler) nextHandle(b *gotgbot.Bot, ctx *ext.Context) error {
-	if _, err := b.SendMessage(ctx.EffectiveChat.Id, "Please nextHandle the phone number you want to send the message to", nil); err != nil {
-		return err
-	}
-	return handlers.NextConversationState(SendSmsStatePhoneNumber)
-}
-
-func (h *SendHandler) handlePhoneNumber(b *gotgbot.Bot, ctx *ext.Context) error {
-	if _, err := b.SendMessage(ctx.EffectiveChat.Id, "Please nextHandle the message you want to send", nil); err != nil {
-		return err
-	}
-	h.data[ctx.EffectiveChat.Id] = ctx.EffectiveMessage.Text
-	return handlers.NextConversationState(SendSmsStateMessage)
-}
-
-func (h *SendHandler) handleMessage(b *gotgbot.Bot, ctx *ext.Context) error {
-	message := ctx.EffectiveMessage.Text
-	phoneNumber := h.data[ctx.EffectiveChat.Id]
-	delete(h.data, ctx.EffectiveChat.Id)
-
-	modem, err := h.modem(ctx)
-	if err != nil {
-		return err
-	}
-	if err := modem.SendSMS(phoneNumber, message); err != nil {
-		b.SendMessage(ctx.EffectiveChat.Id, fmt.Sprintf("Failed to send message to *%s*", phoneNumber), &gotgbot.SendMessageOpts{
-			ParseMode: gotgbot.ParseModeMarkdownV2,
-		})
-		return err
-	}
-
-	slog.Info("sending message", "phone_number", phoneNumber, "message", message)
-	b.SendMessage(ctx.EffectiveChat.Id, fmt.Sprintf("Your message has been sent to *%s*", phoneNumber), &gotgbot.SendMessageOpts{
-		ParseMode: gotgbot.ParseModeMarkdownV2,
+func HandleSendCommand(c telebot.Context) error {
+	h := &SendHandler{}
+	h.setModem(c)
+	h.conversation = conversation.New(c)
+	h.conversation.Steps(map[string]telebot.HandlerFunc{
+		SendAskPhoneNumber: h.handlePhoneNumber,
+		SendAskMessage:     h.handleMessage,
 	})
+	return h.Handle(c)
+}
 
-	return handlers.EndConversation()
+func (h *SendHandler) Handle(c telebot.Context) error {
+	h.conversation.Next(SendAskPhoneNumber)
+	return c.Send("Please send me the phone number you want to send the message to")
+}
+
+func (h *SendHandler) handlePhoneNumber(c telebot.Context) error {
+	if len(c.Text()) < 3 {
+		if err := c.Send("The phone number you provided is invalid. Please send me the correct phone number."); err != nil {
+			return err
+		}
+	}
+
+	h.conversation.Next(SendAskMessage)
+	h.phoneNumber = c.Text()
+	return c.Send("Please send me the message you want to send")
+}
+
+func (h *SendHandler) handleMessage(c telebot.Context) error {
+	if err := h.modem.SendSMS(h.phoneNumber, c.Text()); err != nil {
+		c.Send(fmt.Sprintf("Failed to send SMS to *%s*", h.phoneNumber), &telebot.SendOptions{
+			ParseMode: telebot.ModeMarkdownV2,
+		})
+		h.conversation.Done()
+		return err
+	}
+	h.conversation.Done()
+	return c.Send(fmt.Sprintf("Your SMS has been sent to *%s*", h.phoneNumber), &telebot.SendOptions{
+		ParseMode: telebot.ModeMarkdownV2,
+	})
 }

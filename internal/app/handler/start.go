@@ -3,36 +3,19 @@ package handler
 import (
 	"fmt"
 
-	"github.com/PaulSonOfLars/gotgbot/v2"
-	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
+	"gopkg.in/telebot.v3"
 )
 
 type StartHandler struct{}
 
-func NewStartHandler() CommandHandler {
-	return &StartHandler{}
-}
-
-func (h *StartHandler) Command() string {
-	return "start"
-}
-
-func (h *StartHandler) Description() string {
-	return "Start the bot"
-}
-
-func (h *StartHandler) Handle(b *gotgbot.Bot, ctx *ext.Context) error {
+func HandleStartCommand(c telebot.Context) error {
 	message := `
 Hello, *%s %s*!
 Thanks for using this bot.
 Your UID is *%d*
 	`
-	_, err := b.SendMessage(ctx.EffectiveChat.Id,
-		util.EscapeText(fmt.Sprintf(message, ctx.EffectiveUser.FirstName, ctx.EffectiveUser.LastName, ctx.EffectiveUser.Id)),
-		&gotgbot.SendMessageOpts{
-			ParseMode: gotgbot.ParseModeMarkdownV2,
-		},
-	)
-	return err
+	return c.Send(util.EscapeText(fmt.Sprintf(message, c.Sender().FirstName, c.Sender().LastName, c.Sender().ID)), &telebot.SendOptions{
+		ParseMode: telebot.ModeMarkdownV2,
+	})
 }

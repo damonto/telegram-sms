@@ -3,66 +3,47 @@ package handler
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/PaulSonOfLars/gotgbot/v2"
-	"github.com/PaulSonOfLars/gotgbot/v2/ext"
-	"github.com/PaulSonOfLars/gotgbot/v2/ext/handlers"
-	"github.com/PaulSonOfLars/gotgbot/v2/ext/handlers/filters"
+	"github.com/damonto/telegram-sms/internal/pkg/conversation"
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
+	"github.com/google/uuid"
+	"gopkg.in/telebot.v3"
 )
 
 type ProfileHandler struct {
-	modemHandler
-	data map[int64]string
+	handler
+	conversation conversation.Conversation
+	ICCID        string
 }
 
 const (
 	ProfileStateHandleAction = "profile_handle_action"
-	ProfileStateDelete       = "profile_delete"
-	ProfileStateRename       = "profile_rename"
+	ProfileStateActionDelete = "profile_delete"
+	ProfileStateActionRename = "profile_rename"
 
 	ProfileActionRename = "rename"
 	ProfileActionDelete = "delete"
 	ProfileActionEnable = "enable"
 )
 
-func NewProfileHandler(dispatcher *ext.Dispatcher) ConversationHandler {
-	h := &ProfileHandler{
-		data: make(map[int64]string),
-	}
-	h.requiredEuicc = true
-	h.dispathcer = dispatcher
-	h.next = h.nextHandle
-	return h
-}
-
-func (h *ProfileHandler) Command() string {
-	return "profiles"
-}
-
-func (h *ProfileHandler) Description() string {
-	return "List all installed eSIM profiles"
-}
-
-func (h *ProfileHandler) Conversations() map[string]handlers.Response {
-	return map[string]handlers.Response{
+func HandleProfilesCommand(c telebot.Context) error {
+	h := &ProfileHandler{}
+	h.setModem(c)
+	h.conversation = conversation.New(c)
+	h.conversation.Steps(map[string]telebot.HandlerFunc{
 		ProfileStateHandleAction: h.handleAction,
-		ProfileStateRename:       h.handleActionRename,
-		ProfileStateDelete:       h.handleActionDelete,
-	}
+		ProfileStateActionRename: h.handleActionRename,
+		ProfileStateActionDelete: h.handleActionDelete,
+	})
+	return h.Handle(c)
 }
 
-func (h *ProfileHandler) nextHandle(b *gotgbot.Bot, ctx *ext.Context) error {
-	modem, err := h.modem(ctx)
-	if err != nil {
-		return err
-	}
-	modem.Lock()
-	defer modem.Unlock()
-	usbDevice, err := h.usbDevice(ctx)
+func (h *ProfileHandler) Handle(c telebot.Context) error {
+	h.modem.Lock()
+	defer h.modem.Unlock()
+	usbDevice, err := h.modem.GetAtPort()
 	if err != nil {
 		return err
 	}
@@ -73,44 +54,24 @@ func (h *ProfileHandler) nextHandle(b *gotgbot.Bot, ctx *ext.Context) error {
 		return err
 	}
 	if len(profiles) == 0 {
-		_, err := b.SendMessage(ctx.EffectiveChat.Id, "No profiles found", nil)
-		return err
-	}
-	message, buttons := h.toTextMessage(profiles)
-	if _, err := b.SendMessage(ctx.EffectiveChat.Id, util.EscapeText(message), &gotgbot.SendMessageOpts{
-		ParseMode: gotgbot.ParseModeMarkdownV2,
-		ReplyMarkup: gotgbot.InlineKeyboardMarkup{
-			InlineKeyboard: buttons,
-		},
-	}); err != nil {
-		return err
+		return c.Send("No profiles found.")
 	}
 
-	h.dispathcer.AddHandler(handlers.NewCallback(filters.CallbackQuery(func(cq *gotgbot.CallbackQuery) bool {
-		return strings.HasPrefix(cq.Data, "profile_")
-	}), func(b *gotgbot.Bot, ctx *ext.Context) error {
-		if _, _, err := b.EditMessageReplyMarkup(&gotgbot.EditMessageReplyMarkupOpts{
-			ChatId:    ctx.EffectiveChat.Id,
-			MessageId: ctx.EffectiveMessage.MessageId,
-			ReplyMarkup: gotgbot.InlineKeyboardMarkup{
-				InlineKeyboard: [][]gotgbot.InlineKeyboardButton{},
-			},
-		}); err != nil {
-			return err
-		}
-		h.data[ctx.EffectiveChat.Id] = strings.TrimPrefix(ctx.CallbackQuery.Data, "profile_")
-		return h.handleAskAction(b, ctx)
-	}))
-	return handlers.NextConversationState(ProfileStateHandleAction)
+	message, buttons := h.toTextMessage(c, profiles)
+	return c.Send(util.EscapeText(message), &telebot.SendOptions{
+		ParseMode:   telebot.ModeMarkdownV2,
+		ReplyMarkup: buttons,
+	})
 }
 
-func (h *ProfileHandler) toTextMessage(profiles []lpac.Profile) (string, [][]gotgbot.InlineKeyboardButton) {
+func (h *ProfileHandler) toTextMessage(c telebot.Context, profiles []lpac.Profile) (string, *telebot.ReplyMarkup) {
+	selector := &telebot.ReplyMarkup{}
 	template := `
 %s *%s*
 %s
 	`
 	var message string
-	buttons := make([][]gotgbot.InlineKeyboardButton, 0, len(profiles))
+	buttons := make([]telebot.Btn, 0, len(profiles))
 	for _, p := range profiles {
 		name := fmt.Sprintf("[%s] ", p.ProviderName)
 		if p.Nickname != "" {
@@ -125,77 +86,69 @@ func (h *ProfileHandler) toTextMessage(profiles []lpac.Profile) (string, [][]got
 			emoji = "🅾️"
 		}
 		message += fmt.Sprintf(template, emoji, name, p.ICCID)
-		buttons = append(buttons, []gotgbot.InlineKeyboardButton{
-			{
-				Text:         fmt.Sprintf("%s (%s)", name, p.ICCID[15:]),
-				CallbackData: "profile_" + p.ICCID,
-			},
+		btn := selector.Data(fmt.Sprintf("%s (%s)", name, p.ICCID[15:]), uuid.New().String(), p.ICCID)
+		c.Bot().Handle(&btn, func(c telebot.Context) error {
+			h.ICCID = c.Data()
+			h.conversation.Next(ProfileStateHandleAction)
+			return h.handleAskAction(c)
 		})
+		buttons = append(buttons, btn)
 	}
-	return message, buttons
+	selector.Inline(selector.Split(1, buttons)...)
+	return message, selector
 }
 
-func (h *ProfileHandler) handleAction(b *gotgbot.Bot, ctx *ext.Context) error {
-	action := ctx.EffectiveMessage.Text
-	switch action {
+func (h *ProfileHandler) handleAction(c telebot.Context) error {
+	switch c.Text() {
 	case ProfileActionEnable:
-		return h.handleActionEnable(b, ctx)
+		return h.handleActionEnable(c)
 	case ProfileActionRename:
-		if _, err := b.SendMessage(ctx.EffectiveChat.Id, "OK. Send me the new name.", nil); err != nil {
-			return err
-		}
-		return handlers.NextConversationState(ProfileStateRename)
+		h.conversation.Next(ProfileStateActionRename)
+		return c.Send("OK. Send me the new name.")
 	case ProfileActionDelete:
-		if _, err := b.SendMessage(ctx.EffectiveChat.Id, "Are you sure you want to delete this profile?", &gotgbot.SendMessageOpts{
-			ReplyMarkup: gotgbot.ReplyKeyboardMarkup{
-				OneTimeKeyboard: true,
-				Keyboard: [][]gotgbot.KeyboardButton{
+		h.conversation.Next(ProfileStateActionDelete)
+		return c.Send("Are you sure you want to delete this profile?", &telebot.ReplyMarkup{
+			OneTimeKeyboard: true,
+			ResizeKeyboard:  true,
+			ReplyKeyboard: [][]telebot.ReplyButton{
+				{
 					{
-						{
-							Text: "Yes",
-						},
-						{
-							Text: "No",
-						},
+						Text: "Yes",
+					},
+					{
+						Text: "No",
 					},
 				},
 			},
-		}); err != nil {
-			return err
-		}
-		return handlers.NextConversationState(ProfileStateDelete)
+		})
 	default:
-		_, err := b.SendMessage(ctx.EffectiveChat.Id, "Invalid action.", nil)
-		return err
+		return c.Send("Invalid action")
 	}
 }
 
-func (h *ProfileHandler) handleAskAction(b *gotgbot.Bot, ctx *ext.Context) error {
-	modem, err := h.modem(ctx)
-	if err != nil {
-		return err
-	}
-	modem.Lock()
-	defer modem.Unlock()
-	usbDevice, err := h.usbDevice(ctx)
+func (h *ProfileHandler) handleAskAction(c telebot.Context) error {
+	h.modem.Lock()
+	defer h.modem.Unlock()
+	usbDevice, err := h.modem.GetAtPort()
 	if err != nil {
 		return err
 	}
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	profile, err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileInfo(h.data[ctx.EffectiveChat.Id])
+	profile, err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileInfo(h.ICCID)
 	if err != nil {
 		return err
 	}
-	buttons := []gotgbot.KeyboardButton{
+
+	buttons := []telebot.ReplyButton{
 		{
 			Text: ProfileActionRename,
 		},
 	}
 	if profile.State == lpac.ProfileStateDisabled {
-		buttons = append(buttons, gotgbot.KeyboardButton{
+		buttons = append(buttons, telebot.ReplyButton{
 			Text: ProfileActionEnable,
-		}, gotgbot.KeyboardButton{
+		}, telebot.ReplyButton{
 			Text: ProfileActionDelete,
 		})
 	}
@@ -205,92 +158,63 @@ You've selected the profile:
 ICCID: %s
 What do you want to do with this profile?
 	`
-	_, err = b.SendMessage(ctx.EffectiveChat.Id, util.EscapeText(fmt.Sprintf(template, profile.ICCID)), &gotgbot.SendMessageOpts{
-		ReplyMarkup: gotgbot.ReplyKeyboardMarkup{
-			OneTimeKeyboard: true,
-			ResizeKeyboard:  true,
-			Keyboard:        [][]gotgbot.KeyboardButton{buttons},
-		},
+	return c.Send(util.EscapeText(fmt.Sprintf(template, profile.ICCID)), &telebot.ReplyMarkup{
+		OneTimeKeyboard: true,
+		ResizeKeyboard:  true,
+		ReplyKeyboard:   [][]telebot.ReplyButton{buttons},
 	})
-	return err
 }
 
-func (h *ProfileHandler) handleActionDelete(b *gotgbot.Bot, ctx *ext.Context) error {
-	if ctx.EffectiveMessage.Text != "Yes" {
-		if _, err := b.SendMessage(ctx.EffectiveChat.Id, "Canceled! Your profile won't be deleted.", nil); err != nil {
-			return err
-		}
-		return handlers.EndConversation()
+func (h *ProfileHandler) handleActionDelete(c telebot.Context) error {
+	if c.Text() != "Yes" {
+
+		return c.Send("Canceled! Your profile won't be deleted. /profiles")
 	}
-	modem, err := h.modem(ctx)
-	if err != nil {
-		return err
-	}
-	modem.Lock()
-	defer modem.Unlock()
-	usbDevice, err := h.usbDevice(ctx)
+	h.modem.Lock()
+	defer h.modem.Unlock()
+	usbDevice, err := h.modem.GetAtPort()
 	if err != nil {
 		return err
 	}
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileDelete(h.data[ctx.EffectiveChat.Id]); err != nil {
+	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileDelete(h.ICCID); err != nil {
 		return err
 	}
-	delete(h.data, ctx.EffectiveChat.Id)
-	if _, err = b.SendMessage(ctx.EffectiveChat.Id, "Your profile has been deleted. /profiles", nil); err != nil {
-		return err
-	}
-	return handlers.EndConversation()
+	return c.Send("Your profile has been deleted. /profiles")
 }
 
-func (h *ProfileHandler) handleActionEnable(b *gotgbot.Bot, ctx *ext.Context) error {
-	modem, err := h.modem(ctx)
-	if err != nil {
-		return err
-	}
-	modem.Lock()
-	defer modem.Unlock()
-	usbDevice, err := h.usbDevice(ctx)
+func (h *ProfileHandler) handleActionEnable(c telebot.Context) error {
+	h.modem.Lock()
+	usbDevice, err := h.modem.GetAtPort()
 	if err != nil {
 		return err
 	}
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileEnable(h.data[ctx.EffectiveChat.Id]); err != nil {
+	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileEnable(h.ICCID); err != nil {
 		return err
 	}
-	delete(h.data, ctx.EffectiveChat.Id)
-	if err := modem.Restart(); err != nil {
+	h.modem.Unlock()
+	if err := h.modem.Restart(); err != nil {
 		return err
 	}
-	if _, err = b.SendMessage(ctx.EffectiveChat.Id, "Your profile has been enabled. Please wait a moment for it to take effect. /profiles", nil); err != nil {
-		return err
-	}
-	return handlers.EndConversation()
+	return c.Send("Your profile has been enabled. Please wait a moment for it to take effect. /profiles")
 }
 
-func (h *ProfileHandler) handleActionRename(b *gotgbot.Bot, ctx *ext.Context) error {
-	modem, err := h.modem(ctx)
-	if err != nil {
-		return err
-	}
-	modem.Lock()
-	defer modem.Unlock()
-	usbDevice, err := h.usbDevice(ctx)
+func (h *ProfileHandler) handleActionRename(c telebot.Context) error {
+	h.modem.Lock()
+	defer h.modem.Unlock()
+	usbDevice, err := h.modem.GetAtPort()
 	if err != nil {
 		return err
 	}
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileSetNickname(h.data[ctx.EffectiveChat.Id], ctx.EffectiveMessage.Text); err != nil {
+	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileSetNickname(h.ICCID, c.Text()); err != nil {
 		return err
 	}
-	delete(h.data, ctx.EffectiveChat.Id)
-	if _, err = b.SendMessage(ctx.EffectiveChat.Id, util.EscapeText(fmt.Sprintf("Your profile has been renamed to *%s* . /profiles", ctx.EffectiveMessage.Text)), &gotgbot.SendMessageOpts{
-		ParseMode: gotgbot.ParseModeMarkdownV2,
-	}); err != nil {
-		return err
-	}
-	return handlers.EndConversation()
+	return c.Send(util.EscapeText(fmt.Sprintf("Your profile has been renamed to *%s* . /profiles", c.Text())), &telebot.SendOptions{
+		ParseMode: telebot.ModeMarkdownV2,
+	})
 }
