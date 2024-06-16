@@ -45,10 +45,6 @@ EID: %s
 			}
 			m.Lock()
 			info, err := lpac.NewCmd(context.Background(), usbDevice).Info()
-			ns, _ := lpac.NewCmd(context.Background(), usbDevice).NotificationList()
-			for _, n := range ns {
-				fmt.Println(n.ICCID)
-			}
 			m.Unlock()
 			if err != nil {
 				slog.Error("failed to get eUICC info", "error", err)

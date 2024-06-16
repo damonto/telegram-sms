@@ -29,7 +29,7 @@ var conversationsInstance *conversations
 func NewConversation(bot *telebot.Bot) *conversations {
 	conversationsInstance = &conversations{
 		bot:           bot,
-		conversations: make(map[int64]*conversation),
+		conversations: make(map[int64]*conversation, 10),
 	}
 	conversationsInstance.handleText()
 	return conversationsInstance

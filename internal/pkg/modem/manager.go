@@ -25,7 +25,7 @@ type Manager struct {
 	reboot chan struct{}
 }
 
-var Instance *Manager
+var managerInstance *Manager
 
 func NewManager() (*Manager, error) {
 	mmgr, err := modemmanager.NewModemManager()
@@ -37,18 +37,17 @@ func NewManager() (*Manager, error) {
 		return nil, err
 	}
 
-	m := &Manager{
+	managerInstance = &Manager{
 		mmgr:   mmgr,
-		modems: make(map[string]*Modem, 1),
+		modems: make(map[string]*Modem, 10),
 		reboot: make(chan struct{}, 1),
 	}
-	go m.watch()
-	Instance = m
-	return m, nil
+	go managerInstance.watch()
+	return managerInstance, nil
 }
 
 func GetManager() *Manager {
-	return Instance
+	return managerInstance
 }
 
 func (m *Manager) watch() error {
@@ -57,7 +56,7 @@ func (m *Manager) watch() error {
 			slog.Error("failed to watch modems", "error", err)
 			panic(err)
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 }
 
