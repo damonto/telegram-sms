@@ -64,7 +64,7 @@ func (h *ProfileHandler) Handle(c telebot.Context) error {
 	})
 }
 
-func (h *ProfileHandler) toTextMessage(c telebot.Context, profiles []lpac.Profile) (string, *telebot.ReplyMarkup) {
+func (h *ProfileHandler) toTextMessage(c telebot.Context, profiles []*lpac.Profile) (string, *telebot.ReplyMarkup) {
 	selector := &telebot.ReplyMarkup{}
 	template := `
 %s *%s*

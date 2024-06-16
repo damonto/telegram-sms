@@ -35,8 +35,8 @@ type CertificateIssuer struct {
 	Name    string `json:"name"`
 }
 
-var certificateIssuers []CertificateIssuer
-var EUMs []EUM
+var certificateIssuers []*CertificateIssuer
+var EUMs []*EUM
 
 func init() {
 	if err := json.Unmarshal(eum, &EUMs); err != nil {

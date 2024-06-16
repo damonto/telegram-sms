@@ -27,7 +27,7 @@ func init() {
 
 	flag.StringVar(&config.C.BotToken, "bot-token", "", "telegram bot token")
 	flag.Int64Var(&config.C.AdminId, "admin-id", 0, "telegram admin id")
-	flag.StringVar(&config.C.Version, "version", "v2.0.1", "the version of lpac to download")
+	flag.StringVar(&config.C.Version, "version", "v2.0.2", "the version of lpac to download")
 	flag.StringVar(&config.C.Dir, "dir", dir, "the directory to store lpac")
 	flag.BoolVar(&config.C.DontDownload, "dont-download", false, "don't download lpac binary")
 	flag.BoolVar(&config.C.Verbose, "verbose", false, "enable verbose mode")

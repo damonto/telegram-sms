@@ -32,18 +32,18 @@ var (
 	ErrProfileNotFound              = errors.New("profile not found")
 )
 
-func (c *Cmd) ProfileList() ([]Profile, error) {
-	var profiles []Profile
+func (c *Cmd) ProfileList() ([]*Profile, error) {
+	var profiles []*Profile
 	if err := c.Run([]string{"profile", "list"}, &profiles, nil); err != nil {
 		return profiles, err
 	}
 	return profiles, nil
 }
 
-func (c *Cmd) ProfileInfo(ICCID string) (Profile, error) {
-	var profiles []Profile
+func (c *Cmd) ProfileInfo(ICCID string) (*Profile, error) {
+	var profiles []*Profile
 	if err := c.Run([]string{"profile", "list"}, &profiles, nil); err != nil {
-		return Profile{}, err
+		return nil, err
 	}
 
 	for _, profile := range profiles {
@@ -51,7 +51,7 @@ func (c *Cmd) ProfileInfo(ICCID string) (Profile, error) {
 			return profile, nil
 		}
 	}
-	return Profile{}, ErrProfileNotFound
+	return nil, ErrProfileNotFound
 }
 
 func (c *Cmd) ProfileDownload(activationCode *ActivationCode, progress Progress) error {
@@ -138,8 +138,8 @@ func (c *Cmd) ProfileSetNickname(ICCID string, nickname string) error {
 	return c.Run([]string{"profile", "nickname", ICCID, nickname}, nil, nil)
 }
 
-func (c *Cmd) ProfileDiscovery() ([]DiscoveryResponse, error) {
-	var response []DiscoveryResponse
+func (c *Cmd) ProfileDiscovery() ([]*DiscoveryResponse, error) {
+	var response []*DiscoveryResponse
 	if err := c.Run([]string{"profile", "discovery"}, &response, nil); err != nil {
 		return response, err
 	}
