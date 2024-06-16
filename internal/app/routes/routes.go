@@ -11,7 +11,7 @@ func (r *Router) commands() map[string]string {
 	return map[string]string{
 		"/send":     "Send SMS to a phone number",
 		"/modems":   "List all available modems",
-		"/chip":     "List all installed eSIM profiles",
+		"/chip":     "Get eUICC chip information",
 		"/download": "Download eSIM profile",
 		"/profiles": "Manage eSIM profiles",
 	}
