@@ -35,7 +35,7 @@ func NewConversation(bot *telebot.Bot) *converstations {
 
 func (c *converstations) handleText() {
 	c.bot.Handle(telebot.OnText, func(ctx telebot.Context) error {
-		if conv, ok := c.conversations[ctx.Sender().ID]; ok {
+		if conv, ok := c.conversations[ctx.Chat().ID]; ok {
 			if step, ok := conv.steps[conv.next]; ok {
 				return step(ctx)
 			}
@@ -47,10 +47,10 @@ func (c *converstations) handleText() {
 
 func New(ctx telebot.Context) Conversation {
 	conversation := &conversation{
-		chatId: ctx.Sender().ID,
+		chatId: ctx.Chat().ID,
 		steps:  make(map[string]telebot.HandlerFunc),
 	}
-	converstationsInstance.conversations[ctx.Sender().ID] = conversation
+	converstationsInstance.conversations[ctx.Chat().ID] = conversation
 	return conversation
 }
 
