@@ -26,11 +26,11 @@ var (
 )
 
 func (m *Modem) Lock() {
-	m.lock.Lock()
+	m.mutex.Lock()
 }
 
 func (m *Modem) Unlock() {
-	m.lock.Unlock()
+	m.mutex.Unlock()
 }
 
 func (m *Modem) isEuicc() bool {

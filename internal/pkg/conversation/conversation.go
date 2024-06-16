@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"log/slog"
+	"sync"
 
 	"gopkg.in/telebot.v3"
 )
@@ -17,23 +18,24 @@ type conversation struct {
 	steps  map[string]telebot.HandlerFunc
 	next   string
 }
-type converstations struct {
+type conversations struct {
 	bot           *telebot.Bot
+	mutex         sync.Mutex
 	conversations map[int64]*conversation
 }
 
-var converstationsInstance *converstations
+var conversationsInstance *conversations
 
-func NewConversation(bot *telebot.Bot) *converstations {
-	converstationsInstance = &converstations{
+func NewConversation(bot *telebot.Bot) *conversations {
+	conversationsInstance = &conversations{
 		bot:           bot,
 		conversations: make(map[int64]*conversation),
 	}
-	converstationsInstance.handleText()
-	return converstationsInstance
+	conversationsInstance.handleText()
+	return conversationsInstance
 }
 
-func (c *converstations) handleText() {
+func (c *conversations) handleText() {
 	c.bot.Handle(telebot.OnText, func(ctx telebot.Context) error {
 		if conv, ok := c.conversations[ctx.Chat().ID]; ok {
 			if step, ok := conv.steps[conv.next]; ok {
@@ -46,11 +48,13 @@ func (c *converstations) handleText() {
 }
 
 func New(ctx telebot.Context) Conversation {
+	conversationsInstance.mutex.Lock()
+	defer conversationsInstance.mutex.Unlock()
 	conversation := &conversation{
 		chatId: ctx.Chat().ID,
 		steps:  make(map[string]telebot.HandlerFunc),
 	}
-	converstationsInstance.conversations[ctx.Chat().ID] = conversation
+	conversationsInstance.conversations[ctx.Chat().ID] = conversation
 	return conversation
 }
 
@@ -63,5 +67,7 @@ func (c *conversation) Next(next string) {
 }
 
 func (c *conversation) Done() {
-	delete(converstationsInstance.conversations, c.chatId)
+	conversationsInstance.mutex.Lock()
+	defer conversationsInstance.mutex.Unlock()
+	delete(conversationsInstance.conversations, c.chatId)
 }

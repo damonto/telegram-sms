@@ -14,7 +14,7 @@ var (
 )
 
 type Modem struct {
-	lock    sync.Mutex
+	mutex   sync.Mutex
 	IsEuicc bool
 	modem   modemmanager.Modem
 }
