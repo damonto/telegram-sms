@@ -18,10 +18,10 @@ type ChipHandler struct {
 func HandleChipCommand(c telebot.Context) error {
 	h := &ChipHandler{}
 	h.setModem(c)
-	return h.Handle(c)
+	return h.handle(c)
 }
 
-func (h *ChipHandler) Handle(c telebot.Context) error {
+func (h *ChipHandler) handle(c telebot.Context) error {
 	h.modem.Lock()
 	defer h.modem.Unlock()
 	usbDevice, err := h.modem.GetAtPort()

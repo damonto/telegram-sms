@@ -31,10 +31,10 @@ func HandleDownloadCommand(c telebot.Context) error {
 		DownloadAskActivationCode:   h.handleActivationCode,
 		DownloadAskConfirmationCode: h.handleConfirmationCode,
 	})
-	return h.Handle(c)
+	return h.handle(c)
 }
 
-func (h *DownloadHandler) Handle(c telebot.Context) error {
+func (h *DownloadHandler) handle(c telebot.Context) error {
 	h.conversation.Next(DownloadAskActivationCode)
 	return c.Send("Please send me the activation code")
 }

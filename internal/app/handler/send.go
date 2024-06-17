@@ -26,10 +26,10 @@ func HandleSendCommand(c telebot.Context) error {
 		SendAskPhoneNumber: h.handlePhoneNumber,
 		SendAskMessage:     h.handleMessage,
 	})
-	return h.Handle(c)
+	return h.handle(c)
 }
 
-func (h *SendHandler) Handle(c telebot.Context) error {
+func (h *SendHandler) handle(c telebot.Context) error {
 	h.conversation.Next(SendAskPhoneNumber)
 	return c.Send("Please send me the phone number you want to send the message to")
 }

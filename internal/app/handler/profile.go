@@ -37,10 +37,10 @@ func HandleProfilesCommand(c telebot.Context) error {
 		ProfileStateActionRename: h.handleActionRename,
 		ProfileStateActionDelete: h.handleActionDelete,
 	})
-	return h.Handle(c)
+	return h.handle(c)
 }
 
-func (h *ProfileHandler) Handle(c telebot.Context) error {
+func (h *ProfileHandler) handle(c telebot.Context) error {
 	h.modem.Lock()
 	defer h.modem.Unlock()
 	usbDevice, err := h.modem.GetAtPort()

@@ -5,10 +5,6 @@ import (
 	"gopkg.in/telebot.v3"
 )
 
-type Handler interface {
-	Handle(telebot.Context) error
-}
-
 type handler struct {
 	modem *modem.Modem
 }
