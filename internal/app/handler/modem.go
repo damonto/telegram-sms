@@ -52,7 +52,16 @@ EID: %s
 				EID = info.EID
 			}
 		}
-		message += fmt.Sprintf(template, manufacturer, model, revision, imei, signal, network, ICCID, EID) + "\n"
+		message += fmt.Sprintf(
+			template,
+			manufacturer,
+			model,
+			revision,
+			fmt.Sprintf("`%s`", imei),
+			signal,
+			network,
+			fmt.Sprintf("`%s`", ICCID),
+			fmt.Sprintf("`%s`", EID)) + "\n"
 	}
-	return c.Send(strings.TrimRight(message, "\n"))
+	return c.Send(strings.TrimRight(message, "\n"), &telebot.SendOptions{ParseMode: telebot.ModeMarkdownV2})
 }

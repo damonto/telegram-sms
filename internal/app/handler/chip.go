@@ -65,7 +65,7 @@ Sign Keys:
 	return c.Send(
 		util.EscapeText(fmt.Sprintf(
 			message,
-			chip.EID,
+			fmt.Sprintf("`%s`", chip.EID),
 			manufacturerReplacement,
 			chip.EUICCInfo2.ExtCardResource.FreeNonVolatileMemory/1024,
 			keysReplacement,
