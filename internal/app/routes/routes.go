@@ -14,6 +14,7 @@ func (r *Router) commands() map[string]string {
 		"/chip":     "Get eUICC chip information",
 		"/download": "Download eSIM profile",
 		"/profiles": "Manage eSIM profiles",
+		"/ussd":     "Execute USSD command",
 	}
 }
 
@@ -32,6 +33,7 @@ func (r *Router) routes() {
 		g.Use(mmiddleware.SelectModem(false))
 
 		g.Handle("/send", handler.HandleSendCommand)
+		g.Handle("/ussd", handler.HandleUSSDCommand)
 	}
 
 	{
