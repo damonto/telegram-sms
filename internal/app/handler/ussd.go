@@ -36,6 +36,7 @@ func (h *USSDHandler) handle(c telebot.Context) error {
 func (h *USSDHandler) handleExecuteCommand(c telebot.Context) error {
 	response, err := h.modem.RunUSSDCommand(c.Text())
 	if err != nil {
+		h.conversation.Done()
 		c.Send("Failed to execute USSD command, err: " + err.Error())
 		return err
 	}
@@ -46,6 +47,7 @@ func (h *USSDHandler) handleExecuteCommand(c telebot.Context) error {
 func (h *USSDHandler) handleRespondCommand(c telebot.Context) error {
 	response, err := h.modem.RespondUSSDCommand(c.Text())
 	if err != nil {
+		h.conversation.Done()
 		c.Send("Failed to respond to USSD command, err: " + err.Error())
 		return err
 	}
