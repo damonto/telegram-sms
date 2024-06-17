@@ -18,6 +18,7 @@ type conversation struct {
 	steps  map[string]telebot.HandlerFunc
 	next   string
 }
+
 type conversations struct {
 	bot           *telebot.Bot
 	mutex         sync.Mutex
@@ -52,7 +53,7 @@ func New(ctx telebot.Context) Conversation {
 	defer conversationsInstance.mutex.Unlock()
 	conversation := &conversation{
 		chatId: ctx.Chat().ID,
-		steps:  make(map[string]telebot.HandlerFunc),
+		steps:  make(map[string]telebot.HandlerFunc, 5),
 	}
 	conversationsInstance.conversations[ctx.Chat().ID] = conversation
 	return conversation
