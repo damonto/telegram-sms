@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/damonto/telegram-sms/internal/pkg/conversation"
@@ -196,8 +197,10 @@ func (h *ProfileHandler) handleActionEnable(c telebot.Context) error {
 		return err
 	}
 	h.modem.Unlock()
+
+	// Sometimes the modem needs to be restarted to apply the changes.
 	if err := h.modem.Restart(); err != nil {
-		return err
+		slog.Error("unable to restart modem, you may need to restart this modem manually", "error", err)
 	}
 	return c.Send("Your profile has been enabled. Please wait a moment for it to take effect. /profiles")
 }

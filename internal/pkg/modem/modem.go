@@ -15,10 +15,10 @@ import (
 )
 
 var (
-	ErrNoATPortFound = errors.New("no at port found")
+	ErrNoATPortFound          = errors.New("no at port found")
+	ErrRestartCommandNotFound = errors.New("restart command not found")
 
-	defaultRestartCommand = "AT+CFUN=1,1"
-	restartCommands       = map[string]string{
+	restartCommands = map[string]string{
 		"quectel": "AT+QPOWD=1",
 		"fibocom": "AT+CPWROFF",
 		"simcom":  "AT+CPOF",
@@ -57,12 +57,19 @@ func (m *Modem) Restart() error {
 	if err != nil {
 		return err
 	}
-	restartCommand := defaultRestartCommand
+	manufacturer, err := m.GetManufacturer()
+	if err != nil {
+		return err
+	}
+	var restartCommand string
 	for brand, command := range restartCommands {
-		if strings.Contains(strings.ToLower(model), brand) {
+		if strings.Contains(strings.ToLower(model), brand) || strings.Contains(strings.ToLower(manufacturer), brand) {
 			restartCommand = command
 			break
 		}
+	}
+	if restartCommand == "" {
+		return ErrRestartCommandNotFound
 	}
 	_, err = m.RunATCommand(restartCommand)
 	return err
