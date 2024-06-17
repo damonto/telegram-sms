@@ -61,7 +61,6 @@ Sign Keys:
 		keysReplacement += util.FincCertificateIssuer(key) + "\n"
 	}
 	keysReplacement = strings.TrimSuffix(keysReplacement, "\n")
-
 	return c.Send(
 		util.EscapeText(fmt.Sprintf(
 			message,

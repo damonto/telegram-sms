@@ -17,8 +17,8 @@ import (
 var (
 	ErrNoATPortFound = errors.New("no at port found")
 
-	defaultRebootCommand = "AT+CFUN=1,1"
-	rebootCommands       = map[string]string{
+	defaultRestartCommand = "AT+CFUN=1,1"
+	restartCommands       = map[string]string{
 		"quectel": "AT+QPOWD=1",
 		"fibocom": "AT+CPWROFF",
 		"simcom":  "AT+CPOF",
@@ -53,7 +53,18 @@ func (m *Modem) isEuicc() bool {
 }
 
 func (m *Modem) Restart() error {
-	_, err := m.RunATCommand(m.rebootCommand())
+	model, err := m.GetModel()
+	if err != nil {
+		return err
+	}
+	restartCommand := defaultRestartCommand
+	for brand, command := range restartCommands {
+		if strings.Contains(strings.ToLower(model), brand) {
+			restartCommand = command
+			break
+		}
+	}
+	_, err = m.RunATCommand(restartCommand)
 	return err
 }
 
@@ -65,7 +76,6 @@ func (m *Modem) RunATCommand(command string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	port, err := os.OpenFile(usbDevice, os.O_RDWR|unix.O_NOCTTY|unix.O_NONBLOCK, 0666)
 	if err != nil {
 		return "", err
@@ -111,20 +121,6 @@ func (m *Modem) RunATCommand(command string) (string, error) {
 	response = strings.Replace(strings.TrimSpace(response), command, "", 1)
 	slog.Debug("AT command executed", "command", command, "response", response)
 	return response, nil
-}
-
-func (m *Modem) rebootCommand() string {
-	model, err := m.GetModel()
-	if err != nil {
-		return defaultRebootCommand
-	}
-
-	for k, v := range rebootCommands {
-		if strings.Contains(strings.ToLower(model), k) {
-			return v
-		}
-	}
-	return defaultRebootCommand
 }
 
 func (m *Modem) GetAtPort() (string, error) {
