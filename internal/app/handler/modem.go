@@ -8,6 +8,7 @@ import (
 
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
+	"github.com/damonto/telegram-sms/internal/pkg/util"
 	"gopkg.in/telebot.v3"
 )
 
@@ -63,5 +64,5 @@ EID: %s
 			fmt.Sprintf("`%s`", ICCID),
 			fmt.Sprintf("`%s`", EID)) + "\n"
 	}
-	return c.Send(strings.TrimRight(message, "\n"), &telebot.SendOptions{ParseMode: telebot.ModeMarkdownV2})
+	return c.Send(util.EscapeText(strings.TrimRight(message, "\n")), &telebot.SendOptions{ParseMode: telebot.ModeMarkdownV2})
 }
