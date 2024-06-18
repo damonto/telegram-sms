@@ -91,16 +91,15 @@ func (m *Modem) RunATCommand(command string) (string, error) {
 
 	t := unix.Termios{
 		Iflag:  unix.IGNPAR,
-		Cflag:  unix.CREAD | unix.CLOCAL | unix.CS8 | unix.B9600,
-		Ispeed: unix.B9600,
-		Ospeed: unix.B9600,
+		Cflag:  unix.CREAD | unix.CLOCAL | unix.CS8 | unix.B19200,
+		Ispeed: unix.B19200,
+		Ospeed: unix.B19200,
 	}
-	t.Cc[unix.VMIN] = 0
-	t.Cc[unix.VTIME] = 10 // 1 second
+	t.Cc[unix.VMIN] = 1
+	t.Cc[unix.VTIME] = 0
 	if _, _, errno := unix.Syscall6(unix.SYS_IOCTL, uintptr(port.Fd()), unix.TCSETS, uintptr(unsafe.Pointer(&t)), 0, 0, 0); errno != 0 {
 		return "", errors.New("failed to set termios: " + errno.Error())
 	}
-
 	if err := unix.SetNonblock(int(port.Fd()), false); err != nil {
 		return "", errors.New("failed to set nonblock: " + err.Error())
 	}
