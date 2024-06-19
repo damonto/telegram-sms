@@ -20,15 +20,13 @@ import (
 var Version string
 
 func init() {
-	dir, err := os.MkdirTemp("", "telegram-sms")
-	if err != nil {
+	if err := os.MkdirAll("/tmp/telegram-sms", 0755); _ != nil {
 		panic(err)
 	}
-
 	flag.StringVar(&config.C.BotToken, "bot-token", "", "telegram bot token")
 	flag.Int64Var(&config.C.AdminId, "admin-id", 0, "telegram admin id")
 	flag.StringVar(&config.C.Version, "version", "v2.0.2", "the version of lpac to download")
-	flag.StringVar(&config.C.Dir, "dir", dir, "the directory to store lpac")
+	flag.StringVar(&config.C.Dir, "dir", "/tmp/telegram-sms", "the directory to store lpac")
 	flag.BoolVar(&config.C.DontDownload, "dont-download", false, "don't download lpac binary")
 	flag.BoolVar(&config.C.Verbose, "verbose", false, "enable verbose mode")
 	flag.Parse()
@@ -38,22 +36,20 @@ func main() {
 	if config.C.Verbose {
 		slog.SetLogLoggerLevel(slog.LevelDebug)
 	}
-
 	if os.Geteuid() != 0 {
 		slog.Error("Please run as root")
 		os.Exit(1)
 	}
-
-	slog.Info("You are using", "version", Version)
-
 	if err := config.C.IsValid(); err != nil {
 		slog.Error("config is invalid", "error", err)
 		os.Exit(1)
 	}
-
 	if !config.C.DontDownload {
-		lpac.Download(config.C.Dir, config.C.Version)
+		if err := lpac.Download(config.C.Dir, config.C.Version); err != nil {
+			slog.Warn("failed to download lpac", "error", err)
+		}
 	}
+	slog.Info("You are using", "version", Version)
 
 	bot, err := telebot.NewBot(telebot.Settings{
 		Token:  config.C.BotToken,
