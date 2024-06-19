@@ -87,7 +87,7 @@ func (h *ProfileHandler) toTextMessage(c telebot.Context, profiles []*lpac.Profi
 			emoji = "🅾️"
 		}
 		message += fmt.Sprintf(template, emoji, name, p.ICCID)
-		btn := selector.Data(fmt.Sprintf("%s (%s)", name, p.ICCID[15:]), uuid.New().String(), p.ICCID)
+		btn := selector.Data(fmt.Sprintf("%s (%s)", name, p.ICCID[len(p.ICCID)-4:]), uuid.New().String(), p.ICCID)
 		c.Bot().Handle(&btn, func(c telebot.Context) error {
 			h.ICCID = c.Data()
 			h.conversation.Next(ProfileStateHandleAction)
