@@ -20,7 +20,7 @@ import (
 var Version string
 
 func init() {
-	if err := os.MkdirAll("/tmp/telegram-sms", 0755); _ != nil {
+	if err := os.MkdirAll("/tmp/telegram-sms", 0755); err != nil {
 		panic(err)
 	}
 	flag.StringVar(&config.C.BotToken, "bot-token", "", "telegram bot token")
