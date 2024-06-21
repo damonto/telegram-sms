@@ -195,13 +195,10 @@ func (h *ProfileHandler) handleActionDelete(c telebot.Context) error {
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileDelete(h.ICCID); err != nil {
-		// @FIXME: this is a workaround for the issue that the lpac command returns an error.
-		// Acutally, the profile has been deleted successfully.
-		// Maybe it's a bug in the firmware of the modem or the lpac.
-		if err.Error() == "internal error, maybe illegal iccid/aid coding" {
-			slog.Info("hack: this error is ignored because the profile has been deleted successfully.")
+		// FIXME: On some modems, the profile deletion command will return an error even if the profile is deleted.
+		if err.Error() != "internal error, maybe illegal iccid/aid coding" {
+			return err
 		}
-		return err
 	}
 	return c.Send("Your profile has been deleted. /profiles")
 }
