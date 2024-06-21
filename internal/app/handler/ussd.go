@@ -3,18 +3,16 @@ package handler
 import (
 	"fmt"
 
-	"github.com/damonto/telegram-sms/internal/pkg/state"
 	"gopkg.in/telebot.v3"
 )
 
 type USSDHandler struct {
 	handler
-	state state.State
 }
 
 const (
-	USSDExecuteCommand = "ussd_execute_command"
-	USSDRespondCommand = "ussd_respond_command"
+	StateUSSDExecuteCommand = "ussd_execute_command"
+	StateUSSDRespondCommand = "ussd_respond_command"
 )
 
 func HandleUSSDCommand(c telebot.Context) error {
@@ -22,14 +20,14 @@ func HandleUSSDCommand(c telebot.Context) error {
 	h.init(c)
 	h.state = h.stateManager.New(c)
 	h.state.Stages(map[string]telebot.HandlerFunc{
-		USSDExecuteCommand: h.handleExecuteCommand,
-		USSDRespondCommand: h.handleRespondCommand,
+		StateUSSDExecuteCommand: h.handleExecuteCommand,
+		StateUSSDRespondCommand: h.handleRespondCommand,
 	})
 	return h.handle(c)
 }
 
 func (h *USSDHandler) handle(c telebot.Context) error {
-	h.state.Next(USSDExecuteCommand)
+	h.state.Next(StateUSSDExecuteCommand)
 	return c.Send("Please send me the USSD command you want to execute")
 }
 
@@ -40,7 +38,7 @@ func (h *USSDHandler) handleExecuteCommand(c telebot.Context) error {
 		c.Send("Failed to execute USSD command, err: " + err.Error())
 		return err
 	}
-	h.state.Next(USSDRespondCommand)
+	h.state.Next(StateUSSDRespondCommand)
 	return c.Send(fmt.Sprintf("%s\n%s\nIf you want to respond to this USSD command, please send me the response.", c.Text(), response))
 }
 
@@ -51,6 +49,6 @@ func (h *USSDHandler) handleRespondCommand(c telebot.Context) error {
 		c.Send("Failed to respond to USSD command, err: " + err.Error())
 		return err
 	}
-	h.state.Next(USSDRespondCommand)
+	h.state.Next(StateUSSDRespondCommand)
 	return c.Send(fmt.Sprintf("%s\n%s\nIf you want to respond to this USSD command, please send me the response.", c.Text(), response))
 }

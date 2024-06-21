@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
-	"github.com/damonto/telegram-sms/internal/pkg/state"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 	"github.com/google/uuid"
 	"gopkg.in/telebot.v3"
@@ -15,14 +14,13 @@ import (
 
 type ProfileHandler struct {
 	handler
-	state state.State
 	ICCID string
 }
 
 const (
-	ProfileStateHandleAction = "profile_handle_action"
-	ProfileStateActionDelete = "profile_delete"
-	ProfileStateActionRename = "profile_rename"
+	StateProfileHandleAction = "profile_handle_action"
+	StateProfileActionDelete = "profile_delete"
+	StateProfileActionRename = "profile_rename"
 
 	ProfileActionRename = "rename"
 	ProfileActionDelete = "delete"
@@ -34,9 +32,9 @@ func HandleProfilesCommand(c telebot.Context) error {
 	h.init(c)
 	h.state = h.stateManager.New(c)
 	h.state.Stages(map[string]telebot.HandlerFunc{
-		ProfileStateHandleAction: h.handleAction,
-		ProfileStateActionRename: h.handleActionRename,
-		ProfileStateActionDelete: h.handleActionDelete,
+		StateProfileHandleAction: h.handleAction,
+		StateProfileActionRename: h.handleActionRename,
+		StateProfileActionDelete: h.handleActionDelete,
 	})
 	return h.handle(c)
 }
@@ -90,7 +88,7 @@ func (h *ProfileHandler) toTextMessage(c telebot.Context, profiles []*lpac.Profi
 		btn := selector.Data(fmt.Sprintf("%s (%s)", name, p.ICCID[len(p.ICCID)-4:]), uuid.New().String(), p.ICCID)
 		c.Bot().Handle(&btn, func(c telebot.Context) error {
 			h.ICCID = c.Data()
-			h.state.Next(ProfileStateHandleAction)
+			h.state.Next(StateProfileHandleAction)
 			return h.handleAskAction(c)
 		})
 		buttons = append(buttons, btn)
@@ -104,10 +102,10 @@ func (h *ProfileHandler) handleAction(c telebot.Context) error {
 	case ProfileActionEnable:
 		return h.handleActionEnable(c)
 	case ProfileActionRename:
-		h.state.Next(ProfileStateActionRename)
+		h.state.Next(StateProfileActionRename)
 		return c.Send("OK. Send me the new name.")
 	case ProfileActionDelete:
-		h.state.Next(ProfileStateActionDelete)
+		h.state.Next(StateProfileActionDelete)
 		return c.Send("Are you sure you want to delete this profile?", &telebot.ReplyMarkup{
 			OneTimeKeyboard: true,
 			ResizeKeyboard:  true,

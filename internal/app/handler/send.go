@@ -3,19 +3,17 @@ package handler
 import (
 	"fmt"
 
-	"github.com/damonto/telegram-sms/internal/pkg/state"
 	"gopkg.in/telebot.v3"
 )
 
 type SendHandler struct {
 	handler
 	phoneNumber string
-	state       state.State
 }
 
 const (
-	SendAskPhoneNumber = "send_ask_phone_number"
-	SendAskMessage     = "send_ask_message"
+	StateSendAskPhoneNumber = "send_ask_phone_number"
+	StateSendAskMessage     = "send_ask_message"
 )
 
 func HandleSendCommand(c telebot.Context) error {
@@ -23,14 +21,14 @@ func HandleSendCommand(c telebot.Context) error {
 	h.init(c)
 	h.state = h.stateManager.New(c)
 	h.state.Stages(map[string]telebot.HandlerFunc{
-		SendAskPhoneNumber: h.handlePhoneNumber,
-		SendAskMessage:     h.handleMessage,
+		StateSendAskPhoneNumber: h.handlePhoneNumber,
+		StateSendAskMessage:     h.handleMessage,
 	})
 	return h.handle(c)
 }
 
 func (h *SendHandler) handle(c telebot.Context) error {
-	h.state.Next(SendAskPhoneNumber)
+	h.state.Next(StateSendAskPhoneNumber)
 	return c.Send("Please send me the phone number you want to send the message to")
 }
 
@@ -41,7 +39,7 @@ func (h *SendHandler) handlePhoneNumber(c telebot.Context) error {
 		}
 	}
 
-	h.state.Next(SendAskMessage)
+	h.state.Next(StateSendAskMessage)
 	h.phoneNumber = c.Text()
 	return c.Send("Please send me the message you want to send")
 }

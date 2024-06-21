@@ -9,6 +9,7 @@ import (
 type handler struct {
 	modem        *modem.Modem
 	stateManager *state.StateManager
+	state        state.State
 }
 
 func (h *handler) init(c telebot.Context) {

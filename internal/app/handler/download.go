@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
-	"github.com/damonto/telegram-sms/internal/pkg/state"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 	"gopkg.in/telebot.v3"
 )
@@ -15,12 +14,11 @@ import (
 type DownloadHandler struct {
 	handler
 	activationCode *lpac.ActivationCode
-	state          state.State
 }
 
 const (
-	DownloadAskActivationCode   = "download_ask_activation_code"
-	DownloadAskConfirmationCode = "download_ask_confirmation_code"
+	StateDownloadAskActivationCode   = "download_ask_activation_code"
+	StateDownloadAskConfirmationCode = "download_ask_confirmation_code"
 )
 
 func HandleDownloadCommand(c telebot.Context) error {
@@ -28,21 +26,21 @@ func HandleDownloadCommand(c telebot.Context) error {
 	h.init(c)
 	h.state = h.stateManager.New(c)
 	h.state.Stages(map[string]telebot.HandlerFunc{
-		DownloadAskActivationCode:   h.handleActivationCode,
-		DownloadAskConfirmationCode: h.handleConfirmationCode,
+		StateDownloadAskActivationCode:   h.handleActivationCode,
+		StateDownloadAskConfirmationCode: h.handleConfirmationCode,
 	})
 	return h.handle(c)
 }
 
 func (h *DownloadHandler) handle(c telebot.Context) error {
-	h.state.Next(DownloadAskActivationCode)
+	h.state.Next(StateDownloadAskActivationCode)
 	return c.Send("Please send me the activation code")
 }
 
 func (h *DownloadHandler) handleActivationCode(c telebot.Context) error {
 	activationCode := c.Text()
 	if activationCode == "" || !strings.HasPrefix(activationCode, "LPA:1$") {
-		h.state.Next(DownloadAskActivationCode)
+		h.state.Next(StateDownloadAskActivationCode)
 		return c.Send("Invalid activation code.")
 	}
 
@@ -52,7 +50,7 @@ func (h *DownloadHandler) handleActivationCode(c telebot.Context) error {
 		MatchingId: parts[2],
 	}
 	if len(parts) == 5 && parts[4] == "1" {
-		h.state.Next(DownloadAskConfirmationCode)
+		h.state.Next(StateDownloadAskConfirmationCode)
 		return c.Send("Please send me the confirmation code")
 	}
 
@@ -63,7 +61,7 @@ func (h *DownloadHandler) handleActivationCode(c telebot.Context) error {
 func (h *DownloadHandler) handleConfirmationCode(c telebot.Context) error {
 	confirmationCode := c.Text()
 	if confirmationCode == "" {
-		h.state.Next(DownloadAskConfirmationCode)
+		h.state.Next(StateDownloadAskConfirmationCode)
 		return c.Send("Invalid confirmation code")
 	}
 
