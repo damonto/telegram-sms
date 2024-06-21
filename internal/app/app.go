@@ -4,7 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/damonto/telegram-sms/internal/app/routes"
-	"github.com/damonto/telegram-sms/internal/pkg/conversation"
+	"github.com/damonto/telegram-sms/internal/pkg/state"
 	"gopkg.in/telebot.v3"
 	"gopkg.in/telebot.v3/middleware"
 )
@@ -27,9 +27,7 @@ func (a *app) setup() error {
 	a.bot.Use(middleware.Recover())
 	a.bot.Use(middleware.AutoRespond())
 
-	conversation.NewConversation(a.bot)
-
-	if err := routes.NewRouter(a.bot).Setup(); err != nil {
+	if err := routes.NewRouter(a.bot, state.NewState(a.bot)).Setup(); err != nil {
 		slog.Error("failed to setup router", "error", err)
 		return err
 	}

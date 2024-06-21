@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/damonto/telegram-sms/internal/pkg/conversation"
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
+	"github.com/damonto/telegram-sms/internal/pkg/state"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 	"gopkg.in/telebot.v3"
 )
@@ -15,7 +15,7 @@ import (
 type DownloadHandler struct {
 	handler
 	activationCode *lpac.ActivationCode
-	conversation   conversation.Conversation
+	state          state.State
 }
 
 const (
@@ -25,9 +25,9 @@ const (
 
 func HandleDownloadCommand(c telebot.Context) error {
 	h := &DownloadHandler{}
-	h.setModem(c)
-	h.conversation = conversation.New(c)
-	h.conversation.Flow(map[string]telebot.HandlerFunc{
+	h.init(c)
+	h.state = h.stateManager.New(c)
+	h.state.Stages(map[string]telebot.HandlerFunc{
 		DownloadAskActivationCode:   h.handleActivationCode,
 		DownloadAskConfirmationCode: h.handleConfirmationCode,
 	})
@@ -35,14 +35,14 @@ func HandleDownloadCommand(c telebot.Context) error {
 }
 
 func (h *DownloadHandler) handle(c telebot.Context) error {
-	h.conversation.Next(DownloadAskActivationCode)
+	h.state.Next(DownloadAskActivationCode)
 	return c.Send("Please send me the activation code")
 }
 
 func (h *DownloadHandler) handleActivationCode(c telebot.Context) error {
 	activationCode := c.Text()
 	if activationCode == "" || !strings.HasPrefix(activationCode, "LPA:1$") {
-		h.conversation.Next(DownloadAskActivationCode)
+		h.state.Next(DownloadAskActivationCode)
 		return c.Send("Invalid activation code.")
 	}
 
@@ -52,23 +52,23 @@ func (h *DownloadHandler) handleActivationCode(c telebot.Context) error {
 		MatchingId: parts[2],
 	}
 	if len(parts) == 5 && parts[4] == "1" {
-		h.conversation.Next(DownloadAskConfirmationCode)
+		h.state.Next(DownloadAskConfirmationCode)
 		return c.Send("Please send me the confirmation code")
 	}
 
-	h.conversation.Done()
+	h.stateManager.Done(c)
 	return h.download(c)
 }
 
 func (h *DownloadHandler) handleConfirmationCode(c telebot.Context) error {
 	confirmationCode := c.Text()
 	if confirmationCode == "" {
-		h.conversation.Next(DownloadAskConfirmationCode)
+		h.state.Next(DownloadAskConfirmationCode)
 		return c.Send("Invalid confirmation code")
 	}
 
 	h.activationCode.ConfirmationCode = confirmationCode
-	h.conversation.Done()
+	h.stateManager.Done(c)
 	return h.download(c)
 }
 

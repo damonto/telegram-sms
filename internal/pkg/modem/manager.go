@@ -39,7 +39,7 @@ func NewManager() (*Manager, error) {
 
 	managerInstance = &Manager{
 		mmgr:   mmgr,
-		modems: make(map[string]*Modem, 10),
+		modems: make(map[string]*Modem),
 		reboot: make(chan struct{}, 1),
 	}
 	go managerInstance.watch()

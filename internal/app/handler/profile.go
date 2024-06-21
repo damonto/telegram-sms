@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/damonto/telegram-sms/internal/pkg/conversation"
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
+	"github.com/damonto/telegram-sms/internal/pkg/state"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 	"github.com/google/uuid"
 	"gopkg.in/telebot.v3"
@@ -15,8 +15,8 @@ import (
 
 type ProfileHandler struct {
 	handler
-	conversation conversation.Conversation
-	ICCID        string
+	state state.State
+	ICCID string
 }
 
 const (
@@ -31,9 +31,9 @@ const (
 
 func HandleProfilesCommand(c telebot.Context) error {
 	h := &ProfileHandler{}
-	h.setModem(c)
-	h.conversation = conversation.New(c)
-	h.conversation.Flow(map[string]telebot.HandlerFunc{
+	h.init(c)
+	h.state = h.stateManager.New(c)
+	h.state.Stages(map[string]telebot.HandlerFunc{
 		ProfileStateHandleAction: h.handleAction,
 		ProfileStateActionRename: h.handleActionRename,
 		ProfileStateActionDelete: h.handleActionDelete,
@@ -90,7 +90,7 @@ func (h *ProfileHandler) toTextMessage(c telebot.Context, profiles []*lpac.Profi
 		btn := selector.Data(fmt.Sprintf("%s (%s)", name, p.ICCID[len(p.ICCID)-4:]), uuid.New().String(), p.ICCID)
 		c.Bot().Handle(&btn, func(c telebot.Context) error {
 			h.ICCID = c.Data()
-			h.conversation.Next(ProfileStateHandleAction)
+			h.state.Next(ProfileStateHandleAction)
 			return h.handleAskAction(c)
 		})
 		buttons = append(buttons, btn)
@@ -104,10 +104,10 @@ func (h *ProfileHandler) handleAction(c telebot.Context) error {
 	case ProfileActionEnable:
 		return h.handleActionEnable(c)
 	case ProfileActionRename:
-		h.conversation.Next(ProfileStateActionRename)
+		h.state.Next(ProfileStateActionRename)
 		return c.Send("OK. Send me the new name.")
 	case ProfileActionDelete:
-		h.conversation.Next(ProfileStateActionDelete)
+		h.state.Next(ProfileStateActionDelete)
 		return c.Send("Are you sure you want to delete this profile?", &telebot.ReplyMarkup{
 			OneTimeKeyboard: true,
 			ResizeKeyboard:  true,
@@ -156,13 +156,29 @@ func (h *ProfileHandler) handleAskAction(c telebot.Context) error {
 
 	template := `
 You've selected the profile:
-ICCID: %s
+%s *%s*
+%s
 What do you want to do with this profile?
 	`
-	return c.Send(util.EscapeText(fmt.Sprintf(template, profile.ICCID)), &telebot.ReplyMarkup{
-		OneTimeKeyboard: true,
-		ResizeKeyboard:  true,
-		ReplyKeyboard:   [][]telebot.ReplyButton{buttons},
+	name := fmt.Sprintf("[%s] ", profile.ProviderName)
+	if profile.Nickname != "" {
+		name += profile.Nickname
+	} else {
+		name += profile.ProfileName
+	}
+	var emoji string
+	if profile.State == lpac.ProfileStateEnabled {
+		emoji = "✅"
+	} else {
+		emoji = "🅾️"
+	}
+	return c.Send(util.EscapeText(fmt.Sprintf(template, emoji, name, fmt.Sprintf("`%s`", profile.ICCID))), &telebot.SendOptions{
+		ParseMode: telebot.ModeMarkdownV2,
+		ReplyMarkup: &telebot.ReplyMarkup{
+			OneTimeKeyboard: true,
+			ResizeKeyboard:  true,
+			ReplyKeyboard:   [][]telebot.ReplyButton{buttons},
+		},
 	})
 }
 

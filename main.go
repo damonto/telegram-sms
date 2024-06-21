@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
@@ -52,8 +53,14 @@ func main() {
 	slog.Info("You are using", "version", Version)
 
 	bot, err := telebot.NewBot(telebot.Settings{
-		Token:  config.C.BotToken,
-		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
+		Token: config.C.BotToken,
+		Client: &http.Client{
+			Timeout: 30 * time.Second,
+			Transport: &http.Transport{
+				Proxy: http.ProxyFromEnvironment,
+			},
+		},
+		Poller: &telebot.LongPoller{Timeout: 30 * time.Second},
 	})
 	if err != nil {
 		slog.Error("failed to create bot", "error", err)

@@ -40,7 +40,6 @@ func SelectModem(requiredEuicc bool) telebot.MiddlewareFunc {
 }
 
 func selectModem(c telebot.Context, modems map[string]*modem.Modem, done chan string) error {
-
 	selector := telebot.ReplyMarkup{}
 	btns := make([]telebot.Btn, 0, len(modems))
 	for k, m := range modems {

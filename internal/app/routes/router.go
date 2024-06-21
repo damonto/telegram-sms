@@ -1,16 +1,19 @@
 package routes
 
 import (
+	"github.com/damonto/telegram-sms/internal/pkg/state"
 	"gopkg.in/telebot.v3"
 )
 
 type Router struct {
-	bot *telebot.Bot
+	bot   *telebot.Bot
+	state *state.StateManager
 }
 
-func NewRouter(bot *telebot.Bot) *Router {
+func NewRouter(bot *telebot.Bot, state *state.StateManager) *Router {
 	return &Router{
-		bot: bot,
+		bot:   bot,
+		state: state,
 	}
 }
 

@@ -1,6 +1,8 @@
 package config
 
-import "errors"
+import (
+	"errors"
+)
 
 type Config struct {
 	BotToken     string
@@ -8,6 +10,7 @@ type Config struct {
 	Dir          string
 	Version      string
 	DontDownload bool
+	Proxy        string
 	Verbose      bool
 }
 

@@ -3,14 +3,14 @@ package handler
 import (
 	"fmt"
 
-	"github.com/damonto/telegram-sms/internal/pkg/conversation"
+	"github.com/damonto/telegram-sms/internal/pkg/state"
 	"gopkg.in/telebot.v3"
 )
 
 type SendHandler struct {
 	handler
-	phoneNumber  string
-	conversation conversation.Conversation
+	phoneNumber string
+	state       state.State
 }
 
 const (
@@ -20,9 +20,9 @@ const (
 
 func HandleSendCommand(c telebot.Context) error {
 	h := &SendHandler{}
-	h.setModem(c)
-	h.conversation = conversation.New(c)
-	h.conversation.Flow(map[string]telebot.HandlerFunc{
+	h.init(c)
+	h.state = h.stateManager.New(c)
+	h.state.Stages(map[string]telebot.HandlerFunc{
 		SendAskPhoneNumber: h.handlePhoneNumber,
 		SendAskMessage:     h.handleMessage,
 	})
@@ -30,7 +30,7 @@ func HandleSendCommand(c telebot.Context) error {
 }
 
 func (h *SendHandler) handle(c telebot.Context) error {
-	h.conversation.Next(SendAskPhoneNumber)
+	h.state.Next(SendAskPhoneNumber)
 	return c.Send("Please send me the phone number you want to send the message to")
 }
 
@@ -41,7 +41,7 @@ func (h *SendHandler) handlePhoneNumber(c telebot.Context) error {
 		}
 	}
 
-	h.conversation.Next(SendAskMessage)
+	h.state.Next(SendAskMessage)
 	h.phoneNumber = c.Text()
 	return c.Send("Please send me the message you want to send")
 }
@@ -51,10 +51,10 @@ func (h *SendHandler) handleMessage(c telebot.Context) error {
 		c.Send(fmt.Sprintf("Failed to send SMS to *%s*", h.phoneNumber), &telebot.SendOptions{
 			ParseMode: telebot.ModeMarkdownV2,
 		})
-		h.conversation.Done()
+		h.stateManager.Done(c)
 		return err
 	}
-	h.conversation.Done()
+	h.stateManager.Done(c)
 	return c.Send(fmt.Sprintf("Your SMS has been sent to *%s*", h.phoneNumber), &telebot.SendOptions{
 		ParseMode: telebot.ModeMarkdownV2,
 	})
