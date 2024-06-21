@@ -1,9 +1,9 @@
 package routes
 
 import (
-	"github.com/damonto/telegram-sms/config"
 	"github.com/damonto/telegram-sms/internal/app/handler"
 	mmiddleware "github.com/damonto/telegram-sms/internal/app/middleware"
+	"github.com/damonto/telegram-sms/internal/pkg/config"
 	"gopkg.in/telebot.v3/middleware"
 )
 

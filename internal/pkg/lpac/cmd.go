@@ -11,7 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/damonto/telegram-sms/config"
+	"github.com/damonto/telegram-sms/internal/pkg/config"
 )
 
 type Cmd struct {

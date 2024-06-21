@@ -9,8 +9,8 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/damonto/telegram-sms/config"
 	"github.com/damonto/telegram-sms/internal/app"
+	"github.com/damonto/telegram-sms/internal/pkg/config"
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
