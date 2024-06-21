@@ -10,7 +10,6 @@ type Config struct {
 	Dir          string
 	Version      string
 	DontDownload bool
-	Proxy        string
 	Verbose      bool
 }
 
