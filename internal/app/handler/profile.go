@@ -184,7 +184,6 @@ What do you want to do with this profile?
 
 func (h *ProfileHandler) handleActionDelete(c telebot.Context) error {
 	if c.Text() != "Yes" {
-
 		return c.Send("Canceled! Your profile won't be deleted. /profiles")
 	}
 	h.modem.Lock()
