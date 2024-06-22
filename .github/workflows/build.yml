@@ -22,7 +22,6 @@ jobs:
           - { os: linux, arch: arm64, name: linux-arm64 }
           - { os: linux, arch: mips64, name: linux-mips64 }
           - { os: linux, arch: riscv64, name: linux-riscv64 }
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
