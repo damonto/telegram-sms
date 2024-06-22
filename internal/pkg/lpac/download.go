@@ -25,7 +25,6 @@ func Download(dir, version string) error {
 	if !strings.HasPrefix(version, "v") {
 		version = "v" + version
 	}
-	fmt.Println(packageName())
 	if !shouldDownload(dir, version) {
 		slog.Info("lpac already downloaded", "version", version)
 		return nil
