@@ -22,9 +22,9 @@ const (
 	StateProfileActionDelete = "profile_delete"
 	StateProfileActionRename = "profile_rename"
 
-	ProfileActionRename = "rename"
-	ProfileActionDelete = "delete"
-	ProfileActionEnable = "enable"
+	ProfileActionRename = "Rename"
+	ProfileActionDelete = "Delete"
+	ProfileActionEnable = "Enable"
 )
 
 func HandleProfilesCommand(c telebot.Context) error {
