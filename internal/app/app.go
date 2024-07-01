@@ -27,7 +27,7 @@ func (a *app) setup() error {
 	a.bot.Use(middleware.Recover())
 	a.bot.Use(middleware.AutoRespond())
 
-	if err := routes.NewRouter(a.bot, state.NewState(a.bot)).Setup(); err != nil {
+	if err := routes.NewRouter(a.bot, state.NewState(a.bot)).Register(); err != nil {
 		slog.Error("failed to setup router", "error", err)
 		return err
 	}

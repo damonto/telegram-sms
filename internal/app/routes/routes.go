@@ -20,8 +20,8 @@ func (r *Router) commands() map[string]string {
 
 func (r *Router) routes() {
 	r.bot.Use(mmiddleware.WrapState(r.state))
-
 	r.bot.Handle("/start", handler.HandleStartCommand)
+
 	{
 		g := r.bot.Group()
 		g.Use(middleware.Whitelist(config.C.AdminId))

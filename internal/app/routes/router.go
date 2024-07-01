@@ -17,7 +17,7 @@ func NewRouter(bot *telebot.Bot, state *state.StateManager) *Router {
 	}
 }
 
-func (r *Router) Setup() error {
+func (r *Router) Register() error {
 	r.routes()
 
 	commands := make([]telebot.Command, 0, len(r.commands()))
