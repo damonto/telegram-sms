@@ -38,7 +38,7 @@ func main() {
 		slog.SetLogLoggerLevel(slog.LevelDebug)
 	}
 	if os.Geteuid() != 0 {
-		slog.Error("Please run as root")
+		slog.Error("please run as root")
 		os.Exit(1)
 	}
 	if err := config.C.IsValid(); err != nil {
@@ -50,7 +50,7 @@ func main() {
 			slog.Warn("failed to download lpac", "error", err)
 		}
 	}
-	slog.Info("You are using", "version", Version)
+	slog.Info("you are using", "version", Version)
 
 	bot, err := telebot.NewBot(telebot.Settings{
 		Token: config.C.BotToken,
