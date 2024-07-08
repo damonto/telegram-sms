@@ -8,6 +8,6 @@ require github.com/godbus/dbus/v5 v5.1.0
 
 require (
 	github.com/google/uuid v1.6.0
-	golang.org/x/sys v0.21.0
+	golang.org/x/sys v0.22.0
 	gopkg.in/telebot.v3 v3.3.6
 )
