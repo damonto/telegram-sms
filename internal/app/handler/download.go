@@ -25,7 +25,7 @@ func HandleDownloadCommand(c telebot.Context) error {
 	h := &DownloadHandler{}
 	h.init(c)
 	h.state = h.stateManager.New(c)
-	h.state.Stages(map[string]telebot.HandlerFunc{
+	h.state.States(map[string]telebot.HandlerFunc{
 		StateDownloadAskActivationCode:   h.handleActivationCode,
 		StateDownloadAskConfirmationCode: h.handleConfirmationCode,
 	})

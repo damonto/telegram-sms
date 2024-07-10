@@ -19,7 +19,7 @@ func HandleUSSDCommand(c telebot.Context) error {
 	h := &USSDHandler{}
 	h.init(c)
 	h.state = h.stateManager.New(c)
-	h.state.Stages(map[string]telebot.HandlerFunc{
+	h.state.States(map[string]telebot.HandlerFunc{
 		StateUSSDExecuteCommand: h.handleExecuteCommand,
 		StateUSSDRespondCommand: h.handleRespondCommand,
 	})

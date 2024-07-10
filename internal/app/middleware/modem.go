@@ -3,9 +3,9 @@ package middleware
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
-	"github.com/google/uuid"
 	"gopkg.in/telebot.v3"
 )
 
@@ -44,7 +44,7 @@ func selectModem(c telebot.Context, modems map[string]*modem.Modem, done chan st
 	btns := make([]telebot.Btn, 0, len(modems))
 	for k, m := range modems {
 		model, _ := m.GetModel()
-		btn := selector.Data(fmt.Sprintf("%s (%s)", model, k), uuid.New().String(), k)
+		btn := selector.Data(fmt.Sprintf("%s (%s)", model, k), time.Now().String(), k)
 		c.Bot().Handle(&btn, func(c telebot.Context) error {
 			done <- c.Callback().Data
 			return c.Delete()

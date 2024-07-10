@@ -8,7 +8,6 @@ import (
 
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
-	"github.com/google/uuid"
 	"gopkg.in/telebot.v3"
 )
 
@@ -31,7 +30,7 @@ func HandleProfilesCommand(c telebot.Context) error {
 	h := &ProfileHandler{}
 	h.init(c)
 	h.state = h.stateManager.New(c)
-	h.state.Stages(map[string]telebot.HandlerFunc{
+	h.state.States(map[string]telebot.HandlerFunc{
 		StateProfileHandleAction: h.handleAction,
 		StateProfileActionRename: h.handleActionRename,
 		StateProfileActionDelete: h.handleActionDelete,
@@ -85,7 +84,7 @@ func (h *ProfileHandler) toTextMessage(c telebot.Context, profiles []*lpac.Profi
 			emoji = "🅾️"
 		}
 		message += fmt.Sprintf(template, emoji, name, p.ICCID)
-		btn := selector.Data(fmt.Sprintf("%s (%s)", name, p.ICCID[len(p.ICCID)-4:]), uuid.New().String(), p.ICCID)
+		btn := selector.Data(fmt.Sprintf("%s (%s)", name, p.ICCID[len(p.ICCID)-4:]), time.Now().String(), p.ICCID)
 		c.Bot().Handle(&btn, func(c telebot.Context) error {
 			h.ICCID = c.Data()
 			h.state.Next(StateProfileHandleAction)

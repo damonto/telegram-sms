@@ -20,7 +20,7 @@ func HandleSendCommand(c telebot.Context) error {
 	h := &SendHandler{}
 	h.init(c)
 	h.state = h.stateManager.New(c)
-	h.state.Stages(map[string]telebot.HandlerFunc{
+	h.state.States(map[string]telebot.HandlerFunc{
 		StateSendAskPhoneNumber: h.handlePhoneNumber,
 		StateSendAskMessage:     h.handleMessage,
 	})

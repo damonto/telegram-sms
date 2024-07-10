@@ -8,13 +8,13 @@ import (
 )
 
 type State interface {
-	Stages(stages map[string]telebot.HandlerFunc)
+	States(stages map[string]telebot.HandlerFunc)
 	Next(next string)
 }
 
 type state struct {
 	chatId int64
-	stages map[string]telebot.HandlerFunc
+	states map[string]telebot.HandlerFunc
 	next   string
 }
 
@@ -36,7 +36,7 @@ func NewState(bot *telebot.Bot) *StateManager {
 func (c *StateManager) handleText() {
 	c.bot.Handle(telebot.OnText, func(ctx telebot.Context) error {
 		if state, ok := c.states[ctx.Chat().ID]; ok {
-			if step, ok := state.stages[state.next]; ok {
+			if step, ok := state.states[state.next]; ok {
 				return step(ctx)
 			}
 			slog.Error("stage not found", "stage", state.next)
@@ -50,7 +50,7 @@ func (s *StateManager) New(ctx telebot.Context) State {
 	defer s.mutex.Unlock()
 	state := &state{
 		chatId: ctx.Chat().ID,
-		stages: make(map[string]telebot.HandlerFunc),
+		states: make(map[string]telebot.HandlerFunc),
 	}
 	s.states[ctx.Chat().ID] = state
 	return state
@@ -62,8 +62,8 @@ func (s *StateManager) Done(ctx telebot.Context) {
 	delete(s.states, ctx.Chat().ID)
 }
 
-func (c *state) Stages(stages map[string]telebot.HandlerFunc) {
-	c.stages = stages
+func (c *state) States(states map[string]telebot.HandlerFunc) {
+	c.states = states
 }
 
 func (c *state) Next(next string) {
