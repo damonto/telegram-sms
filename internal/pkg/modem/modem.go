@@ -82,7 +82,7 @@ func (m *Modem) RunATCommand(command string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	port, err := os.OpenFile(usbDevice, os.O_RDWR|unix.O_NOCTTY|unix.O_NONBLOCK, 0666)
+	port, err := os.OpenFile(usbDevice, os.O_RDWR|unix.O_NOCTTY, 0666)
 	if err != nil {
 		return "", err
 	}
@@ -92,27 +92,19 @@ func (m *Modem) RunATCommand(command string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer func() {
-		if err := unix.IoctlSetTermios(int(port.Fd()), unix.TCSETS, oldTermios); err != nil {
-			slog.Error("failed to restore termios", "error", err)
-		}
-	}()
+	defer unix.IoctlSetTermios(int(port.Fd()), unix.TCSETS, oldTermios)
 
 	t := unix.Termios{
 		Ispeed: unix.B19200,
 		Ospeed: unix.B19200,
 	}
-	t.Iflag &^= unix.BRKINT | unix.ICRNL | unix.INPCK | unix.ISTRIP | unix.IXON
-	t.Oflag &^= unix.OPOST
-	t.Cflag &^= unix.CSIZE | unix.PARENB
-	t.Cflag |= unix.CS8
-	t.Lflag &^= unix.ECHO | unix.ICANON | unix.IEXTEN | unix.ISIG
+	t.Cflag &^= unix.CSIZE | unix.PARENB | unix.CSTOPB
+	t.Cflag |= unix.CS8 | unix.CLOCAL | unix.CREAD
+	t.Iflag &^= unix.IXON | unix.IXOFF | unix.IXANY | unix.IGNBRK | unix.BRKINT | unix.PARMRK | unix.ISTRIP | unix.INLCR | unix.IGNCR | unix.ICRNL
+	t.Lflag &^= unix.ICANON | unix.ECHO | unix.ECHOE | unix.ECHONL | unix.ISIG
 	t.Cc[unix.VMIN] = 1
 	t.Cc[unix.VTIME] = 0
 	if err := unix.IoctlSetTermios(int(port.Fd()), unix.TCSETS, &t); err != nil {
-		return "", err
-	}
-	if err := unix.SetNonblock(int(port.Fd()), false); err != nil {
 		return "", err
 	}
 
