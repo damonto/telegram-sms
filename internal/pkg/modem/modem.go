@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"syscall"
 
 	"github.com/maltegrosse/go-modemmanager"
 	"golang.org/x/sys/unix"
@@ -82,7 +83,7 @@ func (m *Modem) RunATCommand(command string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	port, err := os.OpenFile(usbDevice, os.O_RDWR|unix.O_NOCTTY, 0666)
+	port, err := os.OpenFile(usbDevice, os.O_RDWR|unix.O_NOCTTY|unix.O_NONBLOCK, 0666)
 	if err != nil {
 		return "", err
 	}
@@ -94,14 +95,19 @@ func (m *Modem) RunATCommand(command string) (string, error) {
 	}
 	defer unix.IoctlSetTermios(int(port.Fd()), unix.TCSETS, oldTermios)
 
+	if err := syscall.SetNonblock(int(port.Fd()), false); err != nil {
+		return "", err
+	}
+
 	t := unix.Termios{
 		Ispeed: unix.B19200,
 		Ospeed: unix.B19200,
 	}
-	t.Cflag &^= unix.CSIZE | unix.PARENB | unix.CSTOPB
+	t.Cflag &^= unix.CSIZE | unix.PARENB | unix.CSTOPB | unix.CRTSCTS
+	t.Oflag &^= unix.OPOST
+	t.Iflag &^= unix.IGNBRK | unix.BRKINT | unix.PARMRK | unix.ISTRIP | unix.INLCR | unix.IGNCR | unix.ICRNL | unix.IXON | unix.IGNPAR
+	t.Lflag &^= unix.ECHO | unix.ECHONL | unix.ICANON | unix.ISIG | unix.IEXTEN
 	t.Cflag |= unix.CS8 | unix.CLOCAL | unix.CREAD
-	t.Iflag &^= unix.IXON | unix.IXOFF | unix.IXANY | unix.IGNBRK | unix.BRKINT | unix.PARMRK | unix.ISTRIP | unix.INLCR | unix.IGNCR | unix.ICRNL
-	t.Lflag &^= unix.ICANON | unix.ECHO | unix.ECHOE | unix.ECHONL | unix.ISIG
 	t.Cc[unix.VMIN] = 1
 	t.Cc[unix.VTIME] = 0
 	if err := unix.IoctlSetTermios(int(port.Fd()), unix.TCSETS, &t); err != nil {
