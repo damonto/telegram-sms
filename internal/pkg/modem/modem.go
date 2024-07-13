@@ -8,7 +8,6 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"unsafe"
 
 	"github.com/maltegrosse/go-modemmanager"
 	"golang.org/x/sys/unix"
@@ -89,19 +88,32 @@ func (m *Modem) RunATCommand(command string) (string, error) {
 	}
 	defer port.Close()
 
+	oldTermios, err := unix.IoctlGetTermios(int(port.Fd()), unix.TCGETS)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if err := unix.IoctlSetTermios(int(port.Fd()), unix.TCSETS, oldTermios); err != nil {
+			slog.Error("failed to restore termios", "error", err)
+		}
+	}()
+
 	t := unix.Termios{
-		Iflag:  unix.IGNPAR,
-		Cflag:  unix.CREAD | unix.CLOCAL | unix.CS8 | unix.B19200,
 		Ispeed: unix.B19200,
 		Ospeed: unix.B19200,
 	}
+	t.Iflag &^= unix.BRKINT | unix.ICRNL | unix.INPCK | unix.ISTRIP | unix.IXON
+	t.Oflag &^= unix.OPOST
+	t.Cflag &^= unix.CSIZE | unix.PARENB
+	t.Cflag |= unix.CS8
+	t.Lflag &^= unix.ECHO | unix.ICANON | unix.IEXTEN | unix.ISIG
 	t.Cc[unix.VMIN] = 1
 	t.Cc[unix.VTIME] = 0
-	if _, _, errno := unix.Syscall6(unix.SYS_IOCTL, uintptr(port.Fd()), unix.TCSETS, uintptr(unsafe.Pointer(&t)), 0, 0, 0); errno != 0 {
-		return "", errors.New("failed to set termios: " + errno.Error())
+	if err := unix.IoctlSetTermios(int(port.Fd()), unix.TCSETS, &t); err != nil {
+		return "", err
 	}
 	if err := unix.SetNonblock(int(port.Fd()), false); err != nil {
-		return "", errors.New("failed to set nonblock: " + err.Error())
+		return "", err
 	}
 
 	slog.Debug("running AT command", "command", command)
