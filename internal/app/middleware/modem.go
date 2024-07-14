@@ -44,7 +44,7 @@ func selectModem(c telebot.Context, modems map[string]*modem.Modem, done chan st
 	btns := make([]telebot.Btn, 0, len(modems))
 	for k, m := range modems {
 		model, _ := m.GetModel()
-		btn := selector.Data(fmt.Sprintf("%s (%s)", model, k), time.Now().String(), k)
+		btn := selector.Data(fmt.Sprintf("%s (%s)", model, k), fmt.Sprint(time.Now().UnixNano()), k)
 		c.Bot().Handle(&btn, func(c telebot.Context) error {
 			done <- c.Callback().Data
 			return c.Delete()
