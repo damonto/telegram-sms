@@ -1,19 +1,42 @@
 package modem
 
-import "github.com/godbus/dbus/v5"
+import (
+	"github.com/godbus/dbus/v5"
+	"github.com/maltegrosse/go-modemmanager"
+)
 
 const (
 	ModemPropertySimSlots       = "org.freedesktop.ModemManager1.Modem.SimSlots"
 	ModemPropertyPrimarySimSlot = "org.freedesktop.ModemManager1.Modem.PrimarySimSlot"
 	ModemSetPrimarySimSlot      = "org.freedesktop.ModemManager1.Modem.SetPrimarySimSlot"
+	ModemPropertySimActive      = modemmanager.SimInterface + ".Active"
 )
 
-func (m *Modem) GetSimSlots() ([]dbus.ObjectPath, error) {
+func (m *Modem) GetSimSlots() ([]modemmanager.Sim, error) {
 	prop, err := m.getProperty(m.modem.GetObjectPath(), ModemPropertySimSlots)
 	if err != nil {
 		return nil, err
 	}
-	return prop.Value().([]dbus.ObjectPath), nil
+	var simSlots = make([]modemmanager.Sim, 0, len(prop.Value().([]dbus.ObjectPath)))
+	for _, obj := range prop.Value().([]dbus.ObjectPath) {
+		if obj == "/" {
+			continue
+		}
+		sim, err := modemmanager.NewSim(obj)
+		if err != nil {
+			return nil, err
+		}
+		simSlots = append(simSlots, sim)
+	}
+	return simSlots, nil
+}
+
+func (m *Modem) GetSimActiveStatus(objectPath dbus.ObjectPath) (bool, error) {
+	prop, err := m.getProperty(objectPath, ModemPropertySimActive)
+	if err != nil {
+		return false, err
+	}
+	return prop.Value().(bool), nil
 }
 
 func (m *Modem) GetPrimarySimSlot() (uint32, error) {

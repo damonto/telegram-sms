@@ -15,6 +15,7 @@ func (r *Router) commands() map[string]string {
 		"/download": "Download eSIM profile",
 		"/profiles": "Manage eSIM profiles",
 		"/ussd":     "Execute USSD command",
+		"/simslot":  "Manage SIM slots",
 	}
 }
 
@@ -36,6 +37,7 @@ func (r *Router) routes() {
 
 		g.Handle("/send", handler.HandleSendCommand)
 		g.Handle("/ussd", handler.HandleUSSDCommand)
+		g.Handle("/simslot", handler.HandleSimSlotCommand)
 	}
 
 	{
