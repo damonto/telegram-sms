@@ -65,5 +65,5 @@ func (h *SimSlotHandler) handleActiveSimSlot(c telebot.Context) error {
 	if err := h.modem.SetPrimarySimSlot(uint32(slot)); err != nil {
 		return err
 	}
-	return c.Send(fmt.Sprintf("Primary SIM slot set to %d", slot))
+	return c.Send(fmt.Sprintf("Primary SIM slot set to %d.", slot))
 }
