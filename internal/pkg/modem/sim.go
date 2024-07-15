@@ -6,9 +6,9 @@ import (
 )
 
 const (
-	ModemPropertySimSlots       = "org.freedesktop.ModemManager1.Modem.SimSlots"
-	ModemPropertyPrimarySimSlot = "org.freedesktop.ModemManager1.Modem.PrimarySimSlot"
-	ModemSetPrimarySimSlot      = "org.freedesktop.ModemManager1.Modem.SetPrimarySimSlot"
+	ModemPropertySimSlots       = modemmanager.ModemInterface + ".SimSlots"
+	ModemPropertyPrimarySimSlot = modemmanager.ModemInterface + ".PrimarySimSlot"
+	ModemSetPrimarySimSlot      = modemmanager.ModemInterface + ".SetPrimarySimSlot"
 	ModemPropertySimActive      = modemmanager.SimInterface + ".Active"
 )
 
