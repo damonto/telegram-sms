@@ -16,6 +16,14 @@ I have thoroughly tested this program and found it to work well. However, its co
 
 You can obtain the latest release from the [releases page](https://github.com/damonto/telegram-sms/releases).
 
+If you want to build it yourself, you can run the following commands:
+
+```bash
+git clone git@github.com:damonto/telegram-sms.git
+cd telegram-sms
+go build -trimpath -ldflags="-w -s" -o telegram-sms main.go
+```
+
 Sometimes, you might need to set executable permissions for the binary file using the following command:
 
 ```bash
