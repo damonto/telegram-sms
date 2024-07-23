@@ -36,9 +36,6 @@ func packageName() string {
 	if runtime.GOARCH == "amd64" || runtime.GOARCH == "386" {
 		return "lpac-linux-x86_64.zip"
 	}
-	if runtime.GOARCH == "arm64" {
-		return "lpac-linux-aarch64.zip"
-	}
 	return "lpac-linux-" + runtime.GOARCH + ".zip"
 }
 
