@@ -41,7 +41,13 @@ EID: %s
 
 		var EID string
 		if m.IsEuicc {
-			usbDevice, err := getUsbDevice(m)
+			var usbDevice string
+			var err error
+			if config.C.APDUDriver == config.APDUDriverAT {
+				usbDevice, err = m.GetAtPort()
+			} else {
+				usbDevice, err = m.GetQMIDevice()
+			}
 			if err != nil {
 				slog.Error("failed to get AT port", "error", err)
 			}
@@ -66,11 +72,4 @@ EID: %s
 			fmt.Sprintf("`%s`", EID)) + "\n"
 	}
 	return c.Send(util.EscapeText(strings.TrimRight(message, "\n")), &telebot.SendOptions{ParseMode: telebot.ModeMarkdownV2})
-}
-
-func getUsbDevice(modem *modem.Modem) (string, error) {
-	if config.C.APDUDriver == config.APDUDriverAT {
-		return modem.GetAtPort()
-	}
-	return modem.GetQMIDevice()
 }
