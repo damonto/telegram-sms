@@ -38,11 +38,6 @@ sudo ./telegram-sms --bot-token=YourTelegramToken --admin-id=YourTelegramChatID
 
 ### QMI
 
-To use the QMI driver, ensure you have the following dependencies:
-
-1. **libqmi** >= 1.35.5
-2. **lpac** >= 2.0.3
-
 Since the new version of `libqmi` has not been officially released and `lpac` doesn't provide a binary with the built-in QMI driver, you will need to compile `libqmi` and `lpac` manually.
 
 For detailed build instructions, refer to [libqmi's official documentation](https://modemmanager.org/docs/libqmi/building/building-meson/) and [lpac's official documentation](https://github.com/estkme-group/lpac/blob/main/docs/DEVELOPERS.md)
