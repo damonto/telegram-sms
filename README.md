@@ -49,7 +49,7 @@ git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
 cd libqmi
 meson setup build --prefix=/usr
 ninja -C build
- ninja -C build install
+ninja -C build install
 ```
 
 If you wish to run the program in the background, you can utilize the `systemctl` command. Here is an example of how to achieve this:
