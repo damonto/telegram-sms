@@ -36,9 +36,9 @@ Once done, you can run the program with root privileges:
 sudo ./telegram-sms -bot-token=YourTelegramToken --admin-id=YourTelegramChatID
 ```
 
-### QMI
+### QMI Driver
 
-`libqmi` doesn't cut a new release yet, so if you want to use the QMI driver, you should compile `libqmi` by yourself.
+Since the new version of "libqmi" has not been released, if you want to use the qmi driver, you should compile "libqmi" yourself.
 
 > https://modemmanager.org/docs/libqmi/building/building-meson/
 
