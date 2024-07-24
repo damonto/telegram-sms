@@ -33,7 +33,7 @@ chmod +x telegram-sms
 Once done, you can run the program with root privileges:
 
 ```bash
-sudo ./telegram-sms -bot-token=YourTelegramToken --admin-id=YourTelegramChatID
+sudo ./telegram-sms --bot-token=YourTelegramToken --admin-id=YourTelegramChatID
 ```
 
 ### QMI
@@ -75,7 +75,7 @@ make -j$(nproc) -C build
 Once you have compiled and installed `libqmi` and `lpac`, you can run the program with the following command:
 
 ```bash
-sudo ./telegram-sms -bot-token=YourTelegramToken --admin-id=YourTelegramChatID --apdu-driver=qmi --dir=/path/to/lpac --dont-download
+sudo ./telegram-sms --bot-token=YourTelegramToken --admin-id=YourTelegramChatID --apdu-driver=qmi --dir=/path/to/lpac --dont-download
 ```
 
 If you wish to run the program in the background, you can utilize the `systemctl` command. Here is an example of how to achieve this:
