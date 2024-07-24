@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"time"
 
 	"gopkg.in/telebot.v3"
 )
@@ -38,6 +39,11 @@ func (h *USSDHandler) handleExecuteCommand(c telebot.Context) error {
 		c.Send("Failed to execute USSD command, err: " + err.Error())
 		return err
 	}
+	go func() {
+		timout := time.After(120 * time.Second)
+		<-timout
+		h.modem.CancelUSSDSession()
+	}()
 	h.state.Next(StateUSSDRespondCommand)
 	return c.Send(fmt.Sprintf("%s\n%s\nIf you want to respond to this USSD command, please send me the response.", c.Text(), response))
 }
