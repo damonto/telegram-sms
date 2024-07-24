@@ -41,7 +41,7 @@ func HandleProfilesCommand(c telebot.Context) error {
 func (h *ProfileHandler) handle(c telebot.Context) error {
 	h.modem.Lock()
 	defer h.modem.Unlock()
-	usbDevice, err := h.modem.GetAtPort()
+	usbDevice, err := h.GetUsbDevice()
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func (h *ProfileHandler) handleAction(c telebot.Context) error {
 func (h *ProfileHandler) handleAskAction(c telebot.Context) error {
 	h.modem.Lock()
 	defer h.modem.Unlock()
-	usbDevice, err := h.modem.GetAtPort()
+	usbDevice, err := h.GetUsbDevice()
 	if err != nil {
 		return err
 	}
@@ -185,7 +185,7 @@ func (h *ProfileHandler) handleActionDelete(c telebot.Context) error {
 	}
 	h.modem.Lock()
 	defer h.modem.Unlock()
-	usbDevice, err := h.modem.GetAtPort()
+	usbDevice, err := h.GetUsbDevice()
 	if err != nil {
 		return err
 	}
@@ -202,7 +202,7 @@ func (h *ProfileHandler) handleActionDelete(c telebot.Context) error {
 
 func (h *ProfileHandler) handleActionEnable(c telebot.Context) error {
 	h.modem.Lock()
-	usbDevice, err := h.modem.GetAtPort()
+	usbDevice, err := h.GetUsbDevice()
 	if err != nil {
 		return err
 	}
@@ -223,7 +223,7 @@ func (h *ProfileHandler) handleActionEnable(c telebot.Context) error {
 func (h *ProfileHandler) handleActionRename(c telebot.Context) error {
 	h.modem.Lock()
 	defer h.modem.Unlock()
-	usbDevice, err := h.modem.GetAtPort()
+	usbDevice, err := h.GetUsbDevice()
 	if err != nil {
 		return err
 	}

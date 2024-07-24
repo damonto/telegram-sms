@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/damonto/telegram-sms/internal/pkg/config"
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
@@ -40,7 +41,7 @@ EID: %s
 
 		var EID string
 		if m.IsEuicc {
-			usbDevice, err := m.GetAtPort()
+			usbDevice, err := getUsbDevice(m)
 			if err != nil {
 				slog.Error("failed to get AT port", "error", err)
 			}
@@ -65,4 +66,11 @@ EID: %s
 			fmt.Sprintf("`%s`", EID)) + "\n"
 	}
 	return c.Send(util.EscapeText(strings.TrimRight(message, "\n")), &telebot.SendOptions{ParseMode: telebot.ModeMarkdownV2})
+}
+
+func getUsbDevice(modem *modem.Modem) (string, error) {
+	if config.C.APDUDriver == config.APDUDriverAT {
+		return modem.GetAtPort()
+	}
+	return modem.GetQMIDevice()
 }

@@ -24,7 +24,7 @@ func HandleChipCommand(c telebot.Context) error {
 func (h *ChipHandler) handle(c telebot.Context) error {
 	h.modem.Lock()
 	defer h.modem.Unlock()
-	usbDevice, err := h.modem.GetAtPort()
+	usbDevice, err := h.GetUsbDevice()
 	if err != nil {
 		return err
 	}

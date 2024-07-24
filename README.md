@@ -36,6 +36,22 @@ Once done, you can run the program with root privileges:
 sudo ./telegram-sms -bot-token=YourTelegramToken --admin-id=YourTelegramChatID
 ```
 
+### QMI
+
+`libqmi` doesn't cut a new release yet, so if you want to use the QMI driver, you should compile `libqmi` by yourself.
+
+> https://modemmanager.org/docs/libqmi/building/building-meson/
+
+```bash
+# Arch Linux (dependencis)
+# pacman -S meson ninjia bash-completion gobject-introspection help2man
+git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
+cd libqmi
+meson setup build --prefix=/usr
+ninja -C build
+ ninja -C build install
+```
+
 If you wish to run the program in the background, you can utilize the `systemctl` command. Here is an example of how to achieve this:
 
 1. Start by creating a service file in the `/etc/systemd/system` directory. For instance, you can name the file `telegram-sms.service` and include the following content:

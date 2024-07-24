@@ -25,8 +25,13 @@ func NewCmd(ctx context.Context, usbDevice string) *Cmd {
 
 func (c *Cmd) Run(arguments []string, dst any, progress Progress) error {
 	cmd := exec.CommandContext(c.ctx, filepath.Join(config.C.Dir, "lpac"), arguments...)
-	cmd.Env = append(cmd.Env, "LPAC_APDU=at")
-	cmd.Env = append(cmd.Env, "AT_DEVICE="+c.usbDevice)
+	cmd.Env = append(cmd.Env, "LPAC_APDU="+config.C.APDUDriver)
+	if config.C.APDUDriver == config.APDUDriverAT {
+		cmd.Env = append(cmd.Env, "AT_DEVICE="+c.usbDevice)
+	} else {
+		cmd.Env = append(cmd.Env, "QMI_DEVICE="+c.usbDevice)
+	}
+	slog.Debug("running lpac command", "command", cmd.String(), "env", cmd.Env)
 
 	stderr := bytes.Buffer{}
 	cmd.Stderr = &stderr

@@ -6,16 +6,19 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 	"syscall"
 
+	"github.com/damonto/telegram-sms/internal/pkg/config"
 	"github.com/maltegrosse/go-modemmanager"
 	"golang.org/x/sys/unix"
 )
 
 var (
 	ErrNoATPortFound          = errors.New("no at port found")
+	ErrNoQMIDeviceFound       = errors.New("no QMI device found")
 	ErrRestartCommandNotFound = errors.New("restart command not found")
 
 	restartCommands = map[string]string{
@@ -34,6 +37,27 @@ func (m *Modem) Unlock() {
 }
 
 func (m *Modem) isEuicc() bool {
+	if config.APDUDriverAT == config.C.APDUDriver {
+		return m.checkByATCommand()
+	}
+	return m.checkByQmicli()
+}
+
+func (m *Modem) checkByQmicli() bool {
+	qmiDevice, err := m.GetQMIDevice()
+	if err != nil {
+		slog.Error("failed to get QMI device", "error", err)
+		return false
+	}
+	result, err := exec.Command("qmicli", "-d", qmiDevice, "-p", "--uim-get-slot-status").Output()
+	if err != nil {
+		slog.Error("failed to get sim slot info", "error", err)
+		return false
+	}
+	return strings.Contains(string(result), "Is eUICC: yes")
+}
+
+func (m *Modem) checkByATCommand() bool {
 	m.RunATCommand("AT+CCHC=1")
 	m.RunATCommand("AT+CCHC=2")
 	m.RunATCommand("AT+CCHC=3")
@@ -151,6 +175,20 @@ func (m *Modem) GetAtPort() (string, error) {
 		}
 	}
 	return "", ErrNoATPortFound
+}
+
+func (m *Modem) GetQMIDevice() (string, error) {
+	ports, err := m.modem.GetPorts()
+	if err != nil {
+		return "", err
+	}
+
+	for _, port := range ports {
+		if port.PortType == modemmanager.MmModemPortTypeQmi {
+			return fmt.Sprintf("/dev/%s", port.PortName), nil
+		}
+	}
+	return "", ErrNoQMIDeviceFound
 }
 
 func (m *Modem) GetManufacturer() (string, error) {

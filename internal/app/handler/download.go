@@ -78,7 +78,7 @@ func (h *DownloadHandler) download(c telebot.Context) error {
 
 	h.modem.Lock()
 	defer h.modem.Unlock()
-	usbDevice, err := h.modem.GetAtPort()
+	usbDevice, err := h.GetUsbDevice()
 	if err != nil {
 		return err
 	}
