@@ -11,7 +11,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/damonto/telegram-sms/internal/pkg/config"
 	"github.com/maltegrosse/go-modemmanager"
 	"golang.org/x/sys/unix"
 )
@@ -31,10 +30,10 @@ func (m *Modem) Unlock() {
 }
 
 func (m *Modem) isEuicc() bool {
-	if config.APDUDriverAT == config.C.APDUDriver {
-		return m.checkByATCommand()
+	if m.checkByQmicli() {
+		return true
 	}
-	return m.checkByQmicli()
+	return m.checkByATCommand()
 }
 
 func (m *Modem) checkByQmicli() bool {
