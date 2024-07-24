@@ -112,7 +112,6 @@ func (c *Cmd) ProfileDelete(ICCID string) error {
 	if err := c.Run([]string{"profile", "delete", ICCID}, nil, nil); err != nil {
 		return err
 	}
-
 	notifications, err := c.NotificationList()
 	if err != nil {
 		return err
@@ -124,7 +123,7 @@ func (c *Cmd) ProfileDelete(ICCID string) error {
 			break
 		}
 	}
-	if deletionNotificationSeqNumber > 0 {
+	if deletionNotificationSeqNumber < 0 {
 		return ErrDeletionNotificationNotFound
 	}
 	return c.NotificationProcess(deletionNotificationSeqNumber, false, nil)
