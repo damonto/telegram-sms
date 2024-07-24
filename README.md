@@ -36,20 +36,46 @@ Once done, you can run the program with root privileges:
 sudo ./telegram-sms -bot-token=YourTelegramToken --admin-id=YourTelegramChatID
 ```
 
-### QMI Driver
+### QMI
 
-Since the new version of "libqmi" has not been released, if you want to use the qmi driver, you should compile "libqmi" yourself.
+To use the QMI driver, ensure you have the following dependencies:
 
-> https://modemmanager.org/docs/libqmi/building/building-meson/
+1. **libqmi** >= 1.35.5
+2. **lpac** >= 2.0.3
+
+Since the new version of `libqmi` has not been officially released and `lpac` doesn't provide a binary with the built-in QMI driver, you will need to compile `libqmi` and `lpac` manually.
+
+For detailed build instructions, refer to [libqmi's official documentation](https://modemmanager.org/docs/libqmi/building/building-meson/).
+
+#### 1. Compile and Install `libqmi`
+
+If you already have `libqmi` version **1.35.5** or later installed, you can skip this step.
 
 ```bash
-# Arch Linux (dependencis)
-# pacman -S meson ninja bash-completion gobject-introspection help2man
+# sudo pacman -S --needed meson ninja pkg-config bash-completion gobject-introspection help2man (Arch Linux)
+# sudo apt-get install -y meson ninja-build pkg-config bash-completion gobject-introspection help2man (Ubuntu/Debian)
 git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
 cd libqmi
 meson setup build --prefix=/usr
 ninja -C build
-ninja -C build install
+sudo ninja -C build install
+```
+
+#### 2. Compile `lpac`
+
+```bash
+# sudo pacman -S --needed cmake make pkg-config libcurl-gnutls  (Arch Linux)
+# sudo apt-get install -y cmake make pkg-config libcurl4-gnutls-dev (Ubuntu/Debian)
+git clone https://github.com/estkme-group/lpac.git
+cd lpac
+cmake -B build -DLPAC_WITH_APDU_QMI=on -DLPAC_WITH_APDU_PCSC=off -S .
+make -j$(nproc) -C build
+```
+
+Once you have compiled and installed `libqmi` and `lpac`, you can run the program with the following command:
+
+```bash
+sudo ./telegram-sms -bot-token=YourTelegramToken --admin-id=YourTelegramChatID --apdu-driver=qmi --dir=/path/to/lpac --dont-download
 ```
 
 If you wish to run the program in the background, you can utilize the `systemctl` command. Here is an example of how to achieve this:

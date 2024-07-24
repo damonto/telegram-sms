@@ -25,29 +25,24 @@ type Manager struct {
 	reboot chan struct{}
 }
 
-var managerInstance *Manager
+var instance *Manager
 
 func NewManager() (*Manager, error) {
 	mmgr, err := modemmanager.NewModemManager()
 	if err != nil {
 		return nil, err
 	}
-
-	if err := mmgr.ScanDevices(); err != nil {
-		return nil, err
-	}
-
-	managerInstance = &Manager{
+	instance = &Manager{
 		mmgr:   mmgr,
 		modems: make(map[string]*Modem),
 		reboot: make(chan struct{}, 1),
 	}
-	go managerInstance.watch()
-	return managerInstance, nil
+	go instance.watch()
+	return instance, nil
 }
 
 func GetManager() *Manager {
-	return managerInstance
+	return instance
 }
 
 func (m *Manager) watch() error {

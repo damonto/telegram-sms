@@ -43,6 +43,7 @@ func (h *USSDHandler) handleExecuteCommand(c telebot.Context) error {
 		timout := time.After(120 * time.Second)
 		<-timout
 		h.modem.CancelUSSDSession()
+		h.stateManager.Done(c)
 	}()
 	h.state.Next(StateUSSDRespondCommand)
 	return c.Send(fmt.Sprintf("%s\n%s\nIf you want to respond to this USSD command, please send me the response.", c.Text(), response))

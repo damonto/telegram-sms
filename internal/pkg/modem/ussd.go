@@ -27,6 +27,15 @@ func (m *Modem) RespondUSSDCommand(response string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	state, err := ussd.GetState()
+	if err != nil {
+		return "", err
+	}
+	if state == modemmanager.MmModem3gppUssdSessionStateActive || state == modemmanager.MmModem3gppUssdSessionStateIdle {
+		if err := ussd.Cancel(); err != nil {
+			return "", err
+		}
+	}
 	reply, err := ussd.Respond(response)
 	if err != nil {
 		return "", err
