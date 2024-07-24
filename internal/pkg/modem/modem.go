@@ -2,15 +2,18 @@ package modem
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
-	"regexp"
 	"strings"
 	"syscall"
+	"time"
 
+	"github.com/damonto/telegram-sms/internal/pkg/config"
+	"github.com/damonto/telegram-sms/internal/pkg/lpac"
 	"github.com/maltegrosse/go-modemmanager"
 	"golang.org/x/sys/unix"
 )
@@ -29,43 +32,29 @@ func (m *Modem) Unlock() {
 	m.mutex.Unlock()
 }
 
-func (m *Modem) isEuicc() bool {
-	if m.checkByQmicli() {
-		return true
+func (m *Modem) detectEuicc() (bool, string) {
+	m.Lock()
+	defer m.Unlock()
+	var usbDevice string
+	var err error
+	if config.C.APDUDriver == config.APDUDriverAT {
+		usbDevice, err = m.GetAtPort()
+	} else {
+		usbDevice, err = m.GetQMIDevice()
 	}
-	return m.checkByATCommand()
-}
-
-func (m *Modem) checkByQmicli() bool {
-	qmiDevice, err := m.GetQMIDevice()
 	if err != nil {
-		slog.Error("failed to get QMI device", "error", err)
-		return false
+		slog.Error("failed to get modem port", "error", err)
+		return false, ""
 	}
-	result, err := exec.Command("qmicli", "-d", qmiDevice, "-p", "--uim-get-slot-status").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	info, err := lpac.NewCmd(ctx, usbDevice).Info()
 	if err != nil {
-		slog.Error("failed to get sim slot info", "error", err)
-		return false
+		slog.Error("failed to get modem info", "error", err)
+		return false, ""
 	}
-	return strings.Contains(string(result), "Is eUICC: yes")
-}
-
-func (m *Modem) checkByATCommand() bool {
-	m.RunATCommand("AT+CCHC=1")
-	m.RunATCommand("AT+CCHC=2")
-	m.RunATCommand("AT+CCHC=3")
-
-	response, err := m.RunATCommand("AT+CCHO=\"A0000005591010FFFFFFFF8900000100\"")
-	if err != nil || !strings.Contains(response, "+CCHO") {
-		slog.Error("failed to open ISD-R channel", "error", err, "response", response)
-		return false
-	}
-	channelId := regexp.MustCompile(`\d+`).FindString(response)
-	if _, err = m.RunATCommand(fmt.Sprintf("AT+CCHC=%s", channelId)); err != nil {
-		slog.Error("failed to close ISD-R channel", "error", err)
-		return false
-	}
-	return true
+	slog.Info("eUICC chip detected", "EID", info.EID)
+	return info.EID != "", info.EID
 }
 
 func (m *Modem) Restart() error {

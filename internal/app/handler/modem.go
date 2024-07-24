@@ -1,13 +1,9 @@
 package handler
 
 import (
-	"context"
 	"fmt"
-	"log/slog"
 	"strings"
 
-	"github.com/damonto/telegram-sms/internal/pkg/config"
-	"github.com/damonto/telegram-sms/internal/pkg/lpac"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 	"gopkg.in/telebot.v3"
@@ -39,27 +35,6 @@ EID: %s
 		network, _ := m.GetOperatorName()
 		ICCID, _ := m.GetICCID()
 
-		var EID string
-		if m.IsEuicc {
-			var usbDevice string
-			var err error
-			if config.C.APDUDriver == config.APDUDriverAT {
-				usbDevice, err = m.GetAtPort()
-			} else {
-				usbDevice, err = m.GetQMIDevice()
-			}
-			if err != nil {
-				slog.Error("failed to get AT port", "error", err)
-			}
-			m.Lock()
-			info, err := lpac.NewCmd(context.Background(), usbDevice).Info()
-			m.Unlock()
-			if err != nil {
-				slog.Error("failed to get eUICC info", "error", err)
-			} else {
-				EID = info.EID
-			}
-		}
 		message += fmt.Sprintf(
 			template,
 			manufacturer,
@@ -69,7 +44,7 @@ EID: %s
 			signal,
 			network,
 			fmt.Sprintf("`%s`", ICCID),
-			fmt.Sprintf("`%s`", EID)) + "\n"
+			fmt.Sprintf("`%s`", m.Eid))
 	}
 	return c.Send(util.EscapeText(strings.TrimRight(message, "\n")), &telebot.SendOptions{ParseMode: telebot.ModeMarkdownV2})
 }

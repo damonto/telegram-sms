@@ -51,7 +51,7 @@ func selectModem(c telebot.Context, modems map[string]*modem.Modem, done chan st
 		})
 		btns = append(btns, btn)
 	}
-	selector.Inline(selector.Row(btns...))
+	selector.Inline(selector.Split(1, btns)...)
 	return c.Send("I found the following modems, please select one:", &selector)
 }
 

@@ -16,6 +16,7 @@ var (
 type Modem struct {
 	mutex   sync.Mutex
 	IsEuicc bool
+	Eid     string
 	modem   modemmanager.Modem
 }
 
@@ -86,7 +87,7 @@ func (m *Manager) watchModems() error {
 		nm := &Modem{
 			modem: mm,
 		}
-		nm.IsEuicc = nm.isEuicc()
+		nm.IsEuicc, nm.Eid = nm.detectEuicc()
 		m.modems[modemId] = nm
 	}
 	// If the modem is not in the list, add it, and send a signal to reboot the subscriber
