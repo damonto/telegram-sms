@@ -20,12 +20,6 @@ var (
 	ErrNoATPortFound          = errors.New("no at port found")
 	ErrNoQMIDeviceFound       = errors.New("no QMI device found")
 	ErrRestartCommandNotFound = errors.New("restart command not found")
-
-	restartCommands = map[string]string{
-		"quectel": "AT+QPOWD=1",
-		"fibocom": "AT+CPWROFF",
-		"simcom":  "AT+CPOF",
-	}
 )
 
 func (m *Modem) Lock() {
@@ -67,7 +61,6 @@ func (m *Modem) checkByATCommand() bool {
 		slog.Error("failed to open ISD-R channel", "error", err, "response", response)
 		return false
 	}
-
 	channelId := regexp.MustCompile(`\d+`).FindString(response)
 	if _, err = m.RunATCommand(fmt.Sprintf("AT+CCHC=%s", channelId)); err != nil {
 		slog.Error("failed to close ISD-R channel", "error", err)
@@ -77,32 +70,28 @@ func (m *Modem) checkByATCommand() bool {
 }
 
 func (m *Modem) Restart() error {
-	model, err := m.GetModel()
+	qmiDevice, err := m.GetQMIDevice()
 	if err != nil {
 		return err
 	}
-	manufacturer, err := m.GetManufacturer()
+	simslot, err := m.GetPrimarySimSlot()
 	if err != nil {
 		return err
 	}
-	var restartCommand string
-	for brand, command := range restartCommands {
-		if strings.Contains(strings.ToLower(model), brand) || strings.Contains(strings.ToLower(manufacturer), brand) {
-			restartCommand = command
-			break
-		}
+	if result, err := exec.Command("qmicli", "-d", qmiDevice, "-p", fmt.Sprintf("--uim-sim-power-off=%d", simslot)).Output(); err != nil {
+		slog.Error("failed to power off sim", "error", err, "result", string(result))
+		return err
 	}
-	if restartCommand == "" {
-		return ErrRestartCommandNotFound
+	if result, err := exec.Command("qmicli", "-d", qmiDevice, "-p", fmt.Sprintf("--uim-sim-power-on=%d", simslot)).Output(); err != nil {
+		slog.Error("failed to power on sim", "error", err, "result", string(result))
+		return err
 	}
-	_, err = m.RunATCommand(restartCommand)
-	return err
+	return nil
 }
 
 func (m *Modem) RunATCommand(command string) (string, error) {
 	m.Lock()
 	defer m.Unlock()
-
 	usbDevice, err := m.GetAtPort()
 	if err != nil {
 		return "", err
@@ -168,7 +157,6 @@ func (m *Modem) GetAtPort() (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	for _, port := range ports {
 		if port.PortType == modemmanager.MmModemPortTypeAt {
 			return fmt.Sprintf("/dev/%s", port.PortName), nil
@@ -182,7 +170,6 @@ func (m *Modem) GetQMIDevice() (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	for _, port := range ports {
 		if port.PortType == modemmanager.MmModemPortTypeQmi {
 			return fmt.Sprintf("/dev/%s", port.PortName), nil
