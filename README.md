@@ -44,7 +44,7 @@ Since the new version of "libqmi" has not been released, if you want to use the 
 
 ```bash
 # Arch Linux (dependencis)
-# pacman -S meson ninjia bash-completion gobject-introspection help2man
+# pacman -S meson ninja bash-completion gobject-introspection help2man
 git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
 cd libqmi
 meson setup build --prefix=/usr
