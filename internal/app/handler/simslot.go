@@ -24,7 +24,9 @@ func (h *SimSlotHandler) handle(c telebot.Context) error {
 	if err != nil {
 		return err
 	}
-
+	if len(simSlots) == 0 {
+		return c.Send("No SIM slots found")
+	}
 	template := `
 %s SIM %d - *%s*
 %s

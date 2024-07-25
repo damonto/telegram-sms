@@ -44,12 +44,7 @@ func (m *Modem) GetPrimarySimSlot() (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	slot := prop.Value().(uint32)
-	// Some modems return 0 as the primary slot, which is invalid.
-	if slot == 0 {
-		return 1, nil
-	}
-	return slot, nil
+	return prop.Value().(uint32), nil
 }
 
 func (m *Modem) SetPrimarySimSlot(slotId uint32) error {

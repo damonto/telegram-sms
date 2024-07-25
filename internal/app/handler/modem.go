@@ -2,7 +2,6 @@ package handler
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
@@ -46,5 +45,5 @@ EID: %s
 			fmt.Sprintf("`%s`", ICCID),
 			fmt.Sprintf("`%s`", m.Eid))
 	}
-	return c.Send(util.EscapeText(strings.TrimRight(message, "\n")), &telebot.SendOptions{ParseMode: telebot.ModeMarkdownV2})
+	return c.Send(util.EscapeText(message), &telebot.SendOptions{ParseMode: telebot.ModeMarkdownV2})
 }

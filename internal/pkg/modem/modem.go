@@ -66,6 +66,10 @@ func (m *Modem) Restart() error {
 	if err != nil {
 		return err
 	}
+	// Qmi's sim slot is from 1
+	if simslot == 0 {
+		simslot = 1
+	}
 	if result, err := exec.Command("qmicli", "-d", qmiDevice, "-p", fmt.Sprintf("--uim-sim-power-off=%d", simslot)).Output(); err != nil {
 		slog.Error("failed to power off sim", "error", err, "result", string(result))
 		return err
