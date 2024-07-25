@@ -8,7 +8,7 @@ I have thoroughly tested this program and found it to work well. However, its co
 
 ## Tested Devices
 
-* Qualcomm 410 WiFi Dongle (Doesn't support USSD commands and eSIM features)
+* Qualcomm 410 WiFi Dongle (Doesn't support USSD commands)
 * Quectel EC20
 * Quectel EM12-G
 
