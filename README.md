@@ -47,8 +47,8 @@ For detailed build instructions, refer to [libqmi's official documentation](http
 If you already have `libqmi` version **1.35.5** or later installed, you can skip this step.
 
 ```bash
-# sudo pacman -S --needed meson ninja pkg-config bash-completion gobject-introspection help2man (Arch Linux)
-# sudo apt-get install -y meson ninja-build pkg-config bash-completion gobject-introspection help2man (Ubuntu/Debian)
+# sudo pacman -S --needed meson ninja pkg-config bash-completion libgirepository help2man glib2 libgudev libmbim libqrtr-glib (Arch Linux)
+# sudo apt-get install -y meson ninja-build pkg-config bash-completion libgirepository1.0-dev help2man libglib2.0-dev libgudev-1.0-dev libmbim-glib-dev libqrtr-glib-dev (Ubuntu/Debian)
 git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
 cd libqmi
 meson setup build --prefix=/usr
