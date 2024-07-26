@@ -40,7 +40,7 @@ Once done, you can run the program with root privileges:
 sudo ./telegram-sms --bot-token=YourTelegramToken --admin-id=YourTelegramChatID
 ```
 
-### QMI
+#### QMI
 
 Since the new version of `libqmi` has not been officially released and `lpac` doesn't provide a binary with the built-in QMI driver, you will need to compile `libqmi` and `lpac` manually.
 
