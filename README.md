@@ -1,22 +1,22 @@
 # Telegram SMS
 
-## Advertisement
+### Advertisement
 
 If you are looking for a removable eUICC solution, such as eSIM.me or 5ber.eSIM, I recommend buying eSTK.me. It is more reliable and offers more features. You can purchase it [here](https://estk.me/), and you can use the coupon code `eSIMCyou` to get a 10% discount.
 
-## Introduction
+### Introduction
 
 This program enables you to manage your SMS via a Telegram bot, including tasks such as receiving and sending SMS. To use this program, you will need a Telegram account and a Telegram bot. You can create a Telegram bot by interacting with [BotFather](https://t.me/botfather) and following the provided instructions.
 
 I have thoroughly tested this program and found it to work well. However, its compatibility with your system may vary. Should you encounter any issues, please do not hesitate to inform me.
 
-## Tested Devices
+### Tested Devices
 
 * Qualcomm 410 WiFi Dongle (Doesn't support USSD commands)
 * Quectel EC20
 * Quectel EM12-G
 
-## Installation & Usage
+### Installation & Usage
 
 You can obtain the latest release from the [releases page](https://github.com/damonto/telegram-sms/releases).
 
@@ -110,7 +110,7 @@ sudo systemctl start telegram-sms
 sudo systemctl enable telegram-sms
 ```
 
-## Donate
+### Donate
 
 If you like this project, you can donate to the following addresses:
 
