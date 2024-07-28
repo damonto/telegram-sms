@@ -47,7 +47,7 @@ func init() {
 	}
 }
 
-func FincCertificateIssuer(keyID string) string {
+func FindCertificateIssuer(keyID string) string {
 	for _, ci := range certificateIssuers {
 		if strings.HasPrefix(keyID, ci.KeyID) {
 			return ci.Name

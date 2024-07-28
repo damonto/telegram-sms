@@ -58,7 +58,7 @@ Sign Keys:
 
 	var keysReplacement string
 	for _, key := range chip.EUICCInfo2.PkiForSigning {
-		keysReplacement += util.FincCertificateIssuer(key) + "\n"
+		keysReplacement += util.FindCertificateIssuer(key) + "\n"
 	}
 	keysReplacement = strings.TrimSuffix(keysReplacement, "\n")
 	return c.Send(

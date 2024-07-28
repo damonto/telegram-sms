@@ -10,13 +10,14 @@ const (
 )
 
 type Config struct {
-	BotToken     string
-	AdminId      int64
-	Dir          string
-	APDUDriver   string
-	Version      string
-	DontDownload bool
-	Verbose      bool
+	BotToken         string
+	AdminId          int64
+	TelegramEndpoint string
+	Dir              string
+	APDUDriver       string
+	Version          string
+	DontDownload     bool
+	Verbose          bool
 }
 
 var C = &Config{}
