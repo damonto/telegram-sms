@@ -42,9 +42,9 @@ func (h *SimSlotHandler) handle(c telebot.Context) error {
 		identifier, _ := simSlot.GetSimIdentifier()
 		operatorName, _ := simSlot.GetOperatorName()
 		if active {
-			text += fmt.Sprintf(template, "🟢", slotId+1, operatorName, identifier)
+			text += util.EscapeText(fmt.Sprintf(template, "🟢", slotId+1, operatorName, identifier))
 		} else {
-			text += fmt.Sprintf(template, "🔴", slotId+1, operatorName, identifier)
+			text += util.EscapeText(fmt.Sprintf(template, "🔴", slotId+1, operatorName, identifier))
 		}
 		btn := selector.Data(fmt.Sprintf("SIM %d (%s)", slotId+1, identifier), fmt.Sprint(time.Now().UnixNano()), fmt.Sprint(slotId+1))
 		c.Bot().Handle(&btn, func(c telebot.Context) error {
@@ -53,7 +53,7 @@ func (h *SimSlotHandler) handle(c telebot.Context) error {
 		buttons = append(buttons, btn)
 	}
 	selector.Inline(selector.Split(1, buttons)...)
-	return c.Send(util.EscapeText(text), &telebot.SendOptions{
+	return c.Send(text, &telebot.SendOptions{
 		ReplyMarkup: selector,
 		ParseMode:   telebot.ModeMarkdownV2,
 	})

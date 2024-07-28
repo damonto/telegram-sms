@@ -62,13 +62,13 @@ Sign Keys:
 	}
 	keysReplacement = strings.TrimSuffix(keysReplacement, "\n")
 	return c.Send(
-		util.EscapeText(fmt.Sprintf(
+		fmt.Sprintf(
 			message,
 			fmt.Sprintf("`%s`", chip.EID),
-			manufacturerReplacement,
+			util.EscapeText(manufacturerReplacement),
 			chip.EUICCInfo2.ExtCardResource.FreeNonVolatileMemory/1024,
 			keysReplacement,
-		)),
+		),
 		&telebot.SendOptions{
 			ParseMode: telebot.ModeMarkdownV2,
 		},

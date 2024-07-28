@@ -56,7 +56,7 @@ func (h *ProfileHandler) handle(c telebot.Context) error {
 	}
 
 	message, buttons := h.toTextMessage(c, profiles)
-	return c.Send(util.EscapeText(message), &telebot.SendOptions{
+	return c.Send(message, &telebot.SendOptions{
 		ParseMode:   telebot.ModeMarkdownV2,
 		ReplyMarkup: buttons,
 	})
@@ -83,7 +83,7 @@ func (h *ProfileHandler) toTextMessage(c telebot.Context, profiles []*lpac.Profi
 		} else {
 			emoji = "🅾️"
 		}
-		message += fmt.Sprintf(template, emoji, name, p.ICCID)
+		message += fmt.Sprintf(template, emoji, util.EscapeText(name), p.ICCID)
 		btn := selector.Data(fmt.Sprintf("%s (%s)", name, p.ICCID[len(p.ICCID)-4:]), fmt.Sprint(time.Now().UnixNano()), p.ICCID)
 		c.Bot().Handle(&btn, func(c telebot.Context) error {
 			h.ICCID = c.Data()
@@ -152,7 +152,6 @@ func (h *ProfileHandler) handleAskAction(c telebot.Context) error {
 	}
 
 	template := `
-You've selected the profile:
 %s *%s*
 %s
 What do you want to do with this profile?
@@ -169,7 +168,7 @@ What do you want to do with this profile?
 	} else {
 		emoji = "🅾️"
 	}
-	return c.Send(util.EscapeText(fmt.Sprintf(template, emoji, name, fmt.Sprintf("`%s`", profile.ICCID))), &telebot.SendOptions{
+	return c.Send(fmt.Sprintf(template, emoji, util.EscapeText(name), fmt.Sprintf("`%s`", profile.ICCID)), &telebot.SendOptions{
 		ParseMode: telebot.ModeMarkdownV2,
 		ReplyMarkup: &telebot.ReplyMarkup{
 			OneTimeKeyboard: true,
@@ -215,7 +214,7 @@ func (h *ProfileHandler) handleActionEnable(c telebot.Context) error {
 	h.modem.Unlock()
 	// Sometimes the modem needs to be restarted to apply the changes.
 	if err := h.modem.Restart(); err != nil {
-		slog.Error("unable to restart modem, you may need to restart this modem manually", "error", err)
+		slog.Error("unable to restart modem, you may need to restart this modem manually.", "error", err)
 	}
 	return c.Send("Your profile has been enabled. Please wait a moment for it to take effect. /profiles")
 }
@@ -232,7 +231,7 @@ func (h *ProfileHandler) handleActionRename(c telebot.Context) error {
 	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileSetNickname(h.ICCID, c.Text()); err != nil {
 		return err
 	}
-	return c.Send(util.EscapeText(fmt.Sprintf("Your profile has been renamed to *%s* . /profiles", c.Text())), &telebot.SendOptions{
+	return c.Send(fmt.Sprintf("Your profile has been renamed to *%s*\\. /profiles", util.EscapeText(c.Text())), &telebot.SendOptions{
 		ParseMode: telebot.ModeMarkdownV2,
 	})
 }

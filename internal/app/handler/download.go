@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
-	"github.com/damonto/telegram-sms/internal/pkg/util"
 	"gopkg.in/telebot.v3"
 )
 
@@ -85,11 +84,11 @@ func (h *DownloadHandler) download(c telebot.Context) error {
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileDownload(h.activationCode, func(current string) error {
-		_, err := c.Bot().Edit(message, util.EscapeText("⏳"+current))
+		_, err := c.Bot().Edit(message, "⏳"+current)
 		return err
 	}); err != nil {
 		slog.Info("failed to download profile", "error", err)
-		_, err := c.Bot().Edit(message, util.EscapeText("Failed to download profile: "+err.Error()))
+		_, err := c.Bot().Edit(message, "Failed to download profile: "+err.Error())
 		return err
 	}
 	_, err = c.Bot().Edit(message, "Congratulations! Your profile has been downloaded. /profiles")

@@ -36,14 +36,14 @@ EID: %s
 
 		message += fmt.Sprintf(
 			template,
-			manufacturer,
-			model,
-			revision,
+			util.EscapeText(manufacturer),
+			util.EscapeText(model),
+			util.EscapeText(revision),
 			fmt.Sprintf("`%s`", imei),
 			signal,
-			network,
+			util.EscapeText(network),
 			fmt.Sprintf("`%s`", ICCID),
 			fmt.Sprintf("`%s`", m.Eid))
 	}
-	return c.Send(util.EscapeText(message), &telebot.SendOptions{ParseMode: telebot.ModeMarkdownV2})
+	return c.Send(message, &telebot.SendOptions{ParseMode: telebot.ModeMarkdownV2})
 }
