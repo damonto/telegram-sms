@@ -12,20 +12,27 @@ import (
 type MessagingSubscriber = func(modem *Modem, sms modemmanager.Sms)
 
 func (m *Manager) SubscribeMessaging(subscriber MessagingSubscriber) {
-Subscriber:
-	stopChans := make([]chan struct{}, len(m.modems))
-	for _, modem := range m.modems {
-		stopChan := make(chan struct{}, 1)
-		stopChans = append(stopChans, stopChan)
-		go m.messagingSubscriber(modem, stopChan, subscriber)
-	}
+	activeSubscribers := make(map[string]chan struct{})
+	for range m.rebootSignal {
+		for id, stopChan := range activeSubscribers {
+			select {
+			case stopChan <- struct{}{}:
+				slog.Debug("stopping messaging subscriber for modem", "modem", id)
+				close(stopChan)
+			default:
+				slog.Debug(fmt.Sprintf("stop channel for modem: %s is not ready, skipping", id))
+			}
+			delete(activeSubscribers, id)
+		}
 
-	<-m.rebootSignal
-	slog.Info("got reboot signal, restarting messaging subscriber")
-	for _, stopChan := range stopChans {
-		stopChan <- struct{}{}
+		slog.Info("got reboot signal, restarting messaging subscribers")
+		for id, modem := range m.modems {
+			stopChan := make(chan struct{}, 1)
+			activeSubscribers[id] = stopChan
+			go m.messagingSubscriber(modem, stopChan, subscriber)
+			slog.Info("started messaging subscriber for modem", "modem", id)
+		}
 	}
-	goto Subscriber
 }
 
 func (m *Manager) messagingSubscriber(modem *Modem, stopChan chan struct{}, subscriber MessagingSubscriber) error {
@@ -33,7 +40,6 @@ func (m *Manager) messagingSubscriber(modem *Modem, stopChan chan struct{}, subs
 	if err != nil {
 		return err
 	}
-
 	slog.Info("subscribing to sms signals", "modem", modem.modem.GetObjectPath())
 	dbusConn, err := modem.systemBusPrivate()
 	if err != nil {
@@ -46,6 +52,7 @@ func (m *Manager) messagingSubscriber(modem *Modem, stopChan chan struct{}, subs
 	)
 	sigChan := make(chan *dbus.Signal, 10)
 	dbusConn.Signal(sigChan)
+	defer dbusConn.RemoveSignal(sigChan)
 
 	for {
 		select {

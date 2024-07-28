@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	"gopkg.in/telebot.v3"
@@ -42,7 +43,9 @@ func (h *USSDHandler) handleExecuteCommand(c telebot.Context) error {
 	go func() {
 		timout := time.After(300 * time.Second)
 		<-timout
-		h.modem.CancelUSSDSession()
+		if err := h.modem.CancelUSSDSession(); err != nil {
+			slog.Error("failed to cancel USSD session", "error", err)
+		}
 		h.stateManager.Done(c)
 	}()
 	h.state.Next(StateUSSDRespondCommand)

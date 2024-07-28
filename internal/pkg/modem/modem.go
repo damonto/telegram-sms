@@ -91,7 +91,7 @@ func (m *Modem) Restart() error {
 	}
 	// Some older modems require disabling and enabling the modem to take effect.
 	if err := m.modem.Disable(); err != nil {
-		slog.Error("failed to disable modem", "error", err)
+		slog.Warn("failed to disable modem", "error", err)
 	}
 	return nil
 }

@@ -37,7 +37,7 @@ func NewManager() (*Manager, error) {
 	instance = &Manager{
 		mmgr:         mmgr,
 		modems:       make(map[string]*Modem),
-		rebootSignal: make(chan struct{}, 1),
+		rebootSignal: make(chan struct{}, 10),
 	}
 	go instance.watch()
 	return instance, nil
@@ -58,6 +58,9 @@ func (m *Manager) watch() error {
 }
 
 func (m *Manager) watchModems() error {
+	if err := m.mmgr.ScanDevices(); err != nil {
+		slog.Warn("failed to scan devices", "error", err)
+	}
 	modems, err := m.mmgr.GetModems()
 	if err != nil {
 		return err

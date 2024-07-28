@@ -209,10 +209,10 @@ func (h *ProfileHandler) handleActionEnable(c telebot.Context) error {
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileEnable(h.ICCID); err != nil {
+		h.modem.Unlock()
 		return err
 	}
 	h.modem.Unlock()
-
 	// Sometimes the modem needs to be restarted to apply the changes.
 	if err := h.modem.Restart(); err != nil {
 		slog.Error("unable to restart modem, you may need to restart this modem manually", "error", err)
