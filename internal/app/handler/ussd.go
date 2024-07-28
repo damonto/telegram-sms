@@ -29,7 +29,7 @@ func HandleUSSDCommand(c telebot.Context) error {
 
 func (h *USSDHandler) handle(c telebot.Context) error {
 	h.state.Next(StateUSSDExecuteCommand)
-	return c.Send("Please send me the USSD command you want to execute")
+	return c.Send("Please send me the USSD command you want to execute. e.g. *123#")
 }
 
 func (h *USSDHandler) handleExecuteCommand(c telebot.Context) error {
@@ -40,7 +40,7 @@ func (h *USSDHandler) handleExecuteCommand(c telebot.Context) error {
 		return err
 	}
 	go func() {
-		timout := time.After(120 * time.Second)
+		timout := time.After(300 * time.Second)
 		<-timout
 		h.modem.CancelUSSDSession()
 		h.stateManager.Done(c)

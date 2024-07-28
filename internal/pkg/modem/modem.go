@@ -19,9 +19,8 @@ import (
 )
 
 var (
-	ErrNoATPortFound          = errors.New("no at port found")
-	ErrNoQMIDeviceFound       = errors.New("no QMI device found")
-	ErrRestartCommandNotFound = errors.New("restart command not found")
+	ErrNoATPortFound    = errors.New("no at port found")
+	ErrNoQMIDeviceFound = errors.New("no QMI device found")
 )
 
 func (m *Modem) Lock() {
@@ -58,31 +57,65 @@ func (m *Modem) detectEuicc() (bool, string) {
 }
 
 func (m *Modem) Restart() error {
-	qmiDevice, err := m.GetQMIDevice()
-	if err != nil {
-		return err
-	}
-	simslot, err := m.GetPrimarySimSlot()
-	if err != nil {
-		return err
-	}
-	// Qmi's sim slot is from 1
-	if simslot == 0 {
-		simslot = 1
-	}
-	if result, err := exec.Command("qmicli", "-d", qmiDevice, "-p", fmt.Sprintf("--uim-sim-power-off=%d", simslot)).Output(); err != nil {
-		slog.Error("failed to power off sim", "error", err, "result", string(result))
-		return err
-	}
-	if result, err := exec.Command("qmicli", "-d", qmiDevice, "-p", fmt.Sprintf("--uim-sim-power-on=%d", simslot)).Output(); err != nil {
-		slog.Error("failed to power on sim", "error", err, "result", string(result))
-		return err
+	if config.C.APDUDriver == config.APDUDriverAT {
+		command, err := m.guessRestartCommand()
+		if err != nil {
+			return err
+		}
+		result, err := m.RunATCommand(command)
+		if err != nil {
+			slog.Error("failed to restart modem", "command", command, "error", err, "result", result)
+			return err
+		}
+	} else {
+		qmiDevice, err := m.GetQMIDevice()
+		if err != nil {
+			return err
+		}
+		simslot, err := m.GetPrimarySimSlot()
+		if err != nil {
+			return err
+		}
+		// Qmi's sim slot is from 1
+		if simslot == 0 {
+			simslot = 1
+		}
+		if result, err := exec.Command("qmicli", "-d", qmiDevice, "-p", fmt.Sprintf("--uim-sim-power-off=%d", simslot)).Output(); err != nil {
+			slog.Error("failed to power off sim", "error", err, "result", string(result))
+			return err
+		}
+		if result, err := exec.Command("qmicli", "-d", qmiDevice, "-p", fmt.Sprintf("--uim-sim-power-on=%d", simslot)).Output(); err != nil {
+			slog.Error("failed to power on sim", "error", err, "result", string(result))
+			return err
+		}
 	}
 	// Some older modems require disabling and enabling the modem to take effect.
 	if err := m.modem.Disable(); err != nil {
 		slog.Error("failed to disable modem", "error", err)
 	}
 	return nil
+}
+
+func (m *Modem) guessRestartCommand() (string, error) {
+	commands := map[string]string{
+		"quectel": "AT+QPOWD=1",
+		"fibocom": "AT+CPWROFF",
+		"simcom":  "AT+CPOF",
+	}
+	model, err := m.GetModel()
+	if err != nil {
+		return "", err
+	}
+	manufacturer, err := m.GetManufacturer()
+	if err != nil {
+		return "", err
+	}
+	for brand, command := range commands {
+		if strings.Contains(strings.ToLower(model), brand) || strings.Contains(strings.ToLower(manufacturer), brand) {
+			return command, nil
+		}
+	}
+	return "AT+CFUN=1,1", nil
 }
 
 func (m *Modem) RunATCommand(command string) (string, error) {

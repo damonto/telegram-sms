@@ -19,7 +19,7 @@ func (m *Modem) RunUSSDCommand(command string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if state == modemmanager.MmModem3gppUssdSessionStateActive || state == modemmanager.MmModem3gppUssdSessionStateIdle {
+	if state == modemmanager.MmModem3gppUssdSessionStateActive {
 		if err := ussd.Cancel(); err != nil {
 			return "", err
 		}
@@ -66,7 +66,7 @@ func (m *Modem) CancelUSSDSession() error {
 	if err != nil {
 		return err
 	}
-	if state == modemmanager.MmModem3gppUssdSessionStateActive || state == modemmanager.MmModem3gppUssdSessionStateIdle {
+	if state == modemmanager.MmModem3gppUssdSessionStateActive {
 		return ussd.Cancel()
 	}
 	return nil
