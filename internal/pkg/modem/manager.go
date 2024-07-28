@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/godbus/dbus/v5"
 	"github.com/maltegrosse/go-modemmanager"
 )
 
@@ -21,9 +22,9 @@ type Modem struct {
 }
 
 type Manager struct {
-	mmgr   modemmanager.ModemManager
-	modems map[string]*Modem
-	reboot chan struct{}
+	mmgr         modemmanager.ModemManager
+	modems       map[string]*Modem
+	rebootSignal chan struct{}
 }
 
 var instance *Manager
@@ -34,9 +35,9 @@ func NewManager() (*Manager, error) {
 		return nil, err
 	}
 	instance = &Manager{
-		mmgr:   mmgr,
-		modems: make(map[string]*Modem),
-		reboot: make(chan struct{}, 1),
+		mmgr:         mmgr,
+		modems:       make(map[string]*Modem),
+		rebootSignal: make(chan struct{}, 1),
 	}
 	go instance.watch()
 	return instance, nil
@@ -61,8 +62,8 @@ func (m *Manager) watchModems() error {
 	if err != nil {
 		return err
 	}
-
-	modemAdded := false
+	shouldReboot := false
+	currentModems := make(map[string]dbus.ObjectPath)
 	for _, mm := range modems {
 		state, err := mm.GetState()
 		if err != nil {
@@ -77,22 +78,27 @@ func (m *Manager) watchModems() error {
 		if err != nil {
 			return err
 		}
+		currentModems[modemId] = mm.GetObjectPath()
 		if exist, ok := m.modems[modemId]; ok {
 			if exist.modem.GetObjectPath() == mm.GetObjectPath() {
 				continue
 			}
 		}
 		slog.Info("new modem added", "modemId", modemId, "objectPath", mm.GetObjectPath())
-		modemAdded = true
-		nm := &Modem{
-			modem: mm,
-		}
+		shouldReboot = true
+		nm := &Modem{modem: mm}
 		nm.IsEuicc, nm.Eid = nm.detectEuicc()
 		m.modems[modemId] = nm
 	}
-	// If the modem is not in the list, add it, and send a signal to reboot the subscriber
-	if modemAdded {
-		m.reboot <- struct{}{}
+	for modemId, modem := range m.modems {
+		if _, ok := currentModems[modemId]; !ok {
+			slog.Info("modem removed", "modemId", modemId, "objectPath", modem.modem.GetObjectPath())
+			delete(m.modems, modemId)
+			shouldReboot = true
+		}
+	}
+	if shouldReboot {
+		m.rebootSignal <- struct{}{}
 	}
 	return nil
 }

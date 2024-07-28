@@ -78,6 +78,10 @@ func (m *Modem) Restart() error {
 		slog.Error("failed to power on sim", "error", err, "result", string(result))
 		return err
 	}
+	// Some older modems require disabling and enabling the modem to take effect.
+	if err := m.modem.Disable(); err != nil {
+		slog.Error("failed to disable modem", "error", err)
+	}
 	return nil
 }
 

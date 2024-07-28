@@ -20,7 +20,7 @@ Subscriber:
 		go m.messagingSubscriber(modem, stopChan, subscriber)
 	}
 
-	<-m.reboot
+	<-m.rebootSignal
 	slog.Info("got reboot signal, restarting messaging subscriber")
 	for _, stopChan := range stopChans {
 		stopChan <- struct{}{}
