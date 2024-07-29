@@ -16,6 +16,12 @@ I have thoroughly tested this program and found it to work well. However, its co
 * Quectel EC20
 * Quectel EM12-G
 
+### Requirements
+
+* *ModemManager*: Essential for managing modems.
+* *libqmi*: Version 1.35.5 or higher is required if you plan to use the QMI driver.
+* *lpac*: Needed if your system architecture is not x86_64, or if you need to manually compile the QMI driver.
+
 ### Installation & Usage
 
 You can obtain the latest release from the [releases page](https://github.com/damonto/telegram-sms/releases).
