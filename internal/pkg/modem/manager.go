@@ -22,9 +22,9 @@ type Modem struct {
 }
 
 type Manager struct {
-	mmgr         modemmanager.ModemManager
-	modems       map[string]*Modem
-	rebootSignal chan struct{}
+	mmgr            modemmanager.ModemManager
+	modems          map[string]*Modem
+	resubscribeChan chan struct{}
 }
 
 var instance *Manager
@@ -35,9 +35,9 @@ func NewManager() (*Manager, error) {
 		return nil, err
 	}
 	instance = &Manager{
-		mmgr:         mmgr,
-		modems:       make(map[string]*Modem),
-		rebootSignal: make(chan struct{}, 10),
+		mmgr:            mmgr,
+		modems:          make(map[string]*Modem),
+		resubscribeChan: make(chan struct{}, 10),
 	}
 	go instance.watch()
 	return instance, nil
@@ -65,7 +65,7 @@ func (m *Manager) watchModems() error {
 	if err != nil {
 		return err
 	}
-	shouldReboot := false
+	shouldResubscriber := false
 	currentModems := make(map[string]dbus.ObjectPath)
 	for _, mm := range modems {
 		state, err := mm.GetState()
@@ -88,7 +88,7 @@ func (m *Manager) watchModems() error {
 			}
 		}
 		slog.Info("new modem added", "modemId", modemId, "objectPath", mm.GetObjectPath())
-		shouldReboot = true
+		shouldResubscriber = true
 		nm := &Modem{modem: mm}
 		nm.IsEuicc, nm.Eid = nm.detectEuicc()
 		m.modems[modemId] = nm
@@ -97,11 +97,11 @@ func (m *Manager) watchModems() error {
 		if _, ok := currentModems[modemId]; !ok {
 			slog.Info("modem removed", "modemId", modemId, "objectPath", modem.modem.GetObjectPath())
 			delete(m.modems, modemId)
-			shouldReboot = true
+			shouldResubscriber = true
 		}
 	}
-	if shouldReboot {
-		m.rebootSignal <- struct{}{}
+	if shouldResubscriber {
+		m.resubscribeChan <- struct{}{}
 	}
 	return nil
 }

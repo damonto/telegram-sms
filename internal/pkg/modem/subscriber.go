@@ -13,7 +13,7 @@ type MessagingSubscriber = func(modem *Modem, sms modemmanager.Sms)
 
 func (m *Manager) SubscribeMessaging(subscriber MessagingSubscriber) {
 	activeSubscribers := make(map[string]chan struct{})
-	for range m.rebootSignal {
+	for range m.resubscribeChan {
 		for id, stopChan := range activeSubscribers {
 			select {
 			case stopChan <- struct{}{}:
@@ -24,8 +24,6 @@ func (m *Manager) SubscribeMessaging(subscriber MessagingSubscriber) {
 			}
 			delete(activeSubscribers, id)
 		}
-
-		slog.Info("got reboot signal, restarting messaging subscribers")
 		for id, modem := range m.modems {
 			stopChan := make(chan struct{}, 1)
 			activeSubscribers[id] = stopChan
