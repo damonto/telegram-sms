@@ -49,7 +49,7 @@ func (m *Modem) detectEuicc() (bool, string) {
 	defer cancel()
 	info, err := lpac.NewCmd(ctx, usbDevice).Info()
 	if err != nil {
-		slog.Error("failed to get modem info", "error", err)
+		slog.Error("failed to get chip info", "error", err)
 		return false, ""
 	}
 	slog.Info("eUICC chip detected", "EID", info.EID)
