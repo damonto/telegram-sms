@@ -51,7 +51,6 @@ func (m *Manager) watch() error {
 	for {
 		if err := m.watchModems(); err != nil {
 			slog.Error("failed to watch modems", "error", err)
-			panic(err)
 		}
 		time.Sleep(1 * time.Second)
 	}
