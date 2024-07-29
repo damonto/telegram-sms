@@ -67,7 +67,7 @@ Sign Keys:
 			fmt.Sprintf("`%s`", chip.EID),
 			util.EscapeText(manufacturerReplacement),
 			chip.EUICCInfo2.ExtCardResource.FreeNonVolatileMemory/1024,
-			keysReplacement,
+			util.EscapeText(keysReplacement),
 		),
 		&telebot.SendOptions{
 			ParseMode: telebot.ModeMarkdownV2,
