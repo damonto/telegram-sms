@@ -106,9 +106,7 @@ func (c *Cmd) ProfileDelete(ICCID string) error {
 }
 
 func (c *Cmd) ProfileEnable(ICCID string) error {
-	return c.sendNotificationAfterExecution(func() error {
-		return c.Run([]string{"profile", "enable", ICCID}, nil, nil)
-	}, true)
+	return c.Run([]string{"profile", "enable", ICCID}, nil, nil)
 }
 
 func (c *Cmd) ProfileSetNickname(ICCID string, nickname string) error {
