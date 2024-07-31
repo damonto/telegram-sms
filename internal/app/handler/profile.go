@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/damonto/telegram-sms/internal/pkg/lpac"
@@ -120,7 +121,7 @@ func (h *ProfileHandler) handleAction(c telebot.Context) error {
 			},
 		})
 	default:
-		return c.Send("Invalid action")
+		return c.Send("Invalid action.")
 	}
 }
 
@@ -208,8 +209,12 @@ func (h *ProfileHandler) handleActionEnable(c telebot.Context) error {
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileEnable(h.ICCID); err != nil {
-		h.modem.Unlock()
-		return err
+		slog.Error("unable to enable profile", "error", err)
+		// hack qmi: SimFileNotFound
+		if !strings.Contains(err.Error(), "SimFileNotFound") {
+			h.modem.Unlock()
+			return err
+		}
 	}
 	h.modem.Unlock()
 	// Sometimes the modem needs to be restarted to apply the changes.

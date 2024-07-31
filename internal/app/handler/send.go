@@ -29,7 +29,7 @@ func HandleSendCommand(c telebot.Context) error {
 
 func (h *SendHandler) handle(c telebot.Context) error {
 	h.state.Next(StateSendAskPhoneNumber)
-	return c.Send("Please send me the phone number you want to send the message to")
+	return c.Send("Please send me the phone number you want to send the message to.")
 }
 
 func (h *SendHandler) handlePhoneNumber(c telebot.Context) error {
@@ -41,19 +41,19 @@ func (h *SendHandler) handlePhoneNumber(c telebot.Context) error {
 
 	h.state.Next(StateSendAskMessage)
 	h.phoneNumber = c.Text()
-	return c.Send("Please send me the message you want to send")
+	return c.Send("Please send me the message you want to send.")
 }
 
 func (h *SendHandler) handleMessage(c telebot.Context) error {
 	if err := h.modem.SendSMS(h.phoneNumber, c.Text()); err != nil {
-		c.Send(fmt.Sprintf("Failed to send SMS to *%s*", h.phoneNumber), &telebot.SendOptions{
+		c.Send(fmt.Sprintf("Failed to send SMS to *%s*\\.", h.phoneNumber), &telebot.SendOptions{
 			ParseMode: telebot.ModeMarkdownV2,
 		})
 		h.stateManager.Done(c)
 		return err
 	}
 	h.stateManager.Done(c)
-	return c.Send(fmt.Sprintf("Your SMS has been sent to *%s*", h.phoneNumber), &telebot.SendOptions{
+	return c.Send(fmt.Sprintf("Your SMS has been sent to *%s*\\.", h.phoneNumber), &telebot.SendOptions{
 		ParseMode: telebot.ModeMarkdownV2,
 	})
 }

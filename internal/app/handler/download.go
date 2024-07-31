@@ -33,7 +33,7 @@ func HandleDownloadCommand(c telebot.Context) error {
 
 func (h *DownloadHandler) handle(c telebot.Context) error {
 	h.state.Next(StateDownloadAskActivationCode)
-	return c.Send("Please send me the activation code")
+	return c.Send("Please send me the activation code.")
 }
 
 func (h *DownloadHandler) handleActivationCode(c telebot.Context) error {
@@ -50,7 +50,7 @@ func (h *DownloadHandler) handleActivationCode(c telebot.Context) error {
 	}
 	if len(parts) == 5 && parts[4] == "1" {
 		h.state.Next(StateDownloadAskConfirmationCode)
-		return c.Send("Please send me the confirmation code")
+		return c.Send("Please send me the confirmation code.")
 	}
 
 	h.stateManager.Done(c)
@@ -61,7 +61,7 @@ func (h *DownloadHandler) handleConfirmationCode(c telebot.Context) error {
 	confirmationCode := c.Text()
 	if confirmationCode == "" {
 		h.state.Next(StateDownloadAskConfirmationCode)
-		return c.Send("Invalid confirmation code")
+		return c.Send("Invalid confirmation code.")
 	}
 
 	h.activationCode.ConfirmationCode = confirmationCode

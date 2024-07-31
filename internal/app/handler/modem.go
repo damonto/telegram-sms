@@ -11,7 +11,7 @@ import (
 func HandleModemsCommand(c telebot.Context) error {
 	modems := modem.GetManager().GetModems()
 	if len(modems) == 0 {
-		return c.Send("No modems found")
+		return c.Send("No modems found.")
 	}
 
 	template := `
