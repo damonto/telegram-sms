@@ -209,7 +209,6 @@ func (h *ProfileHandler) handleActionEnable(c telebot.Context) error {
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileEnable(h.ICCID); err != nil {
-		slog.Error("unable to enable profile", "error", err)
 		// hack qmi: SimFileNotFound
 		if !strings.Contains(err.Error(), "SimFileNotFound") {
 			h.modem.Unlock()
