@@ -104,7 +104,8 @@ func subscribe(bot *telebot.Bot, modem *modem.Modem, sms modemmanager.Sms) {
 %s
 `
 	if _, err := bot.Send(telebot.ChatID(config.C.AdminId), fmt.Sprintf(template, util.EscapeText(device), util.EscapeText(operatorName), util.EscapeText(sender), util.EscapeText(text)), &telebot.SendOptions{
-		ParseMode: telebot.ModeMarkdownV2,
+		ParseMode:             telebot.ModeMarkdownV2,
+		DisableWebPagePreview: true,
 	}); err != nil {
 		slog.Error("failed to send message", "error", err)
 	}
