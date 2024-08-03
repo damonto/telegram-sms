@@ -93,20 +93,24 @@ func subscribe(bot *telebot.Bot, modem *modem.Modem, sms modemmanager.Sms) {
 	sender, _ := sms.GetNumber()
 	operatorName, _ := modem.GetOperatorName()
 	text, _ := sms.GetText()
-	imei, _ := modem.GetImei()
-	model, _ := modem.GetModel()
-	device := fmt.Sprintf("%s (%s)", model, imei)
-	slog.Info("new SMS received", "device", device, "operatorName", operatorName, "sender", sender, "text", text)
+	slog.Info("new SMS received", "operatorName", operatorName, "sender", sender, "text", text)
 
 	template := `
-*%s*
-*[%s] \- %s*
+*\[%s\] \- %s*
 %s
 `
-	if _, err := bot.Send(telebot.ChatID(config.C.AdminId), fmt.Sprintf(template, util.EscapeText(device), util.EscapeText(operatorName), util.EscapeText(sender), util.EscapeText(text)), &telebot.SendOptions{
-		ParseMode:             telebot.ModeMarkdownV2,
-		DisableWebPagePreview: true,
-	}); err != nil {
+	if _, err := bot.Send(
+		telebot.ChatID(config.C.AdminId),
+		fmt.Sprintf(
+			template,
+			util.EscapeText(operatorName),
+			util.EscapeText(sender),
+			fmt.Sprintf("`%s`", util.EscapeText(text)),
+		),
+		&telebot.SendOptions{
+			ParseMode:             telebot.ModeMarkdownV2,
+			DisableWebPagePreview: true,
+		}); err != nil {
 		slog.Error("failed to send message", "error", err)
 	}
 }
