@@ -1,7 +1,6 @@
 package state
 
 import (
-	"log/slog"
 	"sync"
 
 	"gopkg.in/telebot.v3"
@@ -39,7 +38,6 @@ func (c *StateManager) handleText() {
 			if step, ok := state.states[state.next]; ok {
 				return step(ctx)
 			}
-			slog.Error("stage not found", "stage", state.next)
 		}
 		return nil
 	})
