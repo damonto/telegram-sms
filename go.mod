@@ -8,5 +8,5 @@ require github.com/godbus/dbus/v5 v5.1.0
 
 require (
 	golang.org/x/sys v0.23.0
-	gopkg.in/telebot.v3 v3.3.6
+	gopkg.in/telebot.v3 v3.3.7
 )
