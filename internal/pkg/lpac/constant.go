@@ -14,7 +14,8 @@ const (
 
 	ProgressMetadataParse  = "es8p_meatadata_parse"
 	ProgressPreviewConfirm = "preview"
-	LPACancelled           = "cancelled"
+
+	LPADownloadCancelled = "cancelled"
 )
 
 var HumanReadableText = map[string]string{

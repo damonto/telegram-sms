@@ -15,9 +15,7 @@ import (
 	"github.com/damonto/telegram-sms/internal/pkg/config"
 )
 
-var (
-	ErrCanceled = errors.New("cancelled")
-)
+var ErrDownloadCancelled = errors.New("download cancelled")
 
 type Cmd struct {
 	ctx       context.Context
@@ -64,7 +62,9 @@ func (c *Cmd) process(dst any, progress Progress) error {
 	scanner.Split(bufio.ScanLines)
 	var cmdErr error
 	for scanner.Scan() {
-		if err := c.handleOutput(scanner.Text(), dst, progress); err != nil {
+		text := scanner.Text()
+		slog.Debug("lpac command output", "output", text)
+		if err := c.handleOutput(text, dst, progress); err != nil {
 			cmdErr = err
 		}
 	}
@@ -72,7 +72,6 @@ func (c *Cmd) process(dst any, progress Progress) error {
 }
 
 func (c *Cmd) handleOutput(output string, dst any, progress Progress) error {
-	slog.Debug("lpac output", "output", output)
 	var commandOutput CommandOutput
 	if err := json.Unmarshal([]byte(output), &commandOutput); err != nil {
 		return err
@@ -95,8 +94,8 @@ func (c *Cmd) handleLPAResponse(payload json.RawMessage, dst any) error {
 	}
 
 	if lpaPayload.Code != 0 {
-		if lpaPayload.Message == LPACancelled {
-			return nil
+		if lpaPayload.Message == LPADownloadCancelled {
+			return ErrDownloadCancelled
 		}
 		var errorMessage string
 		if err := json.Unmarshal(lpaPayload.Data, &errorMessage); err != nil {
@@ -107,6 +106,7 @@ func (c *Cmd) handleLPAResponse(payload json.RawMessage, dst any) error {
 		}
 		return errors.New(errorMessage)
 	}
+
 	if dst != nil {
 		return json.Unmarshal(lpaPayload.Data, dst)
 	}
@@ -128,17 +128,16 @@ func (c *Cmd) handleProgress(payload json.RawMessage, progress Progress) error {
 	}
 
 	if progressPayload.Message == ProgressPreviewConfirm {
-		confirmChan := make(chan bool, 1)
-		if err := progress(progressPayload.Message, nil, confirmChan); err != nil {
+		downloadConfirmation := make(chan bool, 1)
+		if err := progress(progressPayload.Message, nil, downloadConfirmation); err != nil {
 			return err
 		}
-		if <-confirmChan {
+		if <-downloadConfirmation {
 			c.stdin.Write([]byte("y\n"))
-			return nil
 		} else {
 			c.stdin.Write([]byte("n\n"))
-			return ErrCanceled
 		}
+		return nil
 	}
 
 	if text, ok := HumanReadableText[progressPayload.Message]; ok {
