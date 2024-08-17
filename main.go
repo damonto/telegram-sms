@@ -28,7 +28,7 @@ func init() {
 	flag.Int64Var(&config.C.AdminId, "admin-id", 0, "telegram admin id")
 	flag.StringVar(&config.C.TelegramEndpoint, "telegram-endpoint", "https://api.telegram.org", "telegram endpoint")
 	flag.StringVar(&config.C.APDUDriver, "apdu-driver", "at", "the APDU driver to use (at or qmi)")
-	flag.StringVar(&config.C.Version, "version", "v2.0.2", "the version of lpac to download")
+	flag.StringVar(&config.C.Version, "version", "v2.1.0", "the version of lpac to download")
 	flag.StringVar(&config.C.Dir, "dir", "/tmp/telegram-sms", "the directory to store lpac")
 	flag.BoolVar(&config.C.DontDownload, "dont-download", false, "don't download lpac binary")
 	flag.BoolVar(&config.C.Verbose, "verbose", false, "enable verbose mode")
