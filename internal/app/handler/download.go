@@ -102,7 +102,7 @@ func (h *DownloadHandler) handleDownloadProgress(c telebot.Context, message *tel
 	if profileMetadata != nil && current == lpac.ProgressMetadataParse {
 		template := `
 Are you sure you want to download the profile?
-Service Provider: %s
+Provider Name: %s
 Profile Name: %s
 ICCID: %s
 `

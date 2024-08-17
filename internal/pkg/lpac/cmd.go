@@ -141,8 +141,8 @@ func (c *Cmd) handleProgress(payload json.RawMessage, progress Progress) error {
 		}
 	}
 
-	if step, ok := HumanReadableFlow[progressPayload.Message]; ok {
-		return progress(step, nil, nil)
+	if text, ok := HumanReadableText[progressPayload.Message]; ok {
+		return progress(text, nil, nil)
 	}
 	return nil
 }
