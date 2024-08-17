@@ -104,7 +104,7 @@ func (h *DownloadHandler) download(c telebot.Context) error {
 }
 
 func (h *DownloadHandler) handleDownloadProgress(c telebot.Context, message *telebot.Message, current string, profileMetadata *lpac.Profile, downloadConfirmation chan bool) error {
-	if profileMetadata != nil && current == lpac.ProgressMetadataParse {
+	if current == lpac.ProgressMetadataParse {
 		template := `
 Are you sure you want to download this profile?
 Provider Name: %s
