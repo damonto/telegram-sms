@@ -11,6 +11,10 @@ const (
 	CommandAPDUOpenLogicalChannel  Command = "logic_channel_open"
 	CommandAPDUCloseLogicalChannel Command = "logic_channel_close"
 	CommandAPDUFuncTransmit        Command = "transmit"
+
+	ProgressMetadataParse  = "es8p_meatadata_parse"
+	ProgressPreviewConfirm = "preview"
+	LPACancelled           = "cancelled"
 )
 
 var HumanReadableFlow = map[string]string{

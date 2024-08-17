@@ -1,6 +1,6 @@
 package lpac
 
-type Info struct {
+type ChipInfo struct {
 	EID                      string                   `json:"eidValue"`
 	EuiccConfiguredAddresses EuiccConfiguredAddresses `json:"euiccConfiguredAddresses"`
 	EUICCInfo2               EuiccInfo2               `json:"euiccInfo2"`
@@ -22,9 +22,9 @@ type ExtCardResource struct {
 	FreeVolatileMemory    int `json:"freeVolatileMemory"`
 }
 
-func (c *Cmd) Info() (*Info, error) {
-	var info = new(Info)
-	if err := c.Run([]string{"chip", "info"}, &info, nil); err != nil {
+func (c *Cmd) Info() (*ChipInfo, error) {
+	info := &ChipInfo{}
+	if err := c.Run([]string{"chip", "info"}, info, nil); err != nil {
 		return info, err
 	}
 	return info, nil

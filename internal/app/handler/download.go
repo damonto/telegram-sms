@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -12,7 +13,8 @@ import (
 
 type DownloadHandler struct {
 	handler
-	activationCode *lpac.ActivationCode
+	activationCode  *lpac.ActivationCode
+	confirmDownload chan bool
 }
 
 const (
@@ -21,7 +23,9 @@ const (
 )
 
 func HandleDownloadCommand(c telebot.Context) error {
-	h := &DownloadHandler{}
+	h := &DownloadHandler{
+		confirmDownload: make(chan bool, 1),
+	}
 	h.init(c)
 	h.state = h.stateManager.New(c)
 	h.state.States(map[string]telebot.HandlerFunc{
@@ -83,14 +87,48 @@ func (h *DownloadHandler) download(c telebot.Context) error {
 	}
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileDownload(h.activationCode, func(current string) error {
-		_, err := c.Bot().Edit(message, "⏳"+current)
-		return err
+	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileDownload(h.activationCode, func(current string, profileMetadata *lpac.Profile, confirmChan chan bool) error {
+		return h.handleDownloadProgress(c, message, current, profileMetadata, confirmChan)
 	}); err != nil {
 		slog.Info("failed to download profile", "error", err)
 		_, err := c.Bot().Edit(message, "Failed to download profile: "+err.Error())
 		return err
 	}
 	_, err = c.Bot().Edit(message, "Congratulations! Your profile has been downloaded. /profiles")
+	return err
+}
+
+func (h *DownloadHandler) handleDownloadProgress(c telebot.Context, message *telebot.Message, current string, profileMetadata *lpac.Profile, confirmChan chan bool) error {
+	if profileMetadata != nil && current == lpac.ProgressMetadataParse {
+		template := `
+Are you sure you want to download the profile?
+Service Provider: %s
+Profile Name: %s
+ICCID: %s
+`
+		selector := telebot.ReplyMarkup{}
+		btns := make([]telebot.Btn, 0, 2)
+		for _, action := range []string{"Yes", "No"} {
+			btn := selector.Data(action, fmt.Sprint(time.Now().UnixNano()), action)
+			c.Bot().Handle(&btn, func(c telebot.Context) error {
+				h.confirmDownload <- c.Callback().Data == "Yes"
+				return nil
+			})
+			btns = append(btns, btn)
+		}
+		selector.Inline(btns)
+		_, err := c.Bot().Edit(message, fmt.Sprintf(template, profileMetadata.ProviderName, profileMetadata.ProfileName, profileMetadata.ICCID), &selector)
+		return err
+	}
+	if current == lpac.ProgressPreviewConfirm {
+		if <-h.confirmDownload {
+			confirmChan <- true
+			return nil
+		}
+		confirmChan <- false
+		_, err := c.Bot().Edit(message, "Cancelled")
+		return err
+	}
+	_, err := c.Bot().Edit(message, current)
 	return err
 }

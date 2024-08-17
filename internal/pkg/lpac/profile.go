@@ -69,6 +69,7 @@ func (c *Cmd) ProfileDownload(activationCode *ActivationCode, progress Progress)
 	if activationCode.IMEI != "" {
 		arguments = append(arguments, "-i", activationCode.IMEI)
 	}
+	arguments = append(arguments, "-p")
 
 	return c.sendNotificationAfterExecution(func() error {
 		return c.Run(arguments, nil, progress)
@@ -80,6 +81,10 @@ func (c *Cmd) sendNotificationAfterExecution(action func() error, remove bool) e
 	if err != nil {
 		return err
 	}
+	var lastSeqNumber int
+	if len(oldNotifications) > 0 {
+		lastSeqNumber = oldNotifications[len(oldNotifications)-1].SeqNumber
+	}
 
 	if err := action(); err != nil {
 		return err
@@ -89,11 +94,13 @@ func (c *Cmd) sendNotificationAfterExecution(action func() error, remove bool) e
 	if err != nil {
 		return err
 	}
-	for _, notification := range newNotifications[len(oldNotifications):] {
-		slog.Debug("processing notification", "seqNumber", notification.SeqNumber, "ICCID", notification.ICCID, "operation", notification.ProfileManagementOperation, "remove", remove)
-		if err := c.NotificationProcess(notification.SeqNumber, remove, nil); err != nil {
-			slog.Error("failed to process notification", "seqNumber", notification.SeqNumber, "ICCID", notification.ICCID, "operation", notification.ProfileManagementOperation, "remove", remove, "error", err)
-			return err
+	for _, notification := range newNotifications {
+		if notification.SeqNumber > lastSeqNumber {
+			slog.Debug("processing notification", "seqNumber", notification.SeqNumber, "ICCID", notification.ICCID, "operation", notification.ProfileManagementOperation, "remove", remove)
+			if err := c.NotificationProcess(notification.SeqNumber, remove, nil); err != nil {
+				slog.Error("failed to process notification", "seqNumber", notification.SeqNumber, "ICCID", notification.ICCID, "operation", notification.ProfileManagementOperation, "remove", remove, "error", err)
+				return err
+			}
 		}
 	}
 	return nil

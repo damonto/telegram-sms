@@ -15,9 +15,15 @@ import (
 	"github.com/damonto/telegram-sms/internal/pkg/config"
 )
 
+var (
+	ErrCanceled = errors.New("cancelled")
+)
+
 type Cmd struct {
 	ctx       context.Context
 	usbDevice string
+	stdout    io.ReadCloser
+	stdin     io.WriteCloser
 }
 
 func NewCmd(ctx context.Context, usbDevice string) *Cmd {
@@ -36,12 +42,14 @@ func (c *Cmd) Run(arguments []string, dst any, progress Progress) error {
 
 	stderr := bytes.Buffer{}
 	cmd.Stderr = &stderr
-	stdout, _ := cmd.StdoutPipe()
+	c.stdout, _ = cmd.StdoutPipe()
+	c.stdin, _ = cmd.StdinPipe()
+
 	if err := cmd.Start(); err != nil {
 		return err
 	}
 
-	cmdErr := c.process(stdout, dst, progress)
+	cmdErr := c.process(dst, progress)
 	if err := cmd.Wait(); err != nil {
 		slog.Error("command wait error", "error", err, "stderr", stderr.String())
 	}
@@ -51,8 +59,8 @@ func (c *Cmd) Run(arguments []string, dst any, progress Progress) error {
 	return nil
 }
 
-func (c *Cmd) process(output io.ReadCloser, dst any, progress Progress) error {
-	scanner := bufio.NewScanner(output)
+func (c *Cmd) process(dst any, progress Progress) error {
+	scanner := bufio.NewScanner(c.stdout)
 	scanner.Split(bufio.ScanLines)
 	var cmdErr error
 	for scanner.Scan() {
@@ -64,11 +72,11 @@ func (c *Cmd) process(output io.ReadCloser, dst any, progress Progress) error {
 }
 
 func (c *Cmd) handleOutput(output string, dst any, progress Progress) error {
+	slog.Debug("lpac output", "output", output)
 	var commandOutput CommandOutput
 	if err := json.Unmarshal([]byte(output), &commandOutput); err != nil {
 		return err
 	}
-
 	switch commandOutput.Type {
 	case CommandStdioLPA:
 		return c.handleLPAResponse(commandOutput.Payload, dst)
@@ -87,6 +95,9 @@ func (c *Cmd) handleLPAResponse(payload json.RawMessage, dst any) error {
 	}
 
 	if lpaPayload.Code != 0 {
+		if lpaPayload.Message == LPACancelled {
+			return nil
+		}
 		var errorMessage string
 		if err := json.Unmarshal(lpaPayload.Data, &errorMessage); err != nil {
 			return errors.New(lpaPayload.Message)
@@ -107,8 +118,31 @@ func (c *Cmd) handleProgress(payload json.RawMessage, progress Progress) error {
 	if err := json.Unmarshal(payload, &progressPayload); err != nil {
 		return err
 	}
-	if step, ok := HumanReadableFlow[progressPayload.Message]; ok {
-		return progress(step)
+
+	if progressPayload.Message == ProgressMetadataParse {
+		profileMetadata := &Profile{}
+		if err := json.Unmarshal(progressPayload.Data, profileMetadata); err != nil {
+			return err
+		}
+		return progress(progressPayload.Message, profileMetadata, nil)
 	}
-	return progress(progressPayload.Message)
+
+	if progressPayload.Message == ProgressPreviewConfirm {
+		confirmChan := make(chan bool, 1)
+		if err := progress(progressPayload.Message, nil, confirmChan); err != nil {
+			return err
+		}
+		if <-confirmChan {
+			c.stdin.Write([]byte("y\n"))
+			return nil
+		} else {
+			c.stdin.Write([]byte("n\n"))
+			return ErrCanceled
+		}
+	}
+
+	if step, ok := HumanReadableFlow[progressPayload.Message]; ok {
+		return progress(step, nil, nil)
+	}
+	return nil
 }
