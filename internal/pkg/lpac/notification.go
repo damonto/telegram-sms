@@ -31,11 +31,11 @@ func (c *Cmd) NotificationList() ([]*Notification, error) {
 }
 
 func (c *Cmd) NotificationProcess(seqNumber int, remove bool, progress Progress) error {
-	arguments := []string{"notification", "process", strconv.Itoa(seqNumber)}
+	arguments := []string{"notification", "process"}
 	if remove {
 		arguments = append(arguments, "-r")
 	}
-	return c.Run(arguments, nil, progress)
+	return c.Run(append(arguments, strconv.Itoa(seqNumber)), nil, progress)
 }
 
 func (c *Cmd) NotificationDelete(seqNumber int) error {
