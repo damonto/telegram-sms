@@ -28,7 +28,7 @@ func (h *SimSlotHandler) handle(c telebot.Context) error {
 		return c.Send("No SIM slots found.")
 	}
 	template := `
-%s SIM %d - *%s*
+%s SIM %d \- *%s*
 %s
 	`
 	var text string
@@ -42,9 +42,9 @@ func (h *SimSlotHandler) handle(c telebot.Context) error {
 		identifier, _ := simSlot.GetSimIdentifier()
 		operatorName, _ := simSlot.GetOperatorName()
 		if active {
-			text += util.EscapeText(fmt.Sprintf(template, "🟢", slotId+1, operatorName, identifier))
+			text += fmt.Sprintf(template, "🟢", slotId+1, util.EscapeText(operatorName), identifier)
 		} else {
-			text += util.EscapeText(fmt.Sprintf(template, "🔴", slotId+1, operatorName, identifier))
+			text += fmt.Sprintf(template, "🔴", slotId+1, util.EscapeText(operatorName), identifier)
 		}
 		btn := selector.Data(fmt.Sprintf("SIM %d (%s)", slotId+1, identifier), fmt.Sprint(time.Now().UnixNano()), fmt.Sprint(slotId+1))
 		c.Bot().Handle(&btn, func(c telebot.Context) error {
