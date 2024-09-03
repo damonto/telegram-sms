@@ -21,6 +21,7 @@ Revision: %s
 IMEI: %s
 Signal: %d
 Network: %s
+Operator: %s
 ICCID: %s
 EID: %s
 `
@@ -31,7 +32,8 @@ EID: %s
 		revision, _ := m.GetRevision()
 		imei, _ := m.GetImei()
 		signal, _ := m.GetSignalQuality()
-		network, _ := m.GetOperatorName()
+		operator, _ := m.GetOperatorName()
+		operatorCode, _ := m.GetOperatorCode()
 		ICCID, _ := m.GetICCID()
 
 		message += fmt.Sprintf(
@@ -41,7 +43,8 @@ EID: %s
 			util.EscapeText(revision),
 			fmt.Sprintf("`%s`", imei),
 			signal,
-			util.EscapeText(network),
+			util.EscapeText(util.LookupCarrierName(operatorCode)),
+			util.EscapeText(operator),
 			fmt.Sprintf("`%s`", ICCID),
 			fmt.Sprintf("`%s`", m.Eid))
 	}
