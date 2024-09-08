@@ -57,7 +57,7 @@ Sign Keys:
 	manufacturerReplacement = strings.TrimRight(strings.TrimLeft(manufacturerReplacement, " "), " ")
 
 	var keysReplacement string
-	for _, key := range chip.EUICCInfo2.PkiForSigning {
+	for _, key := range chip.EUICCInfo2.CiPkIdForSigning {
 		keysReplacement += util.FindCertificateIssuer(key) + "\n"
 	}
 	keysReplacement = strings.TrimSuffix(keysReplacement, "\n")

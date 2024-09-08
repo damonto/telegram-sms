@@ -14,7 +14,7 @@ type EuiccConfiguredAddresses struct {
 type EuiccInfo2 struct {
 	SasAccreditationNumber string          `json:"sasAcreditationNumber"`
 	ExtCardResource        ExtCardResource `json:"extCardResource"`
-	PkiForSigning          []string        `json:"euiccCiPKIdListForSigning"`
+	CiPkIdForSigning       []string        `json:"euiccCiPKIdListForSigning"`
 }
 
 type ExtCardResource struct {
