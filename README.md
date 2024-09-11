@@ -58,7 +58,7 @@ If you already have `libqmi` version **1.35.5** or later installed, you can skip
 # sudo apt-get install -y meson ninja-build pkg-config bash-completion libgirepository1.0-dev help2man libglib2.0-dev libgudev-1.0-dev libmbim-glib-dev libqrtr-glib-dev (Ubuntu/Debian)
 git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
 cd libqmi
-meson setup build --prefix=/usr
+meson setup build --prefix=/usr --buildtype=release
 ninja -j$(nproc) -C build
 sudo ninja -C build install
 ```

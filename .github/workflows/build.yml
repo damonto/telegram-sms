@@ -39,10 +39,10 @@ jobs:
         run: |
           # Remove this step once libqmi 1.36 is available in the Ubuntu repository.
           sudo apt-get update -y
-          sudo apt-get install -y meson ninja-build pkg-config bash-completion libgirepository1.0-dev help2man libglib2.0-dev libgudev-1.0-dev libmbim-glib-dev libqrtr-glib-dev
+          sudo apt-get install -y meson ninja-build pkg-config help2man libglib2.0-dev libgudev-1.0-dev libqrtr-glib-dev
           git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
           cd libqmi
-          meson setup build --prefix=/usr
+          meson setup build --prefix=/usr --buildtype=release -Dmbim_qmux=false -Dgtk_doc=false -Dintrospection=false -Dbash_completion=false
           ninja -C build
           sudo ninja -j$(nproc) -C build install
           cd ..
