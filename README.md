@@ -20,7 +20,6 @@ I have thoroughly tested this program and found it to work well. However, its co
 
 * *ModemManager*: Essential for managing modems.
 * *libqmi*: Version 1.35.5 or higher is required if you plan to use the QMI driver.
-* *lpac*: Needed if your system architecture is not x86_64, or if you need to manually compile the QMI driver.
 
 ### Installation & Usage
 
@@ -46,13 +45,11 @@ Once done, you can run the program with root privileges:
 sudo ./telegram-sms --bot-token=YourTelegramToken --admin-id=YourTelegramChatID
 ```
 
-#### QMI (Optional)
+#### QMI
 
-Since the new version of `libqmi` has not been officially released and `lpac` doesn't provide a binary with the built-in QMI driver, you will need to compile `libqmi` and `lpac` manually.
+Since the new version of `libqmi` has not been officially released, you will need to compile `libqmi` manually.
 
-For detailed build instructions, refer to [libqmi's official documentation](https://modemmanager.org/docs/libqmi/building/building-meson/) and [lpac's official documentation](https://github.com/estkme-group/lpac/blob/main/docs/DEVELOPERS.md)
-
-#### 1. Compile and Install `libqmi`
+For detailed build instructions, refer to [libqmi's official documentation](https://modemmanager.org/docs/libqmi/building/building-meson/).
 
 If you already have `libqmi` version **1.35.5** or later installed, you can skip this step.
 
@@ -62,25 +59,14 @@ If you already have `libqmi` version **1.35.5** or later installed, you can skip
 git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
 cd libqmi
 meson setup build --prefix=/usr
-ninja -C build
+ninja -j$(nproc) -C build
 sudo ninja -C build install
 ```
 
-#### 2. Compile `lpac`
+Once you have compiled and installed `libqmi`, you can run the program with the following command:
 
 ```bash
-# sudo pacman -S --needed cmake make pkg-config libcurl-gnutls  (Arch Linux)
-# sudo apt-get install -y cmake make pkg-config libcurl4-gnutls-dev (Ubuntu/Debian)
-git clone https://github.com/estkme-group/lpac.git
-cd lpac
-cmake -B build -DLPAC_WITH_APDU_QMI=on -DLPAC_WITH_APDU_PCSC=off -S .
-make -j$(nproc) -C build
-```
-
-Once you have compiled and installed `libqmi` and `lpac`, you can run the program with the following command:
-
-```bash
-sudo ./telegram-sms --bot-token=YourTelegramToken --admin-id=YourTelegramChatID --apdu-driver=qmi --dir=/path/to/lpac --dont-download
+sudo ./telegram-sms --bot-token=YourTelegramToken --admin-id=YourTelegramChatID
 ```
 
 If you wish to run the program in the background, you can utilize the `systemctl` command. Here is an example of how to achieve this:
