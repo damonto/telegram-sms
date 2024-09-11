@@ -2,36 +2,39 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
-	"github.com/damonto/telegram-sms/internal/pkg/lpac"
+	"github.com/damonto/libeuicc-go"
 	"gopkg.in/telebot.v3"
 )
 
 type DownloadHandler struct {
 	handler
-	activationCode       *lpac.ActivationCode
+	activationCode       *libeuicc.ActivationCode
+	confirmationCode     chan string
 	downloadConfirmation chan bool
 }
 
 const (
-	StateDownloadAskActivationCode   = "download_ask_activation_code"
-	StateDownloadAskConfirmationCode = "download_ask_confirmation_code"
+	StateDownloadAskActivationCode             = "download_ask_activation_code"
+	StateDownloadAskConfirmationCode           = "download_ask_confirmation_code"
+	StateDownloadAskConfirmationCodeInDownload = "download_ask_confirmation_code_in_download"
 )
 
 func HandleDownloadCommand(c telebot.Context) error {
 	h := &DownloadHandler{
 		downloadConfirmation: make(chan bool, 1),
+		confirmationCode:     make(chan string, 1),
 	}
 	h.init(c)
 	h.state = h.stateManager.New(c)
 	h.state.States(map[string]telebot.HandlerFunc{
-		StateDownloadAskActivationCode:   h.handleActivationCode,
-		StateDownloadAskConfirmationCode: h.handleConfirmationCode,
+		StateDownloadAskActivationCode:             h.handleAskActivationCode,
+		StateDownloadAskConfirmationCode:           h.handleAskConfirmationCode,
+		StateDownloadAskConfirmationCodeInDownload: h.handleAskConfirmationCodeInDownload,
 	})
 	return h.handle(c)
 }
@@ -41,7 +44,7 @@ func (h *DownloadHandler) handle(c telebot.Context) error {
 	return c.Send("Please send me the activation code.")
 }
 
-func (h *DownloadHandler) handleActivationCode(c telebot.Context) error {
+func (h *DownloadHandler) handleAskActivationCode(c telebot.Context) error {
 	activationCode := c.Text()
 	if activationCode == "" || !strings.HasPrefix(activationCode, "LPA:1$") {
 		h.state.Next(StateDownloadAskActivationCode)
@@ -49,7 +52,7 @@ func (h *DownloadHandler) handleActivationCode(c telebot.Context) error {
 	}
 
 	parts := strings.Split(activationCode, "$")
-	h.activationCode = &lpac.ActivationCode{
+	h.activationCode = &libeuicc.ActivationCode{
 		SMDP:       parts[1],
 		MatchingId: parts[2],
 	}
@@ -62,7 +65,7 @@ func (h *DownloadHandler) handleActivationCode(c telebot.Context) error {
 	return h.download(c)
 }
 
-func (h *DownloadHandler) handleConfirmationCode(c telebot.Context) error {
+func (h *DownloadHandler) handleAskConfirmationCode(c telebot.Context) error {
 	confirmationCode := c.Text()
 	if confirmationCode == "" {
 		h.state.Next(StateDownloadAskConfirmationCode)
@@ -82,55 +85,84 @@ func (h *DownloadHandler) download(c telebot.Context) error {
 
 	h.modem.Lock()
 	defer h.modem.Unlock()
-	usbDevice, err := h.GetUsbDevice()
+
+	l, err := h.GetLPA()
 	if err != nil {
 		return err
 	}
+
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileDownload(h.activationCode, func(current string, profileMetadata *lpac.Profile, downloadConfirmation chan bool) error {
-		return h.handleDownloadProgress(c, message, current, profileMetadata, downloadConfirmation)
-	}); err != nil {
-		if errors.Is(err, lpac.ErrDownloadCancelled) {
-			_, err := c.Bot().Edit(message, "Download cancelled. /profiles")
-			return err
+	err = l.Download(timeoutCtx, h.activationCode, &libeuicc.DownloadOption{
+		ProgressBar: func(progress libeuicc.DownloadProgress) {
+			if progress == libeuicc.DownloadProgressConfirmDownload || progress == libeuicc.DownloadProgressConfirmationCodeRequired {
+				return
+			}
+			progressBar := strings.Repeat("⣿", int(progress)) + strings.Repeat("⣀", 10-int(progress))
+			percent := (progress - 1) * 10
+			if _, err := c.Bot().Edit(message, fmt.Sprintf("⏳ Downloading\n%s %d%% \n This may take a few minutes.", progressBar, percent)); err != nil {
+				slog.Error("failed to edit message", "error", err)
+				cancel()
+			}
+		},
+		ConfirmFunc: func(metadata *libeuicc.ProfileMetadata) bool {
+			return h.handleConfirmDownload(c, metadata)
+		},
+		ConfirmationCodeFunc: func() string {
+			h.state.Next(StateDownloadAskConfirmationCodeInDownload)
+			return <-h.confirmationCode
+		},
+	})
+	defer l.Close()
+
+	if err != nil {
+		if err == libeuicc.ErrDownloadCanceled {
+			c.Bot().Edit(message, "Download canceled.")
+			return nil
 		}
-		slog.Info("failed to download profile", "error", err)
-		_, err := c.Bot().Edit(message, "Failed to download profile: "+err.Error())
+		slog.Error("failed to download profile", "error", err)
+		c.Bot().Edit(message, "Failed to download profile. Error: "+err.Error())
 		return err
 	}
+
 	_, err = c.Bot().Edit(message, "Congratulations! Your profile has been downloaded. /profiles")
 	return err
 }
 
-func (h *DownloadHandler) handleDownloadProgress(c telebot.Context, message *telebot.Message, current string, profileMetadata *lpac.Profile, downloadConfirmation chan bool) error {
-	if current == lpac.ProgressMetadataParse {
-		template := `
+func (h *DownloadHandler) handleAskConfirmationCodeInDownload(c telebot.Context) error {
+	confirmationCode := c.Text()
+	if confirmationCode == "" {
+		h.state.Next(StateDownloadAskConfirmationCodeInDownload)
+		return c.Send("Invalid confirmation code.")
+	}
+	h.confirmationCode <- confirmationCode
+	return nil
+}
+
+func (h *DownloadHandler) handleConfirmDownload(c telebot.Context, metadata *libeuicc.ProfileMetadata) bool {
+	template := `
 Are you sure you want to download this profile?
 Provider Name: %s
 Profile Name: %s
 ICCID: %s
 `
-		selector := telebot.ReplyMarkup{}
-		btns := make([]telebot.Btn, 0, 2)
-		for _, action := range []string{"Yes", "No"} {
-			btn := selector.Data(action, fmt.Sprint(time.Now().UnixNano()), action)
-			c.Bot().Handle(&btn, func(c telebot.Context) error {
-				h.downloadConfirmation <- c.Callback().Data == "Yes"
-				return nil
-			})
-			btns = append(btns, btn)
-		}
-		selector.Inline(btns)
-		_, err := c.Bot().Edit(message, fmt.Sprintf(template, profileMetadata.ProviderName, profileMetadata.ProfileName, profileMetadata.ICCID), &selector)
-		return err
+	selector := telebot.ReplyMarkup{}
+	btns := make([]telebot.Btn, 0, 2)
+	for _, action := range []string{"Yes", "No"} {
+		btn := selector.Data(action, fmt.Sprint(time.Now().UnixNano()), action)
+		c.Bot().Handle(&btn, func(c telebot.Context) error {
+			h.downloadConfirmation <- c.Callback().Data == "Yes"
+			return nil
+		})
+		btns = append(btns, btn)
 	}
+	selector.Inline(btns)
 
-	if current == lpac.ProgressPreviewConfirm {
-		downloadConfirmation <- <-h.downloadConfirmation
-		return nil
+	confirmMessage, err := c.Bot().Send(c.Recipient(), fmt.Sprintf(template, metadata.ProviderName, metadata.ProfileName, metadata.ICCID), &selector)
+	if err != nil {
+		slog.Error("failed to send profile metadata", "error", err)
+		return false
 	}
-
-	_, err := c.Bot().Edit(message, current)
-	return err
+	defer c.Bot().Delete(confirmMessage)
+	return <-h.downloadConfirmation
 }

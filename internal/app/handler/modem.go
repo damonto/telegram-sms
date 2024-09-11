@@ -34,7 +34,7 @@ EID: %s
 		signal, _ := m.GetSignalQuality()
 		operator, _ := m.GetOperatorName()
 		operatorCode, _ := m.GetOperatorCode()
-		ICCID, _ := m.GetICCID()
+		iccid, _ := m.GetIccid()
 
 		message += fmt.Sprintf(
 			template,
@@ -45,7 +45,7 @@ EID: %s
 			signal,
 			util.EscapeText(util.LookupCarrierName(operatorCode)),
 			util.EscapeText(operator),
-			fmt.Sprintf("`%s`", ICCID),
+			fmt.Sprintf("`%s`", iccid),
 			fmt.Sprintf("`%s`", m.Eid))
 	}
 	return c.Send(message, &telebot.SendOptions{ParseMode: telebot.ModeMarkdownV2})

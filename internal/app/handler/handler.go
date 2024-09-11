@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"github.com/damonto/telegram-sms/internal/pkg/config"
+	"github.com/damonto/telegram-sms/internal/pkg/lpa"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/state"
 	"gopkg.in/telebot.v3"
@@ -18,9 +18,14 @@ func (h *handler) init(c telebot.Context) {
 	h.stateManager = c.Get("state").(*state.StateManager)
 }
 
-func (h *handler) GetUsbDevice() (string, error) {
-	if config.C.APDUDriver == config.APDUDriverAT {
-		return h.modem.GetAtPort()
+func (h *handler) GetLPA() (*lpa.LPA, error) {
+	qmiDevice, err := h.modem.GetQMIDevice()
+	if err != nil {
+		return nil, err
 	}
-	return h.modem.GetQMIDevice()
+	slot, err := h.modem.GetPrimarySimSlot()
+	if err != nil {
+		return nil, err
+	}
+	return lpa.New(qmiDevice, int(slot))
 }

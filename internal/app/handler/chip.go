@@ -1,12 +1,9 @@
 package handler
 
 import (
-	"context"
 	"fmt"
 	"strings"
-	"time"
 
-	"github.com/damonto/telegram-sms/internal/pkg/lpac"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 	"gopkg.in/telebot.v3"
 )
@@ -24,13 +21,7 @@ func HandleChipCommand(c telebot.Context) error {
 func (h *ChipHandler) handle(c telebot.Context) error {
 	h.modem.Lock()
 	defer h.modem.Unlock()
-	usbDevice, err := h.GetUsbDevice()
-	if err != nil {
-		return err
-	}
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	chip, err := lpac.NewCmd(timeoutCtx, usbDevice).Info()
+	lpa, err := h.GetLPA()
 	if err != nil {
 		return err
 	}
@@ -42,7 +33,16 @@ Free Space: %d KiB
 Sign Keys:
 %s
 `
-	country, manufacturer, productName := util.LookupEUM(chip.EID)
+	eid, err := lpa.GetEid()
+	if err != nil {
+		return err
+	}
+	chip, err := lpa.GetEuiccInfo2()
+	if err != nil {
+		return err
+	}
+	defer lpa.Close()
+	country, manufacturer, productName := util.LookupEUM(eid)
 	var manufacturerReplacement string
 	if country != "" {
 		manufacturerReplacement += string(0x1F1E6+rune(country[0])-'A') + string(0x1F1E6+rune(country[1])-'A')
@@ -53,20 +53,20 @@ Sign Keys:
 	if productName != "" {
 		manufacturerReplacement += " " + productName
 	}
-	manufacturerReplacement += " " + chip.EUICCInfo2.SasAccreditationNumber
+	manufacturerReplacement += " " + chip.SasAccreditationNumber
 	manufacturerReplacement = strings.TrimRight(strings.TrimLeft(manufacturerReplacement, " "), " ")
 
 	var keysReplacement string
-	for _, key := range chip.EUICCInfo2.CiPkIdForSigning {
+	for _, key := range chip.CiPKIdForSigning {
 		keysReplacement += util.FindCertificateIssuer(key) + "\n"
 	}
 	keysReplacement = strings.TrimSuffix(keysReplacement, "\n")
 	return c.Send(
 		fmt.Sprintf(
 			message,
-			fmt.Sprintf("`%s`", chip.EID),
+			fmt.Sprintf("`%s`", eid),
 			util.EscapeText(manufacturerReplacement),
-			chip.EUICCInfo2.ExtCardResource.FreeNonVolatileMemory/1024,
+			chip.ExtCardResource.FreeNonVolatileMemory/1024,
 			util.EscapeText(keysReplacement),
 		),
 		&telebot.SendOptions{

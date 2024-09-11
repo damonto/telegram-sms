@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -9,9 +10,10 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/damonto/libeuicc-go"
 	"github.com/damonto/telegram-sms/internal/app"
 	"github.com/damonto/telegram-sms/internal/pkg/config"
-	"github.com/damonto/telegram-sms/internal/pkg/lpac"
+	"github.com/damonto/telegram-sms/internal/pkg/lpa"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 	"github.com/maltegrosse/go-modemmanager"
@@ -26,13 +28,28 @@ func init() {
 	}
 	flag.StringVar(&config.C.BotToken, "bot-token", "", "telegram bot token")
 	flag.Int64Var(&config.C.AdminId, "admin-id", 0, "telegram admin id")
-	flag.StringVar(&config.C.TelegramEndpoint, "telegram-endpoint", "https://api.telegram.org", "telegram endpoint")
-	flag.StringVar(&config.C.APDUDriver, "apdu-driver", "at", "the APDU driver to use (at or qmi)")
-	flag.StringVar(&config.C.Version, "version", "v2.1.0", "the version of lpac to download")
-	flag.StringVar(&config.C.Dir, "dir", "/tmp/telegram-sms", "the directory to store lpac")
-	flag.BoolVar(&config.C.DontDownload, "dont-download", false, "don't download lpac binary")
+	flag.StringVar(&config.C.Endpoint, "endpoint", "https://api.telegram.org", "telegram endpoint")
 	flag.BoolVar(&config.C.Verbose, "verbose", false, "enable verbose mode")
 	flag.Parse()
+}
+
+func main1() {
+	test := func() {
+		l, err := lpa.New("/dev/cdc-wdm0", 1)
+		if err != nil {
+			slog.Error("failed to create LPA", "error", err)
+			panic(err)
+		}
+		defer l.Close()
+		fmt.Println(l.Download(context.Background(), &libeuicc.ActivationCode{
+			SMDP:       "millicomelsalvador.validereachdpplus.com",
+			MatchingId: "GENERICJOWMI-FAHTCU0-SKFMYPW6UIEFGRWC8GE933ITFAUVN63WMUVHFOWTS80",
+		}, nil))
+		// 304
+		// fmt.Println(l.ProcessNotification(303, false))
+		// fmt.Println(l.ProcessNotification(304, false))
+	}
+	test()
 }
 
 func main() {
@@ -43,20 +60,17 @@ func main() {
 		slog.Error("please run as root")
 		os.Exit(1)
 	}
+
 	if err := config.C.IsValid(); err != nil {
 		slog.Error("config is invalid", "error", err)
 		os.Exit(1)
 	}
-	if !config.C.DontDownload {
-		if err := lpac.Download(config.C.Dir, config.C.Version); err != nil {
-			slog.Warn("failed to download lpac", "error", err)
-		}
-	}
+
 	slog.Info("you are using", "version", Version)
 
 	bot, err := telebot.NewBot(telebot.Settings{
 		Token: config.C.BotToken,
-		URL:   config.C.TelegramEndpoint,
+		URL:   config.C.Endpoint,
 		Client: &http.Client{
 			Timeout: 30 * time.Second,
 			Transport: &http.Transport{

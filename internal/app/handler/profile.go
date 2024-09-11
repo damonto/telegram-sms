@@ -1,19 +1,18 @@
 package handler
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"time"
 
-	"github.com/damonto/telegram-sms/internal/pkg/lpac"
+	"github.com/damonto/libeuicc-go"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 	"gopkg.in/telebot.v3"
 )
 
 type ProfileHandler struct {
 	handler
-	ICCID string
+	Iccid string
 }
 
 const (
@@ -41,13 +40,12 @@ func HandleProfilesCommand(c telebot.Context) error {
 func (h *ProfileHandler) handle(c telebot.Context) error {
 	h.modem.Lock()
 	defer h.modem.Unlock()
-	usbDevice, err := h.GetUsbDevice()
+	l, err := h.GetLPA()
 	if err != nil {
 		return err
 	}
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	profiles, err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileList()
+	defer l.Close()
+	profiles, err := l.GetProfiles()
 	if err != nil {
 		return err
 	}
@@ -62,7 +60,7 @@ func (h *ProfileHandler) handle(c telebot.Context) error {
 	})
 }
 
-func (h *ProfileHandler) toTextMessage(c telebot.Context, profiles []*lpac.Profile) (string, *telebot.ReplyMarkup) {
+func (h *ProfileHandler) toTextMessage(c telebot.Context, profiles []*libeuicc.Profile) (string, *telebot.ReplyMarkup) {
 	selector := &telebot.ReplyMarkup{}
 	template := `
 %s *%s*
@@ -78,15 +76,15 @@ func (h *ProfileHandler) toTextMessage(c telebot.Context, profiles []*lpac.Profi
 			name += p.ProfileName
 		}
 		var emoji string
-		if p.State == lpac.ProfileStateEnabled {
+		if p.State == libeuicc.ProfileStateEnabled {
 			emoji = "✅"
 		} else {
 			emoji = "🅾️"
 		}
-		message += fmt.Sprintf(template, emoji, util.EscapeText(name), p.ICCID)
-		btn := selector.Data(fmt.Sprintf("%s (%s)", name, p.ICCID[len(p.ICCID)-4:]), fmt.Sprint(time.Now().UnixNano()), p.ICCID)
+		message += fmt.Sprintf(template, emoji, util.EscapeText(name), p.Iccid)
+		btn := selector.Data(fmt.Sprintf("%s (%s)", name, p.Iccid[len(p.Iccid)-4:]), fmt.Sprint(time.Now().UnixNano()), p.Iccid)
 		c.Bot().Handle(&btn, func(c telebot.Context) error {
-			h.ICCID = c.Data()
+			h.Iccid = c.Data()
 			h.state.Next(StateProfileHandleAction)
 			return h.handleAskAction(c)
 		})
@@ -127,13 +125,13 @@ func (h *ProfileHandler) handleAction(c telebot.Context) error {
 func (h *ProfileHandler) handleAskAction(c telebot.Context) error {
 	h.modem.Lock()
 	defer h.modem.Unlock()
-	usbDevice, err := h.GetUsbDevice()
+
+	l, err := h.GetLPA()
 	if err != nil {
 		return err
 	}
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	profile, err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileInfo(h.ICCID)
+	defer l.Close()
+	profile, err := l.FindProfile(h.Iccid)
 	if err != nil {
 		return err
 	}
@@ -143,7 +141,7 @@ func (h *ProfileHandler) handleAskAction(c telebot.Context) error {
 			Text: ProfileActionRename,
 		},
 	}
-	if profile.State == lpac.ProfileStateDisabled {
+	if profile.State == libeuicc.ProfileStateDisabled {
 		buttons = append(buttons, telebot.ReplyButton{
 			Text: ProfileActionEnable,
 		}, telebot.ReplyButton{
@@ -162,13 +160,14 @@ What do you want to do with this profile?
 	} else {
 		name += profile.ProfileName
 	}
+
 	var emoji string
-	if profile.State == lpac.ProfileStateEnabled {
+	if profile.State == libeuicc.ProfileStateEnabled {
 		emoji = "✅"
 	} else {
 		emoji = "🅾️"
 	}
-	return c.Send(fmt.Sprintf(template, emoji, util.EscapeText(name), fmt.Sprintf("`%s`", profile.ICCID)), &telebot.SendOptions{
+	return c.Send(fmt.Sprintf(template, emoji, util.EscapeText(name), fmt.Sprintf("`%s`", profile.Iccid)), &telebot.SendOptions{
 		ParseMode: telebot.ModeMarkdownV2,
 		ReplyMarkup: &telebot.ReplyMarkup{
 			OneTimeKeyboard: true,
@@ -184,33 +183,28 @@ func (h *ProfileHandler) handleActionDelete(c telebot.Context) error {
 	}
 	h.modem.Lock()
 	defer h.modem.Unlock()
-	usbDevice, err := h.GetUsbDevice()
+	l, err := h.GetLPA()
 	if err != nil {
 		return err
 	}
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileDelete(h.ICCID); err != nil {
-		// FIXME: On some modems, the profile deletion command will return an error even if the profile is deleted.
-		if err.Error() != "internal error, maybe illegal iccid/aid coding" {
-			return err
-		}
+	defer l.Close()
+	if err := l.Delete(h.Iccid); err != nil {
+		return err
 	}
 	return c.Send("Your profile has been deleted. /profiles")
 }
 
 func (h *ProfileHandler) handleActionEnable(c telebot.Context) error {
 	h.modem.Lock()
-	usbDevice, err := h.GetUsbDevice()
+	l, err := h.GetLPA()
 	if err != nil {
 		return err
 	}
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileEnable(h.ICCID); err != nil {
+	if err := l.EnableProfile(h.Iccid, false); err != nil {
 		h.modem.Unlock()
 		return err
 	}
+	l.Close()
 	h.modem.Unlock()
 	// Sometimes the modem needs to be restarted to apply the changes.
 	if err := h.modem.Restart(); err != nil {
@@ -222,13 +216,13 @@ func (h *ProfileHandler) handleActionEnable(c telebot.Context) error {
 func (h *ProfileHandler) handleActionRename(c telebot.Context) error {
 	h.modem.Lock()
 	defer h.modem.Unlock()
-	usbDevice, err := h.GetUsbDevice()
+
+	l, err := h.GetLPA()
 	if err != nil {
 		return err
 	}
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	if err := lpac.NewCmd(timeoutCtx, usbDevice).ProfileSetNickname(h.ICCID, c.Text()); err != nil {
+	defer l.Close()
+	if err := l.SetNickname(h.Iccid, c.Text()); err != nil {
 		return err
 	}
 	return c.Send(fmt.Sprintf("Your profile has been renamed to *%s*\\. /profiles", util.EscapeText(c.Text())), &telebot.SendOptions{
