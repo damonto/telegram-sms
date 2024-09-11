@@ -98,7 +98,7 @@ func (h *DownloadHandler) download(c telebot.Context) error {
 			if progress == libeuicc.DownloadProgressConfirmDownload || progress == libeuicc.DownloadProgressConfirmationCodeRequired {
 				return
 			}
-			progressBar := strings.Repeat("⣿", int(progress)) + strings.Repeat("⣀", 10-int(progress))
+			progressBar := strings.Repeat("⣿", int(progress)) + strings.Repeat("⣀", 10-int(progress-1))
 			percent := (progress - 1) * 10
 			if _, err := c.Bot().Edit(message, fmt.Sprintf("⏳ Downloading\n%s %d%% \n This may take a few minutes.", progressBar, percent)); err != nil {
 				slog.Error("failed to edit message", "error", err)
