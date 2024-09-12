@@ -36,7 +36,7 @@ jobs:
 
       - name: Setup Cross Builder
         uses: uraimo/run-on-arch-action@v2
-        id: build
+        if: ${{ matrix.target.arch != 'amd64' }}
         with:
           arch: ${{ matrix.target.crossarch }}
           distro: ${{ matrix.target.crossdistro }}
@@ -46,7 +46,7 @@ jobs:
           dockerRunArgs: |
             --volume "${PWD}:/artifacts"
           env: |
-            BUILD_VERSION=$(git describe --always --tags --match "v*" --dirty="-dev")
+            BUILD_VERSION: $(git describe --always --tags --match "v*" --dirty="-dev")
             ARTIFACT_NAME: telegram-sms-${{ matrix.targe.name }}
           install: |
             # Remove this step once libqmi 1.36 is available in the Ubuntu repository.
