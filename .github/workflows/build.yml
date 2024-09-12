@@ -19,14 +19,13 @@ permissions:
 jobs:
   build:
     name: Build for ${{ matrix.target.name }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.target.runs-on }}
     strategy:
       fail-fast: false
       matrix:
         target:
-          - { os: linux, arch: amd64, name: linux-amd64 }
-          - { os: linux, arch: arm64, name: linux-arm64, crossarch: aarch64, crossdistro: ubuntu_latest }
-          - { os: linux, arch: riscv64, name: linux-riscv64, crossarch: riscv64, crossdistro: ubuntu_latest }
+          - { runs-on: ubuntu-latest, os: linux, arch: amd64, name: linux-amd64 }
+          - { runs-on: self-hosted-ARM64, os: linux, arch: arm64, name: linux-arm64 }
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -38,55 +37,7 @@ jobs:
         with:
           go-version: 1.23
 
-      - name: Go Generate
-        run: go generate ./...
-
-      - name: Setup Cross Builder
-        uses: uraimo/run-on-arch-action@v2
-        if: ${{ matrix.target.arch != 'amd64' }}
-        with:
-          arch: ${{ matrix.target.crossarch }}
-          distro: ${{ matrix.target.crossdistro }}
-          githubToken: ${{ github.token }}
-          shell: /bin/bash
-          setup: |
-            mkdir -p "${PWD}/artifacts"
-          dockerRunArgs: |
-            --volume "${PWD}:/artifacts"
-          install: |
-            # Remove this step once libqmi 1.36 is available in the Ubuntu repository.
-            set -xe -o pipefail
-
-            apt-get update -y
-            apt-get -qq install -y git curl ca-certificates meson ninja-build pkg-config libglib2.0-dev libgudev-1.0-dev libqrtr-glib-dev
-            update-ca-certificates
-
-            git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
-            cd libqmi
-            meson setup build --prefix=/usr --buildtype=release -Dmbim_qmux=false -Dfirmware_update=false -Dudev=false -Dgtk_doc=false -Dman=false -Dintrospection=false -Dbash_completion=false
-            ninja -j$(nproc) -C build
-            ninja -C build install
-            cd ..
-            rm -rf libqmi
-
-            GO_VERSION=$(curl -Ls "https://go.dev/VERSION?m=text" | head -n 1)
-            GO_FILE="$GO_VERSION.linux-${{ matrix.target.arch }}.tar.gz"
-            if [ ${{ matrix.target.arch }} == "arm" ]; then
-              GO_FILE="$GO_VERSION.linux-armv6l.tar.gz"
-            fi
-
-            curl -L -o "$GO_FILE" https://go.dev/dl/"$GO_FILE"
-            tar -C /opt -xzf "$GO_FILE"
-            chmod +x /opt/go/bin/go
-
-            git config --global --add safe.directory '*'
-          run: |
-            /opt/go/bin/go version
-            BUILD_VERSION=$(git describe --always --tags --match "v*" --dirty="-dev")
-            CGO_ENABLED=1 /opt/go/bin/go build -buildvcs=false -trimpath -ldflags="-w -s -buildid=$BUILD_VERSION -X main.Version=$BUILD_VERSION" -o telegram-sms-${{ matrix.targe.name }}
-
       - name: Building libqmi
-        if: ${{ matrix.target.arch == 'amd64' }}
         run: |
           # Remove this step once libqmi 1.36 is available in the Ubuntu repository.
           sudo apt-get update -y
@@ -96,11 +47,10 @@ jobs:
           meson setup build --prefix=/usr --buildtype=release -Dmbim_qmux=false -Dfirmware_update=false -Dudev=false -Dman=false -Dgtk_doc=false -Dintrospection=false -Dbash_completion=false
           ninja -j$(nproc) -C build
           sudo ninja -C build install
-          cd ..
 
       - name: Build for ${{ matrix.target.name }}
-        if: ${{ matrix.target.arch == 'amd64' }}
         run: |
+          go generate ./...
           BUILD_VERSION=$(git describe --always --tags --match "v*" --dirty="-dev")
           CGO_ENABLED=1 GOARCH=${{ matrix.target.arch }} go build -trimpath -ldflags="-w -s -X main.Version=$BUILD_VERSION" -o telegram-sms-${{ matrix.target.name }}
 
