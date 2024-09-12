@@ -64,7 +64,9 @@ jobs:
             tar -C /usr/local -xzf "$GO_VERSION".linux-${{ matrix.target.arch }}.tar.gz
             chmod + /usr/local/go
           run: |
-            BUILD_VERSION: $(git describe --always --tags --match "v*" --dirty="-dev")
+            go version
+            git config --global --add safe.directory '*'
+            BUILD_VERSION=$(git describe --always --tags --match "v*" --dirty="-dev")
             CGO_ENABLED=1 go build -trimpath -ldflags="-w -s -X main.Version="$BUILD_VERSION"" -o telegram-sms-${{ matrix.targe.name }}
 
       - name: Building libqmi
