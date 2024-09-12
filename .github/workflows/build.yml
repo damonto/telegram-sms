@@ -38,6 +38,9 @@ jobs:
         with:
           go-version: 1.23
 
+      - name: Go Generate
+        run: go generate ./...
+
       - name: Setup Cross Builder
         uses: uraimo/run-on-arch-action@v2
         if: ${{ matrix.target.arch != 'amd64' }}
@@ -80,7 +83,6 @@ jobs:
           run: |
             /opt/go/bin/go version
             BUILD_VERSION=$(git describe --always --tags --match "v*" --dirty="-dev")
-            /opt/go/bin/go generate ./...
             CGO_ENABLED=1 /opt/go/bin/go build -trimpath -ldflags="-w -s -X main.Version="$BUILD_VERSION"" -o telegram-sms-${{ matrix.targe.name }}
 
       - name: Building libqmi
@@ -99,7 +101,6 @@ jobs:
       - name: Build for ${{ matrix.target.name }}
         if: ${{ matrix.target.arch == 'amd64' }}
         run: |
-          go generate ./...
           BUILD_VERSION=$(git describe --always --tags --match "v*" --dirty="-dev")
           CGO_ENABLED=1 GOARCH=${{ matrix.target.arch }} go build -trimpath -ldflags="-w -s -X main.Version=$BUILD_VERSION" -o telegram-sms-${{ matrix.target.name }}
 
