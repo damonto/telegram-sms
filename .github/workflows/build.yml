@@ -36,7 +36,7 @@ jobs:
 
       - name: Setup Cross Builder
         uses: uraimo/run-on-arch-action@v2
-        if: ${{ matrix.target.arch != 'amd64' }}
+        if: ${{ matrix.target.arch != 'amd64' }} && startsWith(github.ref, 'refs/tags/v')
         with:
           arch: ${{ matrix.target.crossarch }}
           distro: ${{ matrix.target.crossdistro }}
@@ -51,7 +51,7 @@ jobs:
           install: |
             # Remove this step once libqmi 1.36 is available in the Ubuntu repository.
             apt-get update -y
-            apt-get install -y git curl ca-certificates meson ninja-build pkg-config help2man libglib2.0-dev libgudev-1.0-dev libqrtr-glib-dev
+            apt-get -qq install -y git wget curl ca-certificates meson ninja-build pkg-config help2man libglib2.0-dev libgudev-1.0-dev libqrtr-glib-dev
             update-ca-certificates
 
             git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
@@ -73,7 +73,7 @@ jobs:
         run: |
           # Remove this step once libqmi 1.36 is available in the Ubuntu repository.
           sudo apt-get update -y
-          sudo apt-get install -y meson ninja-build pkg-config help2man libglib2.0-dev libgudev-1.0-dev libqrtr-glib-dev
+          sudo apt-get -qq install -y meson ninja-build pkg-config help2man libglib2.0-dev libgudev-1.0-dev libqrtr-glib-dev
           git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
           cd libqmi
           meson setup build --prefix=/usr --buildtype=release -Dmbim_qmux=false -Dgtk_doc=false -Dintrospection=false -Dbash_completion=false
