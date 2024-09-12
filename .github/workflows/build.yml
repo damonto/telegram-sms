@@ -18,9 +18,8 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          # - { os: linux, arch: 386, name: linux-386 }
           - { os: linux, arch: amd64, name: linux-amd64 }
-          - { os: linux, arch: arm, name: linux-arm, crossarch: armv7, crossdistro: ubuntu_latest }
+          - { os: linux, arch: arm, name: linux-armv6l, crossarch: aarch64, crossdistro: ubuntu_latest }
           - { os: linux, arch: arm64, name: linux-arm64, crossarch: aarch64, crossdistro: ubuntu_latest }
           - { os: linux, arch: riscv64, name: linux-riscv64, crossarch: riscv64, crossdistro: ubuntu_latest }
     steps:
@@ -60,14 +59,20 @@ jobs:
             rm -rf libqmi
 
             GO_VERSION=$(curl -Ls "https://go.dev/VERSION?m=text" | head -n 1)
-            curl -L -o "$GO_VERSION".linux-${{ matrix.target.arch }}.tar.gz https://go.dev/dl/"$GO_VERSION".linux-${{ matrix.target.arch }}.tar.gz
-            tar -C /usr/local -xzf "$GO_VERSION".linux-${{ matrix.target.arch }}.tar.gz
-            chmod + /usr/local/go
+
+            GO_FILE="go$GO_VERSION.linux-${{ matrix.target.arch }}.tar.gz"
+            if [ ${{ matrix.target.arch }} == "arm" ]; then
+              GO_FILE="go$GO_VERSION.linux-armv6l.tar.gz"
+            fi
+
+            curl -L -o "$GO_FILE" https://go.dev/dl/"$GO_FILE"
+            tar -C /usr/local -xzf "$GO_FILE"
+            chmod +x /usr/local/go
           run: |
-            go version
             git config --global --add safe.directory '*'
+            /usr/local/go version
             BUILD_VERSION=$(git describe --always --tags --match "v*" --dirty="-dev")
-            CGO_ENABLED=1 go build -trimpath -ldflags="-w -s -X main.Version="$BUILD_VERSION"" -o telegram-sms-${{ matrix.targe.name }}
+            CGO_ENABLED=1 /usr/local/go build -trimpath -ldflags="-w -s -X main.Version="$BUILD_VERSION"" -o telegram-sms-${{ matrix.targe.name }}
 
       - name: Building libqmi
         if: ${{ matrix.target.arch == 'amd64' }}
