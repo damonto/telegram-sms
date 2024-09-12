@@ -164,7 +164,7 @@ ICCID: %s
 	}
 	selector.Inline(btns)
 
-	confirmMessage, err := c.Bot().Send(c.Recipient(), fmt.Sprintf(template, metadata.ProviderName, metadata.ProfileName, metadata.ICCID), &selector)
+	confirmMessage, err := c.Bot().Send(c.Recipient(), fmt.Sprintf(template, metadata.ProviderName, metadata.ProfileName, metadata.Iccid), &selector)
 	if err != nil {
 		slog.Error("failed to send profile metadata", "error", err)
 		return false
