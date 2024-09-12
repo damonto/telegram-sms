@@ -95,11 +95,13 @@ func (h *DownloadHandler) download(c telebot.Context) error {
 	defer cancel()
 	err = l.Download(timeoutCtx, h.activationCode, &libeuicc.DownloadOption{
 		ProgressBar: func(progress libeuicc.DownloadProgress) {
-			if progress == libeuicc.DownloadProgressConfirmDownload || progress == libeuicc.DownloadProgressConfirmationCodeRequired {
+			if progress == libeuicc.DownloadProgressConfirmDownload ||
+				progress == libeuicc.DownloadProgressConfirmationCodeRequired ||
+				progress == libeuicc.DownloadProgressLoadBoundProfile {
 				return
 			}
-			progressBar := strings.Repeat("⣿", int(progress)) + strings.Repeat("⣀", 10-int(progress-1))
-			percent := (progress - 1) * 10
+			progressBar := strings.Repeat("⣿", int(progress)) + strings.Repeat("⣀", 10-int(progress))
+			percent := progress * 10
 			if _, err := c.Bot().Edit(message, fmt.Sprintf("⏳ Downloading\n%s %d%% \n This may take a few minutes.", progressBar, percent)); err != nil {
 				slog.Error("failed to edit message", "error", err)
 				cancel()
@@ -109,6 +111,7 @@ func (h *DownloadHandler) download(c telebot.Context) error {
 			return h.handleConfirmDownload(c, metadata)
 		},
 		ConfirmationCodeFunc: func() string {
+			c.Bot().Edit(message, "Please send me the confirmation code.")
 			h.state.Next(StateDownloadAskConfirmationCodeInDownload)
 			return <-h.confirmationCode
 		},
@@ -134,6 +137,9 @@ func (h *DownloadHandler) handleAskConfirmationCodeInDownload(c telebot.Context)
 	if confirmationCode == "" {
 		h.state.Next(StateDownloadAskConfirmationCodeInDownload)
 		return c.Send("Invalid confirmation code.")
+	}
+	if err := c.Bot().Delete(c.Message()); err != nil {
+		slog.Error("failed to delete confirmation code message", "error", err)
 	}
 	h.confirmationCode <- confirmationCode
 	return nil

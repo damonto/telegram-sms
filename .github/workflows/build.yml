@@ -20,9 +20,9 @@ jobs:
         target:
           # - { os: linux, arch: 386, name: linux-386 }
           - { os: linux, arch: amd64, name: linux-amd64 }
-          # - { os: linux, arch: arm, name: linux-arm }
-          # - { os: linux, arch: arm64, name: linux-arm64 }
-          # - { os: linux, arch: riscv64, name: linux-riscv64 }
+          - { os: linux, arch: arm, name: linux-arm, crossarch: armv7, crossdistro: ubuntu_latest }
+          - { os: linux, arch: arm64, name: linux-arm64, crossarch: aarch64, crossdistro: ubuntu_latest }
+          - { os: linux, arch: riscv64, name: linux-riscv64, crossarch: riscv64, crossdistro: ubuntu_latest }
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,25 +33,57 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: 1.23
-        id: go
+
+      - name: Setup Cross Builder
+        uses: uraimo/run-on-arch-action@v2
+        id: build
+        with:
+          arch: ${{ matrix.target.crossarch }}
+          distro: ${{ matrix.target.crossdistro }}
+          githubToken: ${{ github.token }}
+          setup: |
+            mkdir -p "${PWD}/artifacts"
+          dockerRunArgs: |
+            --volume "${PWD}:/artifacts"
+          env: |
+            BUILD_VERSION=$(git describe --always --tags --match "v*" --dirty="-dev")
+            ARTIFACT_NAME: telegram-sms-${{ matrix.targe.name }}
+          install: |
+            # Remove this step once libqmi 1.36 is available in the Ubuntu repository.
+            apt-get update -y
+            apt-get install -y curl meson ninja-build pkg-config help2man libglib2.0-dev libgudev-1.0-dev libqrtr-glib-dev
+            git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
+            cd libqmi
+            meson setup build --prefix=/usr --buildtype=release -Dmbim_qmux=false -Dgtk_doc=false -Dintrospection=false -Dbash_completion=false
+            ninja -C build
+            ninja -j$(nproc) -C build install
+            cd ..
+            rm -rf libqmi
+
+            GO_VERSION=$(curl -Ls https://go.dev/VERSION?m=text | head -n 1)
+            wget https://go.dev/dl/go"$GO_VERSION"".linux-amd64.tar.gz
+            tar -C /usr/local -xzf go"$GO_VERSION"".linux-amd64.tar.gz
+            chmod + /usr/local/go
+          run: |
+            CGO_ENABLED=1 go build -trimpath -ldflags="-w -s -X main.Version="$BUILD_VERSION"" -o "$ARTIFACT_NAME"
 
       - name: Building libqmi
         run: |
           # Remove this step once libqmi 1.36 is available in the Ubuntu repository.
-          sudo apt-get update -y
-          sudo apt-get install -y meson ninja-build pkg-config help2man libglib2.0-dev libgudev-1.0-dev libqrtr-glib-dev
+          apt-get update -y
+          apt-get install -y meson ninja-build pkg-config help2man libglib2.0-dev libgudev-1.0-dev libqrtr-glib-dev
           git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
           cd libqmi
           meson setup build --prefix=/usr --buildtype=release -Dmbim_qmux=false -Dgtk_doc=false -Dintrospection=false -Dbash_completion=false
           ninja -C build
-          sudo ninja -j$(nproc) -C build install
+          ninja -j$(nproc) -C build install
           cd ..
 
       - name: Build for ${{ matrix.target.name }}
         run: |
           go generate ./...
           VERSION=$(git describe --always --tags --match "v*" --dirty="-dev")
-          CGO_ENABLED=1 GOARCH=${{ matrix.target.arch }} go build -trimpath -ldflags="-w -s -X main.Version=${VERSION}" -o telegram-sms-${{ matrix.target.name }}
+          CGO_ENABLED=1 GOARCH=${{ matrix.target.arch }} go build -trimpath -ldflags="-w -s -X main.Version=$VERSION" -o telegram-sms-${{ matrix.target.name }}
 
       - name: Upload ${{ matrix.target.name }} to Artifact
         uses: actions/upload-artifact@v4
