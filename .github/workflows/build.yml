@@ -45,6 +45,7 @@ jobs:
           arch: ${{ matrix.target.crossarch }}
           distro: ${{ matrix.target.crossdistro }}
           githubToken: ${{ github.token }}
+          shell: /bin/bash
           setup: |
             mkdir -p "${PWD}/artifacts"
           dockerRunArgs: |
