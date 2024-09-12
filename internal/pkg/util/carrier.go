@@ -1,6 +1,6 @@
 package util
 
-//go:generate /usr/bin/curl -L -o carrier_list.textpb https://android.googlesource.com/platform/packages/providers/TelephonyProvider/+/main/assets/latest_carrier_id/carrier_list.textpb?format=text
+//go:generate sh -c "curl -L -o carrier_list.textpb https://android.googlesource.com/platform/packages/providers/TelephonyProvider/+/main/assets/latest_carrier_id/carrier_list.textpb?format=text"
 
 import (
 	_ "embed"
