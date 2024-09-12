@@ -46,6 +46,8 @@ jobs:
             --volume "${PWD}:/artifacts"
           install: |
             # Remove this step once libqmi 1.36 is available in the Ubuntu repository.
+            set -xe -o pipefail
+
             apt-get update -y
             apt-get -qq install -y git curl ca-certificates meson ninja-build pkg-config libglib2.0-dev libgudev-1.0-dev libqrtr-glib-dev
             update-ca-certificates
@@ -59,17 +61,17 @@ jobs:
             rm -rf libqmi
 
             GO_VERSION=$(curl -Ls "https://go.dev/VERSION?m=text" | head -n 1)
-
-            GO_FILE="go$GO_VERSION.linux-${{ matrix.target.arch }}.tar.gz"
+            GO_FILE="$GO_VERSION.linux-${{ matrix.target.arch }}.tar.gz"
             if [ ${{ matrix.target.arch }} == "arm" ]; then
-              GO_FILE="go$GO_VERSION.linux-armv6l.tar.gz"
+              GO_FILE="$GO_VERSION.linux-armv6l.tar.gz"
             fi
 
             curl -L -o "$GO_FILE" https://go.dev/dl/"$GO_FILE"
             tar -C /usr/local -xzf "$GO_FILE"
             chmod +x /usr/local/go
-          run: |
+
             git config --global --add safe.directory '*'
+          run: |
             /usr/local/go version
             BUILD_VERSION=$(git describe --always --tags --match "v*" --dirty="-dev")
             CGO_ENABLED=1 /usr/local/go build -trimpath -ldflags="-w -s -X main.Version="$BUILD_VERSION"" -o telegram-sms-${{ matrix.targe.name }}
