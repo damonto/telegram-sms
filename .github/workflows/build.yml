@@ -83,7 +83,7 @@ jobs:
           run: |
             /opt/go/bin/go version
             BUILD_VERSION=$(git describe --always --tags --match "v*" --dirty="-dev")
-            CGO_ENABLED=1 /opt/go/bin/go build -trimpath -ldflags="-w -s -X main.Version="$BUILD_VERSION"" -o telegram-sms-${{ matrix.targe.name }}
+            CGO_ENABLED=1 /opt/go/bin/go build -buildvcs=false -trimpath -ldflags="-w -s -X main.Version="$BUILD_VERSION"" -o telegram-sms-${{ matrix.targe.name }}
 
       - name: Building libqmi
         if: ${{ matrix.target.arch == 'amd64' }}
