@@ -25,7 +25,7 @@ jobs:
       matrix:
         target:
           - { os: linux, arch: amd64, name: linux-amd64 }
-          - { os: linux, arch: arm, name: linux-armv6l, crossarch: aarch64, crossdistro: ubuntu_latest }
+          - { os: linux, arch: arm, name: linux-armv6l, crossarch: armv6, crossdistro: ubuntu_latest }
           - { os: linux, arch: arm64, name: linux-arm64, crossarch: aarch64, crossdistro: ubuntu_latest }
           - { os: linux, arch: riscv64, name: linux-riscv64, crossarch: riscv64, crossdistro: ubuntu_latest }
     steps:
