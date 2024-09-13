@@ -35,6 +35,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
+          cache: false
           go-version: 1.23
 
       - name: Building libqmi
