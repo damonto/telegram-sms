@@ -35,6 +35,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
+          # disable cache on self-hosted runners.
+          cache: startsWith(matrix.target.runs-on, 'ubuntu-latest')
           go-version: 1.23
 
       - name: Building libqmi
