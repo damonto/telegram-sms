@@ -88,7 +88,7 @@ func (h *DownloadHandler) download(c telebot.Context) error {
 	if err != nil {
 		return err
 	}
-
+	slog.Debug("downloading profile", "activationCode", h.activationCode)
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	err = l.Download(timeoutCtx, h.activationCode, &libeuicc.DownloadOption{
@@ -106,7 +106,9 @@ func (h *DownloadHandler) download(c telebot.Context) error {
 			}
 		},
 		ConfirmFunc: func(metadata *libeuicc.ProfileMetadata) bool {
-			return h.handleConfirmDownload(c, metadata)
+			confirm := h.handleConfirmDownload(c, metadata)
+			slog.Debug("you confirmed to download", "confirm", confirm, "activationCode", h.activationCode, "metadata", metadata)
+			return confirm
 		},
 		ConfirmationCodeFunc: func() string {
 			ccMessage, err := c.Bot().Send(c.Recipient(), "Please send me the confirmation code.")
@@ -119,7 +121,7 @@ func (h *DownloadHandler) download(c telebot.Context) error {
 			if err := c.Bot().Delete(ccMessage); err != nil {
 				slog.Error("failed to delete confirmation code message", "error", err)
 			}
-			slog.Debug("confirmation code", "code", cc)
+			slog.Debug("got a confirmation code", "code", cc, "activationCode", h.activationCode)
 			return cc
 		},
 	})
