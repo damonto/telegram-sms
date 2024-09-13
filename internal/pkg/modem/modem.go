@@ -158,3 +158,7 @@ func (m *Modem) GetSignalQuality() (uint32, error) {
 	}
 	return percent, err
 }
+
+func (m *Modem) GetOwnNumbers() ([]string, error) {
+	return m.modem.GetOwnNumbers()
+}

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
@@ -19,9 +20,10 @@ Manufaturer: %s
 Model: %s
 Revision: %s
 IMEI: %s
-Signal: %d
 Network: %s
 Operator: %s
+Numbers: %s
+Signal: %d%%
 ICCID: %s
 EID: %s
 `
@@ -35,6 +37,7 @@ EID: %s
 		operator, _ := m.GetOperatorName()
 		operatorCode, _ := m.GetOperatorCode()
 		iccid, _ := m.GetIccid()
+		numbers, _ := m.GetOwnNumbers()
 
 		message += fmt.Sprintf(
 			template,
@@ -42,9 +45,10 @@ EID: %s
 			util.EscapeText(model),
 			util.EscapeText(revision),
 			fmt.Sprintf("`%s`", imei),
-			signal,
 			util.EscapeText(util.LookupCarrierName(operatorCode)),
 			util.EscapeText(operator),
+			util.EscapeText(strings.Join(numbers, ", ")),
+			signal,
 			fmt.Sprintf("`%s`", iccid),
 			fmt.Sprintf("`%s`", m.Eid))
 	}

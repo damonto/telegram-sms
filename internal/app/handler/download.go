@@ -60,8 +60,6 @@ func (h *DownloadHandler) handleAskActivationCode(c telebot.Context) error {
 		h.state.Next(StateDownloadAskConfirmationCode)
 		return c.Send("Please send me the confirmation code.")
 	}
-
-	h.stateManager.Done(c)
 	return h.download(c)
 }
 
@@ -111,12 +109,22 @@ func (h *DownloadHandler) download(c telebot.Context) error {
 			return h.handleConfirmDownload(c, metadata)
 		},
 		ConfirmationCodeFunc: func() string {
-			c.Bot().Edit(message, "Please send me the confirmation code.")
+			ccMessage, err := c.Bot().Send(c.Recipient(), "Please send me the confirmation code.")
+			if err != nil {
+				slog.Error("failed to send confirmation code message", "error", err)
+				return ""
+			}
 			h.state.Next(StateDownloadAskConfirmationCodeInDownload)
-			return <-h.confirmationCode
+			cc := <-h.confirmationCode
+			if err := c.Bot().Delete(ccMessage); err != nil {
+				slog.Error("failed to delete confirmation code message", "error", err)
+			}
+			slog.Debug("confirmation code", "code", cc)
+			return cc
 		},
 	})
 	defer l.Close()
+	defer h.stateManager.Done(c)
 
 	if err != nil {
 		if err == libeuicc.ErrDownloadCanceled {
@@ -142,6 +150,7 @@ func (h *DownloadHandler) handleAskConfirmationCodeInDownload(c telebot.Context)
 		slog.Error("failed to delete confirmation code message", "error", err)
 	}
 	h.confirmationCode <- confirmationCode
+	h.stateManager.Done(c)
 	return nil
 }
 
