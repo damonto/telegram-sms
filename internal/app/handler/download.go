@@ -13,9 +13,9 @@ import (
 
 type DownloadHandler struct {
 	handler
-	activationCode       *libeuicc.ActivationCode
-	confirmationCode     chan string
-	downloadConfirmation chan bool
+	activationCode   *libeuicc.ActivationCode
+	confirmationCode chan string
+	confirmDownload  chan bool
 }
 
 const (
@@ -26,8 +26,8 @@ const (
 
 func HandleDownloadCommand(c telebot.Context) error {
 	h := &DownloadHandler{
-		downloadConfirmation: make(chan bool, 1),
-		confirmationCode:     make(chan string, 1),
+		confirmDownload:  make(chan bool, 1),
+		confirmationCode: make(chan string, 1),
 	}
 	h.init(c)
 	h.state = h.stateManager.New(c)
@@ -168,7 +168,7 @@ ICCID: %s
 	for _, action := range []string{"Yes", "No"} {
 		btn := selector.Data(action, fmt.Sprint(time.Now().UnixNano()), action)
 		c.Bot().Handle(&btn, func(c telebot.Context) error {
-			h.downloadConfirmation <- c.Callback().Data == "Yes"
+			h.confirmDownload <- c.Callback().Data == "Yes"
 			return nil
 		})
 		btns = append(btns, btn)
@@ -181,5 +181,5 @@ ICCID: %s
 		return false
 	}
 	defer c.Bot().Delete(confirmMessage)
-	return <-h.downloadConfirmation
+	return <-h.confirmDownload
 }
