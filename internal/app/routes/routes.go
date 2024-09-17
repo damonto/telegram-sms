@@ -25,14 +25,14 @@ func (r *Router) routes() {
 
 	{
 		g := r.bot.Group()
-		g.Use(middleware.Whitelist(config.C.AdminId))
+		g.Use(middleware.Whitelist(config.C.AdminId.ToInt64()...))
 
 		g.Handle("/modems", handler.HandleModemsCommand)
 	}
 
 	{
 		g := r.bot.Group()
-		g.Use(middleware.Whitelist(config.C.AdminId))
+		g.Use(middleware.Whitelist(config.C.AdminId.ToInt64()...))
 		g.Use(mmiddleware.SelectModem(false))
 
 		g.Handle("/send", handler.HandleSendCommand)
@@ -42,7 +42,7 @@ func (r *Router) routes() {
 
 	{
 		g := r.bot.Group()
-		g.Use(middleware.Whitelist(config.C.AdminId))
+		g.Use(middleware.Whitelist(config.C.AdminId.ToInt64()...))
 		g.Use(mmiddleware.SelectModem(true))
 
 		g.Handle("/chip", handler.HandleChipCommand)
