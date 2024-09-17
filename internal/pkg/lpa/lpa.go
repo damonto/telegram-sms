@@ -48,7 +48,10 @@ func (l *LPA) sendNotificationsAfterExecution(action func() error) error {
 	if err != nil {
 		return err
 	}
-	lastSeqNumber := currentNotifications[len(currentNotifications)-1].SeqNumber
+	var lastSeqNumber int
+	if len(currentNotifications) > 0 {
+		lastSeqNumber = currentNotifications[len(currentNotifications)-1].SeqNumber
+	}
 
 	if err := action(); err != nil {
 		slog.Error("failed to execute action", "error", err)
