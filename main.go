@@ -20,9 +20,6 @@ import (
 var Version string
 
 func init() {
-	if err := os.MkdirAll("/tmp/telegram-sms", 0755); err != nil {
-		panic(err)
-	}
 	flag.StringVar(&config.C.BotToken, "bot-token", "", "telegram bot token")
 	flag.Var(&config.C.AdminId, "admin-id", "telegram admin id")
 	flag.StringVar(&config.C.Endpoint, "endpoint", "https://api.telegram.org", "telegram endpoint")
