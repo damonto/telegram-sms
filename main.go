@@ -105,5 +105,4 @@ func subscribe(bot *telebot.Bot, modem *modem.Modem, sms modemmanager.Sms) {
 			slog.Error("failed to send message", "error", err)
 		}
 	}
-
 }
