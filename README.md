@@ -101,13 +101,3 @@ sudo systemctl start telegram-sms
 ```bash
 sudo systemctl enable telegram-sms
 ```
-
-### Donate
-
-If you like this project, you can donate to the following addresses:
-
-USDT (TRC20): `TKEnNtXGvfQEpw1jwy42xpfDMaQLbytyEv`
-
-USDT (Polygon): `0xe13C5C8791b6c52B2c3Ecf43C7e1ab0D188684e3`
-
-Your donation will help maintain this project.
