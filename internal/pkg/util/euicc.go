@@ -1,13 +1,13 @@
 package util
 
-//go:generate curl -o eum.json https://euicc-manual.osmocom.org/docs/pki/eum/manifest.json
+//go:generate curl -o eum.json https://euicc-manual.osmocom.org/docs/pki/eum/manifest-v2.json
 //go:generate curl -o ci.json https://euicc-manual.osmocom.org/docs/pki/ci/manifest.json
 
 import (
 	_ "embed"
 	"encoding/json"
+	"fmt"
 	"log/slog"
-	"path/filepath"
 	"strings"
 )
 
@@ -25,8 +25,10 @@ type EUM struct {
 }
 
 type Product struct {
-	Pattern string `json:"pattern"`
-	Name    string `json:"name"`
+	Prefix  string  `json:"prefix"`
+	Chip    string  `json:"chip,omitempty"`
+	Name    string  `json:"name"`
+	InRange [][]int `json:"in-range,omitempty"`
 }
 
 type CertificateIssuer struct {
@@ -63,10 +65,18 @@ func LookupEUM(eid string) (string, string, string) {
 			country = manifest.Country
 			manufacturer = manifest.Manufacturer
 			for _, product := range manifest.Products {
-				if match, err := filepath.Match(product.Pattern, eid); err != nil || !match {
-					continue
+				if strings.HasPrefix(eid, product.Prefix) {
+					if product.InRange != nil {
+						for _, inRange := range product.InRange {
+							for _, r := range inRange {
+								if strings.HasPrefix(eid[len(product.Prefix):], fmt.Sprintf("%d", r)) {
+									return country, manufacturer, product.Name
+								}
+							}
+						}
+					}
+					return country, manufacturer, product.Name
 				}
-				productName = product.Name
 			}
 		}
 	}
