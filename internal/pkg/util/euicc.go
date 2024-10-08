@@ -6,8 +6,8 @@ package util
 import (
 	_ "embed"
 	"encoding/json"
-	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 )
 
@@ -67,15 +67,14 @@ func LookupEUM(eid string) (string, string, string) {
 			for _, product := range manifest.Products {
 				if strings.HasPrefix(eid, product.Prefix) {
 					if product.InRange != nil {
+						eidRange, _ := strconv.Atoi(eid[len(product.Prefix) : len(product.Prefix)+6])
 						for _, inRange := range product.InRange {
-							for _, r := range inRange {
-								if strings.HasPrefix(eid[len(product.Prefix):], fmt.Sprintf("%d", r)) {
-									return country, manufacturer, product.Name
-								}
+							if eidRange >= inRange[0] && eidRange <= inRange[1] {
+								return country, manufacturer, product.Name
 							}
 						}
 					}
-					return country, manufacturer, product.Name
+					productName = product.Name
 				}
 			}
 		}
