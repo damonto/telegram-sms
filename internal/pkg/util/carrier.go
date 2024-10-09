@@ -3,6 +3,7 @@ package util
 //go:generate curl -L -o carrier_list.textpb https://android.googlesource.com/platform/packages/providers/TelephonyProvider/+/main/assets/latest_carrier_id/carrier_list.textpb?format=text
 
 import (
+	"bytes"
 	_ "embed"
 	"encoding/base64"
 	"log/slog"
@@ -10,7 +11,7 @@ import (
 )
 
 //go:embed carrier_list.textpb
-var carrierListRaw []byte
+var textpb []byte
 
 type Carrier struct {
 	CarrierName string
@@ -20,16 +21,13 @@ type Carrier struct {
 var carrierList []*Carrier
 
 func init() {
-	var decoded []byte
-	decoded, err := base64.StdEncoding.DecodeString(string(carrierListRaw))
-	if err != nil {
+	decoded := make([]byte, base64.StdEncoding.DecodedLen(len(textpb)))
+	if _, err := base64.StdEncoding.Decode(decoded, textpb); err != nil {
 		slog.Error("failed to decode carrier list", "error", err)
 	}
-
-	lines := strings.Split(string(decoded), "\n")
 	var carrier *Carrier
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
+	for _, b := range bytes.Split(decoded, []byte("\n")) {
+		line := strings.TrimSpace(string(b))
 		if strings.HasPrefix(line, "carrier_id {") {
 			carrier = &Carrier{}
 			carrierList = append(carrierList, carrier)
