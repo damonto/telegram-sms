@@ -29,7 +29,7 @@ func init() {
 	for _, b := range bytes.Split(decoded, []byte("\n")) {
 		line := strings.TrimSpace(string(b))
 		if strings.HasPrefix(line, "carrier_id {") {
-			carrier = &Carrier{}
+			carrier = new(Carrier)
 			carrierList = append(carrierList, carrier)
 		}
 		if strings.HasPrefix(line, "carrier_name:") {
