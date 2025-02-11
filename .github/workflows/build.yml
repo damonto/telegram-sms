@@ -25,7 +25,7 @@ jobs:
       matrix:
         target:
           - { runs-on: ubuntu-latest, os: linux, arch: amd64, name: linux-amd64 }
-          - { runs-on: self-hosted-ARM64, os: linux, arch: arm64, name: linux-arm64 }
+          - { runs-on: ubuntu-24.04-arm, os: linux, arch: arm64, name: linux-arm64 }
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
