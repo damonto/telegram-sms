@@ -163,7 +163,7 @@ Provider Name: %s
 Profile Name: %s
 ICCID: %s
 `
-	selector := telebot.ReplyMarkup{}
+	selector := new(telebot.ReplyMarkup)
 	btns := make([]telebot.Btn, 0, 2)
 	for _, action := range []string{"Yes", "No"} {
 		btn := selector.Data(action, fmt.Sprint(time.Now().UnixNano()), action)
@@ -175,7 +175,7 @@ ICCID: %s
 	}
 	selector.Inline(btns)
 
-	confirmMessage, err := c.Bot().Send(c.Recipient(), fmt.Sprintf(template, metadata.ProviderName, metadata.ProfileName, metadata.Iccid), &selector)
+	confirmMessage, err := c.Bot().Send(c.Recipient(), fmt.Sprintf(template, metadata.ProviderName, metadata.ProfileName, metadata.Iccid), selector)
 	if err != nil {
 		slog.Error("failed to send profile metadata", "error", err)
 		return false

@@ -5,7 +5,7 @@ import (
 	"github.com/maltegrosse/go-modemmanager"
 )
 
-func (m *Modem) call(objectPath dbus.ObjectPath, method string, args ...interface{}) error {
+func (m *Modem) call(objectPath dbus.ObjectPath, method string, args ...any) error {
 	dbusConn, err := dbus.SystemBus()
 	if err != nil {
 		return err

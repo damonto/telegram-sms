@@ -36,7 +36,7 @@ type Config struct {
 	Verbose  bool
 }
 
-var C = &Config{}
+var C = new(Config)
 
 var (
 	ErrBotTokenRequired = errors.New("bot token is required")

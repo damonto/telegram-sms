@@ -14,7 +14,7 @@ type SimSlotHandler struct {
 }
 
 func HandleSimSlotCommand(c telebot.Context) error {
-	h := &SimSlotHandler{}
+	h := new(SimSlotHandler)
 	h.init(c)
 	return h.handle(c)
 }
@@ -32,7 +32,7 @@ func (h *SimSlotHandler) handle(c telebot.Context) error {
 %s
 	`
 	var text string
-	selector := &telebot.ReplyMarkup{}
+	selector := new(telebot.ReplyMarkup)
 	buttons := make([]telebot.Btn, 0, len(simSlots))
 	for slotId, simSlot := range simSlots {
 		active, err := h.modem.GetSimActiveStatus(simSlot.GetObjectPath())

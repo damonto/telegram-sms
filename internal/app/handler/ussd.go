@@ -18,7 +18,7 @@ const (
 )
 
 func HandleUSSDCommand(c telebot.Context) error {
-	h := &USSDHandler{}
+	h := new(USSDHandler)
 	h.init(c)
 	h.state = h.stateManager.New(c)
 	h.state.States(map[string]telebot.HandlerFunc{

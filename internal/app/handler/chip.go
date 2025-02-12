@@ -13,7 +13,7 @@ type ChipHandler struct {
 }
 
 func HandleChipCommand(c telebot.Context) error {
-	h := &ChipHandler{}
+	h := new(ChipHandler)
 	h.init(c)
 	return h.handle(c)
 }

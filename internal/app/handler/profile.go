@@ -26,7 +26,7 @@ const (
 )
 
 func HandleProfilesCommand(c telebot.Context) error {
-	h := &ProfileHandler{}
+	h := new(ProfileHandler)
 	h.init(c)
 	h.state = h.stateManager.New(c)
 	h.state.States(map[string]telebot.HandlerFunc{
@@ -61,7 +61,7 @@ func (h *ProfileHandler) handle(c telebot.Context) error {
 }
 
 func (h *ProfileHandler) toTextMessage(c telebot.Context, profiles []*libeuicc.Profile) (string, *telebot.ReplyMarkup) {
-	selector := &telebot.ReplyMarkup{}
+	selector := new(telebot.ReplyMarkup)
 	template := `
 %s *%s*
 %s

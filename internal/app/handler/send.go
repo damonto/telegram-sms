@@ -17,7 +17,7 @@ const (
 )
 
 func HandleSendCommand(c telebot.Context) error {
-	h := &SendHandler{}
+	h := new(SendHandler)
 	h.init(c)
 	h.state = h.stateManager.New(c)
 	h.state.States(map[string]telebot.HandlerFunc{
