@@ -10,6 +10,7 @@ import (
 
 	"github.com/damonto/telegram-sms/internal/app"
 	"github.com/damonto/telegram-sms/internal/pkg/config"
+	"github.com/damonto/telegram-sms/internal/pkg/lpa"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 	"github.com/godbus/dbus/v5"
@@ -56,6 +57,13 @@ func main() {
 	if err := mm.ScanDevices(); err != nil {
 		panic(err)
 	}
+
+	ms, _ := mm.Modems()
+	l, err := lpa.NewLPA(ms["/org/freedesktop/ModemManager1/Modem/90"])
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(l.Info())
 
 	bot, err := telego.NewBot(config.C.BotToken,
 		telego.WithAPIServer(config.C.Endpoint),

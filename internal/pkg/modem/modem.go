@@ -45,7 +45,7 @@ func (m *Modem) SetPrimarySimSlot(slot uint32) error {
 	return m.dbusObject.Call(ModemInterface+".SetPrimarySimSlot", 0, slot).Err
 }
 
-func (m *Modem) SignalQuality() (uint32, bool, error) {
+func (m *Modem) SignalQuality() (percent uint32, recent bool, err error) {
 	variant, err := m.dbusObject.GetProperty(ModemInterface + ".SignalQuality")
 	if err != nil {
 		return 0, false, err
