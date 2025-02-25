@@ -67,7 +67,7 @@ func LookupEUM(eid string) (string, string, string) {
 			for _, product := range manifest.Products {
 				if strings.HasPrefix(eid, product.Prefix) {
 					if product.InRange != nil {
-						eidRange, _ := strconv.Atoi(eid[len(product.Prefix) : 30])
+						eidRange, _ := strconv.Atoi(eid[len(product.Prefix):30])
 						for _, inRange := range product.InRange {
 							if eidRange >= inRange[0] && eidRange <= inRange[1] {
 								return country, manufacturer, product.Name

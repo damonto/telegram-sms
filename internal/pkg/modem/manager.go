@@ -1,118 +1,148 @@
 package modem
 
 import (
-	"errors"
+	"fmt"
 	"log/slog"
-	"sync"
-	"time"
 
 	"github.com/godbus/dbus/v5"
-	"github.com/maltegrosse/go-modemmanager"
 )
 
-var (
-	ErrModemNotFound = errors.New("modem not found")
-)
+const (
+	ModemManagerInterface      = "org.freedesktop.ModemManager1"
+	ModemManagerManagedObjects = "org.freedesktop.DBus.ObjectManager.GetManagedObjects"
+	ModemManagerObjectPath     = "/org/freedesktop/ModemManager1"
 
-type Modem struct {
-	mutex   sync.Mutex
-	IsEuicc bool
-	Eid     string
-	modem   modemmanager.Modem
-}
+	// modemManagerMainObjectPath = "/org/freedesktop/ModemManager/"
+
+	ModemManagerScanDevices = ModemManagerInterface + ".ScanDevices"
+
+	ModemManagerInterfacesAdded   = "org.freedesktop.DBus.ObjectManager.InterfacesAdded"
+	ModemManagerInterfacesRemoved = "org.freedesktop.DBus.ObjectManager.InterfacesRemoved"
+)
 
 type Manager struct {
-	mmgr            modemmanager.ModemManager
-	modems          map[string]*Modem
-	resubscribeChan chan struct{}
+	dbusConn   *dbus.Conn
+	dbusObject dbus.BusObject
+	modems     map[dbus.ObjectPath]*Modem
 }
 
-var instance *Manager
-
 func NewManager() (*Manager, error) {
-	mmgr, err := modemmanager.NewModemManager()
+	m := &Manager{
+		modems: make(map[dbus.ObjectPath]*Modem, 16),
+	}
+	var err error
+	m.dbusConn, err = dbus.SystemBus()
 	if err != nil {
 		return nil, err
 	}
-	instance = &Manager{
-		mmgr:            mmgr,
-		modems:          make(map[string]*Modem),
-		resubscribeChan: make(chan struct{}, 10),
+	m.dbusObject = m.dbusConn.Object(ModemManagerInterface, ModemManagerObjectPath)
+	return m, nil
+}
+
+func (m *Manager) ScanDevices() error {
+	return m.dbusObject.Call(ModemManagerScanDevices, 0).Err
+}
+
+func (m *Manager) Modems() (map[dbus.ObjectPath]*Modem, error) {
+	managedObjects := make(map[dbus.ObjectPath]map[string]map[string]dbus.Variant)
+	if err := m.dbusObject.Call(ModemManagerManagedObjects, 0).Store(&managedObjects); err != nil {
+		return nil, err
 	}
-	go instance.watch()
-	return instance, nil
-}
-
-func GetManager() *Manager {
-	return instance
-}
-
-func (m *Manager) watch() error {
-	for {
-		if err := m.watchModems(); err != nil {
-			slog.Error("failed to watch modems", "error", err)
+	for objectPath, data := range managedObjects {
+		if _, ok := data["org.freedesktop.ModemManager1.Modem"]; !ok {
+			continue
 		}
-		time.Sleep(1 * time.Second)
+		modem, err := m.createModem(objectPath, data["org.freedesktop.ModemManager1.Modem"])
+		if err != nil {
+			slog.Error("failed to marshal modem", "error", err)
+			continue
+		}
+		m.modems[objectPath] = modem
 	}
+	return m.modems, nil
 }
 
-func (m *Manager) watchModems() error {
-	if err := m.mmgr.ScanDevices(); err != nil {
-		slog.Warn("failed to scan devices", "error", err)
+func (m *Manager) createModem(objectPath dbus.ObjectPath, data map[string]dbus.Variant) (*Modem, error) {
+	modem := &Modem{
+		objectPath:          objectPath,
+		dbusObject:          m.dbusConn.Object(ModemManagerInterface, objectPath),
+		Manufacturer:        data["Manufacturer"].Value().(string),
+		EquipmentIdentifier: data["EquipmentIdentifier"].Value().(string),
+		Driver:              data["Drivers"].Value().([]string)[0],
+		Model:               data["Model"].Value().(string),
+		Revision:            data["Revision"].Value().(string),
+		State:               ModemState(data["State"].Value().(int32)),
+		PrimaryPort:         fmt.Sprintf("/dev/%s", data["PrimaryPort"].Value().(string)),
+		PrimarySimSlot:      data["PrimarySimSlot"].Value().(uint32),
 	}
-	modems, err := m.mmgr.GetModems()
+	var err error
+	modem.Sim, err = modem.SIM(data["Sim"].Value().(dbus.ObjectPath))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	shouldResubscriber := false
-	currentModems := make(map[string]dbus.ObjectPath)
-	for _, mm := range modems {
-		state, err := mm.GetState()
-		if err != nil {
-			return err
-		}
-		if state == modemmanager.MmModemStateDisabled {
-			if err := mm.Enable(); err != nil {
-				return err
-			}
-		}
-		modemId, err := mm.GetEquipmentIdentifier()
-		if err != nil {
-			return err
-		}
-		currentModems[modemId] = mm.GetObjectPath()
-		if exist, ok := m.modems[modemId]; ok {
-			if exist.modem.GetObjectPath() == mm.GetObjectPath() {
-				continue
-			}
-		}
-		slog.Info("new modem added", "modemId", modemId, "objectPath", mm.GetObjectPath())
-		shouldResubscriber = true
-		nm := &Modem{modem: mm}
-		nm.IsEuicc, nm.Eid = nm.detectEuicc()
-		m.modems[modemId] = nm
+	if numbers := data["OwnNumbers"].Value().([]string); len(numbers) > 0 {
+		modem.Number = numbers[0]
 	}
-	for modemId, modem := range m.modems {
-		if _, ok := currentModems[modemId]; !ok {
-			slog.Info("modem removed", "modemId", modemId, "objectPath", modem.modem.GetObjectPath())
-			delete(m.modems, modemId)
-			shouldResubscriber = true
+	for _, port := range data["Ports"].Value().([][]interface{}) {
+		modem.Ports = append(modem.Ports, ModemPort{
+			PortType: ModemPortType(port[1].(uint32)),
+			Device:   fmt.Sprintf("/dev/%s", port[0]),
+		})
+	}
+	for _, slot := range data["SimSlots"].Value().([]dbus.ObjectPath) {
+		if slot != "/" {
+			modem.SimSlots = append(modem.SimSlots, slot)
 		}
-	}
-	if shouldResubscriber {
-		m.resubscribeChan <- struct{}{}
-	}
-	return nil
-}
-
-func (m *Manager) GetModems() map[string]*Modem {
-	return m.modems
-}
-
-func (m *Manager) GetModem(modemId string) (*Modem, error) {
-	modem, ok := m.modems[modemId]
-	if !ok {
-		return nil, ErrModemNotFound
 	}
 	return modem, nil
+}
+
+func (m *Manager) Subscribe(subscriber func(map[dbus.ObjectPath]*Modem) error) error {
+	if err := m.dbusConn.AddMatchSignal(
+		dbus.WithMatchInterface("org.freedesktop.DBus.ObjectManager"),
+		dbus.WithMatchMember("InterfacesAdded"),
+		dbus.WithMatchPathNamespace("/org/freedesktop/ModemManager1"),
+	); err != nil {
+		return err
+	}
+
+	if err := m.dbusConn.AddMatchSignal(
+		dbus.WithMatchInterface("org.freedesktop.DBus.ObjectManager"),
+		dbus.WithMatchMember("InterfacesRemoved"),
+		dbus.WithMatchPathNamespace("/org/freedesktop/ModemManager1"),
+	); err != nil {
+		return err
+	}
+
+	sig := make(chan *dbus.Signal, 10)
+	m.dbusConn.Signal(sig)
+	defer m.dbusConn.RemoveSignal(sig)
+
+	for {
+		event := <-sig
+		modemPath := event.Body[0].(dbus.ObjectPath)
+		if event.Name == ModemManagerInterfacesAdded {
+			slog.Info("new modem plugged in", "path", modemPath)
+			raw := event.Body[1].(map[string]map[string]dbus.Variant)
+			modem, err := m.createModem(modemPath, raw["org.freedesktop.ModemManager1.Modem"])
+			if err != nil {
+				slog.Error("failed to marshal modem", "error", err)
+				continue
+			}
+			if modem.State == ModemStateDisabled {
+				slog.Info("enabling modem", "path", modemPath)
+				if err := modem.Enable(); err != nil {
+					slog.Error("failed to enable modem", "error", err)
+					continue
+				}
+			}
+			m.modems[modemPath] = modem
+		} else {
+			slog.Info("modem unplugged", "path", modemPath)
+			delete(m.modems, modemPath)
+		}
+		if err := subscriber(m.modems); err != nil {
+			slog.Error("failed to process modem", "error", err)
+		}
+	}
 }

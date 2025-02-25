@@ -5,7 +5,7 @@ import (
 	th "github.com/mymmrac/telego/telegohandler"
 )
 
-func Start() th.Handler {
+func Stat() th.Handler {
 	return func(ctx *th.Context, update telego.Update) error {
 		return nil
 	}
