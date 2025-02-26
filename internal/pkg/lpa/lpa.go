@@ -6,19 +6,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/damonto/euicc-go/bertlv"
+	"github.com/damonto/euicc-go/bertlv/primitive"
 	"github.com/damonto/euicc-go/driver"
 	sgp22http "github.com/damonto/euicc-go/http"
 	"github.com/damonto/euicc-go/lpa"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
-	"github.com/euicc-go/bertlv"
-	"github.com/euicc-go/bertlv/primitive"
 )
 
 type LPA struct {
+	*lpa.Client
 	modem       *modem.Modem
 	transmitter driver.Transmitter
-	client      *lpa.Client
 	mutex       sync.Mutex
 }
 
@@ -56,14 +56,14 @@ func NewLPA(m *modem.Modem) (*LPA, error) {
 		},
 		APDU: transmitter,
 	}
-	return &LPA{modem: m, transmitter: transmitter, client: client}, nil
+	return &LPA{modem: m, transmitter: transmitter, Client: client}, nil
 }
 
 func (l *LPA) Info() (*Info, error) {
 	defer l.transmitter.Close()
 	var info Info
 
-	eid, err := l.client.EID()
+	eid, err := l.EID()
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (l *LPA) Info() (*Info, error) {
 		Brand:        productName,
 	}
 
-	tlv, err := l.client.EUICCInfo2()
+	tlv, err := l.EUICCInfo2()
 	if err != nil {
 		return nil, err
 	}
@@ -102,24 +102,4 @@ func (l *LPA) Download(ac string) error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 	return nil
-}
-
-func (l *LPA) Rename(iccid string, name string) error {
-	return nil
-}
-
-func (l *LPA) Disable(iccid string) error {
-	return nil
-}
-
-func (l *LPA) Enable(iccid string) error {
-	return nil
-}
-
-func (l *LPA) Delete(iccid string) error {
-	return nil
-}
-
-func (l *LPA) ListProfile() ([]string, error) {
-	return nil, nil
 }

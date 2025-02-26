@@ -10,7 +10,6 @@ import (
 
 	"github.com/damonto/telegram-sms/internal/app"
 	"github.com/damonto/telegram-sms/internal/pkg/config"
-	"github.com/damonto/telegram-sms/internal/pkg/lpa"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 	"github.com/godbus/dbus/v5"
@@ -58,13 +57,6 @@ func main() {
 		panic(err)
 	}
 
-	ms, _ := mm.Modems()
-	l, err := lpa.NewLPA(ms["/org/freedesktop/ModemManager1/Modem/90"])
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(l.Info())
-
 	bot, err := telego.NewBot(config.C.BotToken,
 		telego.WithAPIServer(config.C.Endpoint),
 		telego.WithDefaultLogger(config.C.Verbose, true),
@@ -83,17 +75,15 @@ func main() {
 	}
 	slog.Info("bot started", "username", me.Username, "id", me.ID)
 
-	app, err := app.NewApp(bot, ctx)
+	app, err := app.NewApp(ctx, bot, mm)
 	if err != nil {
 		panic(err)
 	}
-
 	go func() {
 		if err := app.Start(); err != nil {
 			panic(err)
 		}
 	}()
-
 	<-ctx.Done()
 	slog.Info("stopping telegram sms bot")
 	app.Shutdown()

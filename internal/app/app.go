@@ -5,21 +5,21 @@ import (
 	"time"
 
 	"github.com/damonto/telegram-sms/internal/app/router"
+	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/mymmrac/telego"
 	th "github.com/mymmrac/telego/telegohandler"
 )
 
 type application struct {
 	Bot     *telego.Bot
+	m       *modem.Manager
 	handler *th.BotHandler
 	updates <-chan telego.Update
 	ctx     context.Context
 }
 
-func NewApp(bot *telego.Bot, ctx context.Context) (*application, error) {
-	app := &application{
-		ctx: ctx,
-	}
+func NewApp(ctx context.Context, bot *telego.Bot, m *modem.Manager) (*application, error) {
+	app := &application{Bot: bot, m: m, ctx: ctx}
 	var err error
 	app.updates, err = bot.UpdatesViaLongPolling(ctx, nil)
 	if err != nil {
@@ -33,21 +33,13 @@ func NewApp(bot *telego.Bot, ctx context.Context) (*application, error) {
 }
 
 func (app *application) Start() error {
-	app.registerMiddleware()
-	app.registerRouter()
+	app.handler.Use(th.PanicRecovery())
+	router.NewRouter(app.Bot, app.handler, app.m).Register()
 	return app.handler.Start()
 }
 
-func (app *application) registerRouter() {
-	router.NewRouter(app.handler).Register()
-}
-
-func (app *application) registerMiddleware() {
-	app.handler.Use(th.PanicRecovery())
-}
-
 func (app *application) Shutdown() {
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second*30)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second*1)
 	defer stopCancel()
 
 outer:

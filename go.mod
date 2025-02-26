@@ -2,14 +2,10 @@ module github.com/damonto/telegram-sms
 
 go 1.24.0
 
-replace (
-	github.com/damonto/euicc-go => ../euicc-go
-	github.com/euicc-go/bertlv => ../euicc-go/bertlv
-)
+replace github.com/damonto/euicc-go => ../euicc-go
 
 require (
 	github.com/damonto/euicc-go v0.0.0-00010101000000-000000000000
-	github.com/euicc-go/bertlv v0.2.3
 	github.com/godbus/dbus/v5 v5.0.3
 	github.com/mymmrac/telego v1.0.0-rc1
 )

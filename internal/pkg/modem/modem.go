@@ -18,7 +18,7 @@ type Modem struct {
 	EquipmentIdentifier string
 	Driver              string
 	Model               string
-	Revision            string
+	FirmwareRevision    string
 	Number              string
 	PrimaryPort         string
 	Ports               []ModemPort
