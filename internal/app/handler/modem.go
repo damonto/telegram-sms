@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/damonto/telegram-sms/internal/pkg/lpa"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
@@ -40,11 +41,12 @@ EID: %s
 			percent, _, _ := m.SignalQuality()
 			lpa, err := lpa.NewLPA(m)
 			if err != nil {
-				return err
+				slog.Error("Failed to create LPA", "error", err)
 			}
-			info, err := lpa.Info()
-			if err != nil {
-				return err
+			info, _ := lpa.Info()
+			var eid string
+			if info != nil {
+				eid = info.EID
 			}
 			code, _ := m.OperatorCode()
 			message += fmt.Sprintf(template,
@@ -57,7 +59,7 @@ EID: %s
 				util.EscapeText(m.Number),
 				percent,
 				m.Sim.Identifier,
-				info.EID)
+				eid)
 		}
 		_, err = ctx.Bot().SendMessage(ctx, tu.Message(tu.ID(update.Message.Chat.ID), message).WithParseMode(telego.ModeMarkdownV2))
 		return err
