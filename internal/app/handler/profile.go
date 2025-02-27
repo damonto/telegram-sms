@@ -117,13 +117,13 @@ func (h *ProfileHandler) deleteProfile(ctx *th.Context, message telego.Message, 
 		_, err := h.ReplyMessage(ctx, message, util.EscapeText("Okay, the profile will not be deleted."), nil)
 		return err
 	}
-	profileValue := s.Value.(*ProfileValue)
-	l, err := lpa.New(profileValue.Modem)
+	value := s.Value.(*ProfileValue)
+	l, err := lpa.New(value.Modem)
 	if err != nil {
 		return err
 	}
 	defer l.Close()
-	id, _ := sgp22.NewICCID(profileValue.ICCID)
+	id, _ := sgp22.NewICCID(value.ICCID)
 	if err := l.Delete(id); err != nil {
 		return err
 	}
@@ -157,17 +157,17 @@ func (h *ProfileHandler) confirmDelete(ctx *th.Context, message telego.Message, 
 }
 
 func (h *ProfileHandler) enableProfile(ctx *th.Context, message telego.Message, s *state.ChatState) error {
-	profileValue := s.Value.(*ProfileValue)
-	l, err := lpa.New(profileValue.Modem)
+	value := s.Value.(*ProfileValue)
+	l, err := lpa.New(value.Modem)
 	if err != nil {
 		return err
 	}
 	defer l.Close()
-	id, _ := sgp22.NewICCID(profileValue.ICCID)
+	id, _ := sgp22.NewICCID(value.ICCID)
 	if err := l.EnableProfile(id); err != nil {
 		return err
 	}
-	if err := profileValue.Modem.Restart(); err != nil {
+	if err := value.Modem.Restart(); err != nil {
 		slog.Warn("Failed to restart the modem", "error", err)
 	}
 	_, err = h.ReplyMessage(
@@ -180,15 +180,15 @@ func (h *ProfileHandler) enableProfile(ctx *th.Context, message telego.Message, 
 }
 
 func (h *ProfileHandler) setNickname(ctx *th.Context, message telego.Message, s *state.ChatState) error {
-	profileValue := s.Value.(*ProfileValue)
-	profileValue.Value = message.Text
-	l, err := lpa.New(profileValue.Modem)
+	value := s.Value.(*ProfileValue)
+	value.Value = message.Text
+	l, err := lpa.New(value.Modem)
 	if err != nil {
 		return err
 	}
 	defer l.Close()
-	id, _ := sgp22.NewICCID(profileValue.ICCID)
-	if err := l.SetNickname(id, profileValue.Value); err != nil {
+	id, _ := sgp22.NewICCID(value.ICCID)
+	if err := l.SetNickname(id, value.Value); err != nil {
 		return err
 	}
 	_, err = h.ReplyMessage(
