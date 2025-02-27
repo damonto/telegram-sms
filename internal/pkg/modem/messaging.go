@@ -45,7 +45,7 @@ func (m *Modem) SubscribeMessaging(ctx context.Context, subscriber func(message 
 	}
 	dbusConn.AddMatchSignal(
 		dbus.WithMatchMember(ModemMessagingInterface+".Added"),
-		dbus.WithMatchPathNamespace(m.dbusObject.Path()),
+		dbus.WithMatchPathNamespace(m.objectPath),
 	)
 	signalChan := make(chan *dbus.Signal, 10)
 	dbusConn.Signal(signalChan)
