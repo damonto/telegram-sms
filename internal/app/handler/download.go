@@ -83,10 +83,8 @@ func (h *DownloadHandler) parseActivationCode(text string) (ac *lpa.ActivationCo
 	if len(parts) == 3 {
 		ac.MatchingID = parts[2]
 	}
-	if len(parts) == 5 {
-		if parts[4] == "1" {
-			ccRequired = true
-		}
+	if len(parts) == 5 && parts[4] == "1" {
+		ccRequired = true
 	}
 	return ac, ccRequired, nil
 }
