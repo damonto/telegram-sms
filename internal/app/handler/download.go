@@ -56,7 +56,7 @@ func (h *DownloadHandler) HandleMessage(ctx *th.Context, message telego.Message,
 }
 
 func (h *DownloadHandler) downloadProfile(ctx *th.Context, message telego.Message, s *state.ChatState, value *DownloadValue) error {
-	ac, ccRequired, err := h.parseActivationCode(message.Text)
+	ac, ccRequired, err := h.parseActivationCode(value, message.Text)
 	if err != nil {
 		return err
 	}
@@ -74,11 +74,11 @@ func (h *DownloadHandler) download(ctx *th.Context, message telego.Message, s *s
 }
 
 // LPA:1$
-func (h *DownloadHandler) parseActivationCode(text string) (ac *lpa.ActivationCode, ccRequired bool, err error) {
+func (h *DownloadHandler) parseActivationCode(value *DownloadValue, text string) (ac *lpa.ActivationCode, ccRequired bool, err error) {
 	parts := strings.Split(text, "$")
 	ac = &lpa.ActivationCode{
 		SMDP: &url.URL{Scheme: "https", Host: parts[1]},
-		IMEI: "123456789012345",
+		IMEI: value.Modem.EquipmentIdentifier,
 	}
 	if len(parts) == 3 {
 		ac.MatchingID = parts[2]
