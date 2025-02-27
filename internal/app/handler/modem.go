@@ -9,22 +9,14 @@ import (
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 	"github.com/mymmrac/telego"
 	th "github.com/mymmrac/telego/telegohandler"
-	tu "github.com/mymmrac/telego/telegoutil"
 )
 
-func ListModem(mm *modem.Manager) th.Handler {
-	return func(ctx *th.Context, update telego.Update) error {
-		modems, err := mm.Modems()
-		if err != nil {
-			return err
-		}
+type ListModemHandler struct {
+	*Handler
+	mm *modem.Manager
+}
 
-		if len(modems) == 0 {
-			_, err := ctx.Bot().SendMessage(ctx, tu.Message(tu.ID(update.Message.Chat.ID), "No modems found"))
-			return err
-		}
-
-		template := `
+const ModemMessageTemplate = `
 Manufaturer: %s
 Model: %s
 Revision: %s
@@ -36,32 +28,60 @@ Signal: %d%%
 ICCID: %s
 EID: %s
 `
+
+func NewListModemHandler(mm *modem.Manager) *ListModemHandler {
+	h := new(ListModemHandler)
+	h.mm = mm
+	return h
+}
+
+func (h *ListModemHandler) Handle() th.Handler {
+	return func(ctx *th.Context, update telego.Update) error {
+		modems, err := h.mm.Modems()
+		if err != nil {
+			return err
+		}
+		if len(modems) == 0 {
+			_, err := h.Reply(ctx, update, util.EscapeText("No modems found."), nil)
+			return err
+		}
 		var message string
 		for _, m := range modems {
-			percent, _, _ := m.SignalQuality()
-			lpa, err := lpa.NewLPA(m)
-			if err != nil {
-				slog.Error("Failed to create LPA", "error", err)
-			}
-			info, _ := lpa.Info()
-			var eid string
-			if info != nil {
-				eid = info.EID
-			}
-			code, _ := m.OperatorCode()
-			message += fmt.Sprintf(template,
-				util.EscapeText(m.Manufacturer),
-				util.EscapeText(m.Model),
-				util.EscapeText(m.FirmwareRevision),
-				m.EquipmentIdentifier,
-				util.EscapeText(util.LookupCarrier(code)),
-				util.EscapeText(util.LookupCarrier(m.Sim.OperatorIdentifier)),
-				util.EscapeText(m.Number),
-				percent,
-				m.Sim.Identifier,
-				eid)
+			message += h.message(m) + "\n\n"
 		}
-		_, err = ctx.Bot().SendMessage(ctx, tu.Message(tu.ID(update.Message.Chat.ID), message).WithParseMode(telego.ModeMarkdownV2))
+		_, err = h.Reply(ctx, update, message, nil)
 		return err
 	}
+}
+
+func (h *ListModemHandler) message(m *modem.Modem) string {
+	percent, _, _ := m.SignalQuality()
+	code, _ := m.OperatorCode()
+	message := fmt.Sprintf(ModemMessageTemplate,
+		util.EscapeText(m.Manufacturer),
+		util.EscapeText(m.Model),
+		util.EscapeText(m.FirmwareRevision),
+		m.EquipmentIdentifier,
+		util.EscapeText(util.LookupCarrier(code)),
+		util.EscapeText(util.LookupCarrier(m.Sim.OperatorIdentifier)),
+		util.EscapeText(m.Number),
+		percent,
+		m.Sim.Identifier,
+		h.EID(m))
+	return message
+}
+
+func (h *ListModemHandler) EID(m *modem.Modem) string {
+	lpa, err := lpa.New(m)
+	if err != nil {
+		slog.Warn("Failed to create LPA", "error", err)
+		return ""
+	}
+	defer lpa.Close()
+	info, err := lpa.Info()
+	if err != nil {
+		slog.Warn("Failed to get EID", "error", err)
+		return ""
+	}
+	return info.EID
 }

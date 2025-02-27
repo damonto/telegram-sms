@@ -54,7 +54,7 @@ func (m *Manager) Modems() (map[dbus.ObjectPath]*Modem, error) {
 		}
 		modem, err := m.createModem(objectPath, data["org.freedesktop.ModemManager1.Modem"])
 		if err != nil {
-			slog.Error("failed to marshal modem", "error", err)
+			slog.Error("Failed to marshal modem", "error", err)
 			continue
 		}
 		m.modems[objectPath] = modem
@@ -122,27 +122,27 @@ func (m *Manager) Subscribe(subscriber func(map[dbus.ObjectPath]*Modem) error) e
 		event := <-sig
 		modemPath := event.Body[0].(dbus.ObjectPath)
 		if event.Name == ModemManagerInterfacesAdded {
-			slog.Info("new modem plugged in", "path", modemPath)
+			slog.Info("New modem plugged in", "path", modemPath)
 			raw := event.Body[1].(map[string]map[string]dbus.Variant)
 			modem, err := m.createModem(modemPath, raw["org.freedesktop.ModemManager1.Modem"])
 			if err != nil {
-				slog.Error("failed to marshal modem", "error", err)
+				slog.Error("Failed to marshal modem", "error", err)
 				continue
 			}
 			if modem.State == ModemStateDisabled {
-				slog.Info("enabling modem", "path", modemPath)
+				slog.Info("Enabling modem", "path", modemPath)
 				if err := modem.Enable(); err != nil {
-					slog.Error("failed to enable modem", "error", err)
+					slog.Error("Failed to enable modem", "error", err)
 					continue
 				}
 			}
 			m.modems[modemPath] = modem
 		} else {
-			slog.Info("modem unplugged", "path", modemPath)
+			slog.Info("Modem unplugged", "path", modemPath)
 			delete(m.modems, modemPath)
 		}
 		if err := subscriber(m.modems); err != nil {
-			slog.Error("failed to process modem", "error", err)
+			slog.Error("Failed to process modem", "error", err)
 		}
 	}
 }

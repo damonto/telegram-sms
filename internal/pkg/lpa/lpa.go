@@ -3,6 +3,7 @@ package lpa
 import (
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -11,23 +12,23 @@ import (
 	"github.com/damonto/euicc-go/driver"
 	sgp22http "github.com/damonto/euicc-go/http"
 	"github.com/damonto/euicc-go/lpa"
+	sgp22 "github.com/damonto/euicc-go/v2"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 )
 
 type LPA struct {
 	*lpa.Client
-	modem       *modem.Modem
 	transmitter driver.Transmitter
 	mutex       sync.Mutex
 }
 
 type Info struct {
-	EID          string
-	FreeSpace    int32
-	Manufacturer string
-	Certificates []string
-	Product      *Product
+	EID                   string
+	FreeSpace             int32
+	SasAcreditationNumber string
+	Certificates          []string
+	Product               *Product
 }
 
 type Product struct {
@@ -36,33 +37,41 @@ type Product struct {
 	Brand        string
 }
 
-func NewLPA(m *modem.Modem) (*LPA, error) {
-	if m.PortType() != modem.ModemPortTypeQmi {
-		return nil, errors.ErrUnsupported
-	}
-	port, _ := m.Port(modem.ModemPortTypeQmi)
-	channel, err := driver.NewQMI(port, int(m.PrimarySimSlot))
+func New(m *modem.Modem) (*LPA, error) {
+	var l = new(LPA)
+	var err error
+	l.transmitter, err = l.createTransmitter(m)
 	if err != nil {
 		return nil, err
 	}
-	transmitter, err := driver.NewTransmitter(channel, 240)
-	if err != nil {
-		return nil, err
-	}
-	client := &lpa.Client{
+	l.Client = &lpa.Client{
 		HTTP: &sgp22http.Client{
 			Client:        driver.NewHTTPClient(30 * time.Second),
 			AdminProtocol: "gsma/rsp/v2.2.0",
 		},
-		APDU: transmitter,
+		APDU: l.transmitter,
 	}
-	return &LPA{modem: m, transmitter: transmitter, Client: client}, nil
+	return l, nil
+}
+
+func (l *LPA) createTransmitter(m *modem.Modem) (driver.Transmitter, error) {
+	port, err := m.Port(modem.ModemPortTypeQmi)
+	if err != nil {
+		return nil, err
+	}
+	channel, err := driver.NewQMI(port, int(m.PrimarySimSlot))
+	if err != nil {
+		return nil, err
+	}
+	return driver.NewTransmitter(channel, 240)
+}
+
+func (l *LPA) Close() error {
+	return l.transmitter.Close()
 }
 
 func (l *LPA) Info() (*Info, error) {
-	defer l.transmitter.Close()
 	var info Info
-
 	eid, err := l.EID()
 	if err != nil {
 		return nil, err
@@ -81,7 +90,7 @@ func (l *LPA) Info() (*Info, error) {
 	}
 
 	// sasAcreditationNumber
-	info.Manufacturer = string(tlv.First(bertlv.Universal.Primitive(12)).Value)
+	info.SasAcreditationNumber = string(tlv.First(bertlv.Universal.Primitive(12)).Value)
 
 	// euiccCiPKIdListForSigning
 	for _, child := range tlv.First(bertlv.ContextSpecific.Constructed(10)).Children {
@@ -96,6 +105,32 @@ func (l *LPA) Info() (*Info, error) {
 	resource.ParseChildren()
 	primitive.UnmarshalInt(&info.FreeSpace).UnmarshalBinary(resource.First(bertlv.ContextSpecific.Primitive(2)).Value)
 	return &info, nil
+}
+
+func (l *LPA) Delete(id sgp22.ICCID) error {
+	if err := l.DeleteProfile(id); err != nil {
+		return err
+	}
+	return l.sendNotification(id, sgp22.NotificationEventDelete)
+}
+
+func (l *LPA) sendNotification(id sgp22.ICCID, event sgp22.NotificationEvent) error {
+	ln, err := l.ListNotification(event)
+	if err != nil {
+		return err
+	}
+	var latest sgp22.SequenceNumber
+	for _, n := range ln {
+		if n.SequenceNumber > latest {
+			latest = n.SequenceNumber
+		}
+	}
+	slog.Info("Sending notification", "event", event, "sequence", latest)
+	n, err := l.RetrieveNotificationList(id)
+	if err != nil {
+		return err
+	}
+	return l.HandleNotification(n[0])
 }
 
 func (l *LPA) Download(ac string) error {

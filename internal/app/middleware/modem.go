@@ -11,6 +11,7 @@ import (
 	th "github.com/mymmrac/telego/telegohandler"
 	tu "github.com/mymmrac/telego/telegoutil"
 
+	"github.com/damonto/telegram-sms/internal/pkg/lpa"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 )
@@ -31,11 +32,31 @@ func NewModemRequiredMiddleware(mm *modem.Manager, handler *th.BotHandler) *Mode
 	return m
 }
 
-func (m *ModemRequiredMiddleware) Middleware(ctx *th.Context, update telego.Update) error {
-	modems, err := m.mm.Modems()
-	if err != nil {
-		return err
+func (m *ModemRequiredMiddleware) Middleware(eUICCRequired bool) th.Handler {
+	return func(ctx *th.Context, update telego.Update) error {
+		modems, err := m.mm.Modems()
+		if err != nil {
+			return err
+		}
+		if len(modems) == 0 {
+			return m.sendErrorModemNotFound(ctx, update)
+		}
+		if eUICCRequired {
+			for path, modem := range modems {
+				// lpa.New will open the ISD-R logical channel, if it fails, the modem is not an eUICC.
+				l, err := lpa.New(modem)
+				if err != nil {
+					delete(modems, path)
+					slog.Error("Failed to create LPA", "error", err)
+				}
+				l.Close()
+			}
+		}
+		return m.run(modems, ctx, update)
 	}
+}
+
+func (m *ModemRequiredMiddleware) run(modems map[dbus.ObjectPath]*modem.Modem, ctx *th.Context, update telego.Update) error {
 	if len(modems) == 0 {
 		return m.sendErrorModemNotFound(ctx, update)
 	}
@@ -49,7 +70,7 @@ func (m *ModemRequiredMiddleware) Middleware(ctx *th.Context, update telego.Upda
 
 func (m *ModemRequiredMiddleware) HandleModemSelectionCallbackQuery(ctx *th.Context, query telego.CallbackQuery) error {
 	objectPath := query.Data[len(CallbackQueryAskModemPrefix)+1:]
-	slog.Info("modem selected", "objectPath", objectPath)
+	slog.Info("Modem selected", "objectPath", objectPath)
 	modems, err := m.mm.Modems()
 	if err != nil {
 		return err

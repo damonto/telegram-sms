@@ -58,14 +58,14 @@ func (m *Modem) SubscribeMessaging(ctx context.Context, subscriber func(message 
 			}
 			s, err := m.waitForSMSReceived(sig.Path)
 			if err != nil {
-				slog.Error("failed to process message", "error", err, "path", sig.Path)
+				slog.Error("Failed to process message", "error", err, "path", sig.Path)
 				continue
 			}
 			if err := subscriber(s); err != nil {
-				slog.Error("failed to process message", "error", err, "path", sig.Path)
+				slog.Error("Failed to process message", "error", err, "path", sig.Path)
 			}
 		case <-ctx.Done():
-			slog.Info("unsubscribing from modem messaging", "path", m.dbusObject.Path())
+			slog.Info("Unsubscribing from modem messaging", "path", m.dbusObject.Path())
 			return nil
 		}
 	}

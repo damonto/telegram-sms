@@ -62,7 +62,7 @@ func (m *Modem) Restart() error {
 	}
 	// Some older modems require disabling and enabling the modem to take effect.
 	if err := m.Disable(); err != nil {
-		slog.Warn("failed to disable modem", "error", err)
+		slog.Warn("Failed to disable modem", "error", err)
 	}
 	return nil
 }
@@ -79,11 +79,11 @@ func (m *Modem) QMIRestartSIMCard() error {
 		slot = 1
 	}
 	if result, err := exec.Command("/usr/bin/qmicli", "-d", device, "-p", fmt.Sprintf("--uim-sim-power-off=%d", slot)).Output(); err != nil {
-		slog.Error("failed to power off sim", "error", err, "result", string(result))
+		slog.Error("Failed to power off sim", "error", err, "result", string(result))
 		return err
 	}
 	if result, err := exec.Command("/usr/bin/qmicli", "-d", device, "-p", fmt.Sprintf("--uim-sim-power-on=%d", slot)).Output(); err != nil {
-		slog.Error("failed to power on sim", "error", err, "result", string(result))
+		slog.Error("Failed to power on sim", "error", err, "result", string(result))
 		return err
 	}
 	return nil

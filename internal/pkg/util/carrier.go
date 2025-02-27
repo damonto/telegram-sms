@@ -42,5 +42,5 @@ func LookupCarrier(mccmnc string) string {
 	if operator, ok := dictionary[mccmnc]; ok {
 		return operator
 	}
-	return "unknown"
+	return "Unknown"
 }

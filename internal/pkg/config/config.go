@@ -23,7 +23,7 @@ func (c *AdminId) ToInt64() []int64 {
 	for _, id := range *c {
 		id, err := strconv.Atoi(id)
 		if err != nil {
-			slog.Error("failed to convert admin id to int64", "id", id, "error", err)
+			slog.Error("Failed to convert admin id to int64", "id", id, "error", err)
 			continue
 		}
 		ids = append(ids, int64(id))

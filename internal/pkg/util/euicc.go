@@ -42,10 +42,10 @@ var EUMs []*EUM
 
 func init() {
 	if err := json.Unmarshal(eum, &EUMs); err != nil {
-		slog.Error("failed to unmarshal EUMs", "error", err)
+		slog.Error("Failed to unmarshal EUMs", "error", err)
 	}
 	if err := json.Unmarshal(ci, &certificateIssuers); err != nil {
-		slog.Error("failed to unmarshal certificate issuers", "error", err)
+		slog.Error("Failed to unmarshal certificate issuers", "error", err)
 	}
 }
 
