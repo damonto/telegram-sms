@@ -66,7 +66,7 @@ func (h *SIMSlotHandler) message(slot int, sim *modem.SIM) ([]telego.InlineKeybo
 		sim.Identifier,
 	)
 	return tu.InlineKeyboardRow(telego.InlineKeyboardButton{
-		Text:         fmt.Sprintf("[Slot %d] %s", slot, sim.Identifier),
+		Text:         fmt.Sprintf("%s [Slot %d] %s", util.If(sim.Active, "🟢", "🔴"), slot, sim.Identifier),
 		CallbackData: fmt.Sprintf("%s:%d", CallbackQuerySIMSlotPrefix, slot),
 	}), message
 }

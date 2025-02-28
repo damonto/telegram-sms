@@ -32,7 +32,7 @@ const (
 )
 
 type ProfileValue struct {
-	ICCID   string
+	ICCID   sgp22.ICCID
 	Action  state.State
 	Profile *sgp22.ProfileInfo
 	Value   string
@@ -47,13 +47,12 @@ func NewProfileHandler() state.Handler {
 func (h *ProfileHandler) HandleCallbackQuery(ctx *th.Context, query telego.CallbackQuery, state *state.ChatState) error {
 	var err error
 	value := state.Value.(*ProfileValue)
-	value.ICCID = query.Data[len(ProfileActionCallbackDataPrefix)+1:]
+	value.ICCID, _ = sgp22.NewICCID(query.Data[len(ProfileActionCallbackDataPrefix)+1:])
 	l, err := lpa.New(value.Modem)
 	if err != nil {
 		return err
 	}
-	id, _ := sgp22.NewICCID(value.ICCID)
-	ps, err := l.ListProfile(id)
+	ps, err := l.ListProfile(value.ICCID)
 	if err != nil {
 		return err
 	}
@@ -84,9 +83,14 @@ func (h *ProfileHandler) sendActionMessage(ctx *th.Context, query telego.Callbac
 		util.EscapeText(name),
 		profile.ICCID,
 	)
-	message = util.EscapeText("What do you want to do with the profile? \n" + message)
+	message = util.EscapeText("What do you want to do with the profile? \n") + message
 	_, err := h.ReplyCallbackQuery(ctx, query, message, func(message *telego.SendMessageParams) error {
-		message.WithReplyMarkup(tu.Keyboard(buttons))
+		message.WithReplyMarkup(
+			tu.Keyboard(buttons).
+				WithOneTimeKeyboard().
+				WithResizeKeyboard().
+				WithInputFieldPlaceholder("Select an action"),
+		)
 		return nil
 	})
 	return err
@@ -123,8 +127,7 @@ func (h *ProfileHandler) deleteProfile(ctx *th.Context, message telego.Message, 
 		return err
 	}
 	defer l.Close()
-	id, _ := sgp22.NewICCID(value.ICCID)
-	if err := l.Delete(id); err != nil {
+	if err := l.Delete(value.ICCID); err != nil {
 		return err
 	}
 	_, err = h.ReplyMessage(ctx, message, util.EscapeText("The profile has been deleted. /profiles"), nil)
@@ -149,7 +152,7 @@ func (h *ProfileHandler) confirmDelete(ctx *th.Context, message telego.Message, 
 					tu.KeyboardButton("Yes"),
 					tu.KeyboardButton("No"),
 				),
-			))
+			).WithOneTimeKeyboard().WithResizeKeyboard().WithInputFieldPlaceholder("Confirm delete"))
 			return nil
 		},
 	)
@@ -163,8 +166,7 @@ func (h *ProfileHandler) enableProfile(ctx *th.Context, message telego.Message, 
 		return err
 	}
 	defer l.Close()
-	id, _ := sgp22.NewICCID(value.ICCID)
-	if err := l.EnableProfile(id); err != nil {
+	if err := l.EnableProfile(value.ICCID); err != nil {
 		return err
 	}
 	if err := value.Modem.Restart(); err != nil {
@@ -187,8 +189,7 @@ func (h *ProfileHandler) setNickname(ctx *th.Context, message telego.Message, s 
 		return err
 	}
 	defer l.Close()
-	id, _ := sgp22.NewICCID(value.ICCID)
-	if err := l.SetNickname(id, value.Value); err != nil {
+	if err := l.SetNickname(value.ICCID, value.Value); err != nil {
 		return err
 	}
 	_, err = h.ReplyMessage(

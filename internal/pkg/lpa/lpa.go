@@ -1,6 +1,7 @@
 package lpa
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"log/slog"
@@ -121,20 +122,30 @@ func (l *LPA) sendNotification(id sgp22.ICCID, event sgp22.NotificationEvent) er
 	}
 	var latest sgp22.SequenceNumber
 	for _, n := range ln {
-		if n.SequenceNumber > latest {
+		if n.SequenceNumber > latest && n.ICCID.String() == id.String() {
 			latest = n.SequenceNumber
 		}
 	}
 	slog.Info("Sending notification", "event", event, "sequence", latest)
-	n, err := l.RetrieveNotificationList(id)
+	n, err := l.RetrieveNotificationList(latest)
 	if err != nil {
 		return err
 	}
 	return l.HandleNotification(n[0])
 }
 
-func (l *LPA) Download(ac string) error {
+func (l *LPA) Download(ctx context.Context, activationCode *lpa.ActivationCode, handler lpa.DownloadHandler) error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
-	return nil
+	slog.Info("Downloading profile", "activation", activationCode)
+	n, err := l.DownloadProfile(ctx, activationCode, handler)
+	if err != nil {
+		return err
+	}
+	slog.Info("Sending download notification", "sequence", n.Notification.SequenceNumber)
+	ns, err := l.RetrieveNotificationList(n.Notification.SequenceNumber)
+	if err != nil {
+		return err
+	}
+	return l.HandleNotification(ns[0])
 }
