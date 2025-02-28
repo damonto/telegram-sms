@@ -1,42 +1,55 @@
 package app
 
 import (
-	"log/slog"
+	"context"
+	"time"
 
-	"github.com/damonto/telegram-sms/internal/app/routes"
-	"github.com/damonto/telegram-sms/internal/pkg/state"
-	"gopkg.in/telebot.v3"
-	"gopkg.in/telebot.v3/middleware"
+	"github.com/damonto/telegram-sms/internal/app/router"
+	"github.com/damonto/telegram-sms/internal/pkg/modem"
+	"github.com/mymmrac/telego"
+	th "github.com/mymmrac/telego/telegohandler"
 )
 
-type App interface {
-	Start()
+type application struct {
+	Bot     *telego.Bot
+	m       *modem.Manager
+	handler *th.BotHandler
+	updates <-chan telego.Update
+	ctx     context.Context
 }
 
-type app struct {
-	bot *telebot.Bot
-}
-
-func NewApp(bot *telebot.Bot) App {
-	return &app{
-		bot: bot,
+func NewApp(ctx context.Context, bot *telego.Bot, m *modem.Manager) (*application, error) {
+	app := &application{Bot: bot, m: m, ctx: ctx}
+	var err error
+	app.updates, err = bot.UpdatesViaLongPolling(ctx, nil)
+	if err != nil {
+		return nil, err
 	}
+	app.handler, err = th.NewBotHandler(bot, app.updates)
+	if err != nil {
+		return nil, err
+	}
+	return app, nil
 }
 
-func (a *app) setup() error {
-	a.bot.Use(middleware.Recover())
-	a.bot.Use(middleware.AutoRespond())
-
-	if err := routes.NewRouter(a.bot, state.NewState(a.bot)).Register(); err != nil {
-		slog.Error("failed to setup router", "error", err)
-		return err
-	}
-	return nil
+func (app *application) Start() error {
+	app.handler.Use(th.PanicRecovery())
+	router.NewRouter(app.Bot, app.handler, app.m).Register()
+	return app.handler.Start()
 }
 
-func (a *app) Start() {
-	if err := a.setup(); err != nil {
-		panic(err)
+func (app *application) Shutdown() {
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer stopCancel()
+
+outer:
+	for len(app.updates) > 0 {
+		select {
+		case <-stopCtx.Done():
+			break outer
+		case <-time.After(100 * time.Microsecond):
+			//
+		}
 	}
-	a.bot.Start()
+	app.handler.StopWithContext(stopCtx)
 }

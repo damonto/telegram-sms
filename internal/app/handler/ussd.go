@@ -2,63 +2,84 @@ package handler
 
 import (
 	"fmt"
-	"log/slog"
-	"time"
 
-	"gopkg.in/telebot.v3"
+	"github.com/damonto/telegram-sms/internal/app/state"
+	"github.com/damonto/telegram-sms/internal/pkg/modem"
+	"github.com/damonto/telegram-sms/internal/pkg/util"
+	"github.com/mymmrac/telego"
+	th "github.com/mymmrac/telego/telegohandler"
 )
 
 type USSDHandler struct {
-	handler
+	*Handler
 }
 
-const (
-	StateUSSDExecuteCommand = "ussd_execute_command"
-	StateUSSDRespondCommand = "ussd_respond_command"
-)
+type USSDValue struct {
+	Command string
+	Modem   *modem.Modem
+}
 
-func HandleUSSDCommand(c telebot.Context) error {
+const USSDActionRespond state.State = "ussd_respond"
+
+func NewUSSDHandler() state.Handler {
 	h := new(USSDHandler)
-	h.init(c)
-	h.state = h.stateManager.New(c)
-	h.state.States(map[string]telebot.HandlerFunc{
-		StateUSSDExecuteCommand: h.handleExecuteCommand,
-		StateUSSDRespondCommand: h.handleRespondCommand,
-	})
-	return h.handle(c)
+	return h
 }
 
-func (h *USSDHandler) handle(c telebot.Context) error {
-	h.state.Next(StateUSSDExecuteCommand)
-	return c.Send("Please send me the USSD command you want to execute. e.g. *123#")
-}
-
-func (h *USSDHandler) handleExecuteCommand(c telebot.Context) error {
-	response, err := h.modem.RunUSSDCommand(c.Text())
-	if err != nil {
-		h.stateManager.Done(c)
-		c.Send("Failed to execute USSD command, err: " + err.Error())
-		return err
-	}
-	go func() {
-		timout := time.After(300 * time.Second)
-		<-timout
-		if err := h.modem.CancelUSSDSession(); err != nil {
-			slog.Error("failed to cancel USSD session", "error", err)
+func (h *USSDHandler) Handle() th.Handler {
+	return func(ctx *th.Context, update telego.Update) error {
+		m := h.Modem(ctx)
+		s, err := m.USSDState()
+		if err != nil {
+			return err
 		}
-		h.stateManager.Done(c)
-	}()
-	h.state.Next(StateUSSDRespondCommand)
-	return c.Send(fmt.Sprintf("%s\n%s\nIf you want to respond to this USSD command, please send me the response.", c.Text(), response))
-}
-
-func (h *USSDHandler) handleRespondCommand(c telebot.Context) error {
-	response, err := h.modem.RespondUSSDCommand(c.Text())
-	if err != nil {
-		h.stateManager.Done(c)
-		c.Send("Failed to respond to USSD command, err: " + err.Error())
+		if s != modem.Modem3gppUssdSessionStateIdle {
+			if err := m.CancelUSSD(); err != nil {
+				return err
+			}
+		}
+		state.M.Enter(update.Message.Chat.ID, &state.ChatState{
+			Handler: h,
+			Value:   &USSDValue{Modem: m},
+		})
+		_, err = h.Reply(ctx, update, util.EscapeText("Okay, Send me the USSD command you want execute."), nil)
 		return err
 	}
-	h.state.Next(StateUSSDRespondCommand)
-	return c.Send(fmt.Sprintf("%s\n%s\nIf you want to respond to this USSD command, please send me the response.", c.Text(), response))
+}
+
+func (h *USSDHandler) HandleMessage(ctx *th.Context, message telego.Message, s *state.ChatState) error {
+	if s.State != USSDActionRespond {
+		return h.initiate(ctx, message, s)
+	}
+	if s.State == USSDActionRespond {
+		return h.respond(ctx, message, s)
+	}
+	return nil
+}
+
+func (h *USSDHandler) respond(ctx *th.Context, message telego.Message, s *state.ChatState) error {
+	m := s.Value.(*USSDValue).Modem
+	response, err := m.RespondUSSD(message.Text)
+	if err != nil {
+		h.ReplyMessage(ctx, message, util.EscapeText(fmt.Sprintf("[%s] %s", message.Text, err.Error())), nil)
+		return err
+	}
+	_, err = h.ReplyMessage(ctx, message, util.EscapeText(fmt.Sprintf("[%s] %s", message.Text, response)), nil)
+	return err
+}
+
+func (h *USSDHandler) initiate(ctx *th.Context, message telego.Message, s *state.ChatState) error {
+	m := s.Value.(*USSDValue).Modem
+	response, err := m.InitiateUSSD(message.Text)
+	if err != nil {
+		h.ReplyMessage(ctx, message, util.EscapeText(fmt.Sprintf("[%s] %s", message.Text, err.Error())), nil)
+		return err
+	}
+	state.M.Current(message.Chat.ID, USSDActionRespond)
+	_, err = h.ReplyMessage(ctx, message, util.EscapeText(fmt.Sprintf("[%s] %s", message.Text, response)), nil)
+	return err
+}
+
+func (h *USSDHandler) HandleCallbackQuery(ctx *th.Context, query telego.CallbackQuery, s *state.ChatState) error {
+	return nil
 }

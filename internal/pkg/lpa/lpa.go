@@ -2,91 +2,152 @@ package lpa
 
 import (
 	"context"
+	"encoding/hex"
+	"errors"
 	"log/slog"
+	"sync"
+	"time"
 
-	"github.com/damonto/libeuicc-go"
-	"github.com/damonto/libeuicc-go/driver/qmi"
-	"github.com/damonto/telegram-sms/internal/pkg/config"
+	"github.com/damonto/euicc-go/bertlv"
+	"github.com/damonto/euicc-go/bertlv/primitive"
+	"github.com/damonto/euicc-go/driver"
+	sgp22http "github.com/damonto/euicc-go/http"
+	"github.com/damonto/euicc-go/lpa"
+	sgp22 "github.com/damonto/euicc-go/v2"
+	"github.com/damonto/telegram-sms/internal/pkg/modem"
+	"github.com/damonto/telegram-sms/internal/pkg/util"
 )
 
 type LPA struct {
-	*libeuicc.Libeuicc
+	*lpa.Client
+	transmitter driver.Transmitter
+	mutex       sync.Mutex
 }
 
-func New(device string, uimSlot int) (*LPA, error) {
-	logLevel := libeuicc.LogInfoLevel
-	if config.C.Verbose {
-		logLevel = libeuicc.LogDebugLevel
-	}
-	q, err := qmi.New(device, uimSlot)
+type Info struct {
+	EID                   string
+	FreeSpace             int32
+	SasAcreditationNumber string
+	Certificates          []string
+	Product               *Product
+}
+
+type Product struct {
+	Country      string
+	Manufacturer string
+	Brand        string
+}
+
+func New(m *modem.Modem) (*LPA, error) {
+	var l = new(LPA)
+	var err error
+	l.transmitter, err = l.createTransmitter(m)
 	if err != nil {
 		return nil, err
 	}
-	libeuicc, err := libeuicc.New(q, libeuicc.NewDefaultLogger(logLevel))
+	l.Client = &lpa.Client{
+		HTTP: &sgp22http.Client{
+			Client:        driver.NewHTTPClient(30 * time.Second),
+			AdminProtocol: "gsma/rsp/v2.2.0",
+		},
+		APDU: l.transmitter,
+	}
+	return l, nil
+}
+
+func (l *LPA) createTransmitter(m *modem.Modem) (driver.Transmitter, error) {
+	port, err := m.Port(modem.ModemPortTypeQmi)
 	if err != nil {
 		return nil, err
 	}
-	return &LPA{
-		Libeuicc: libeuicc,
-	}, nil
+	slot := util.If(m.PrimarySimSlot > 0, m.PrimarySimSlot, 1)
+	slog.Info("Creating APDU transmitter", "port", port, "slot", slot)
+	channel, err := driver.NewQMI(port, uint8(slot))
+	if err != nil {
+		return nil, err
+	}
+	return driver.NewTransmitter(channel, 240)
 }
 
-func (l *LPA) Download(ctx context.Context, activationCode *libeuicc.ActivationCode, downloadOption *libeuicc.DownloadOption) error {
-	return l.sendNotificationsAfterExecution(func() error {
-		return l.DownloadProfile(ctx, activationCode, downloadOption)
-	})
+func (l *LPA) Close() error {
+	return l.transmitter.Close()
 }
 
-func (l *LPA) Delete(iccid string) error {
-	return l.sendNotificationsAfterExecution(func() error {
-		return l.DeleteProfile(iccid)
-	})
+func (l *LPA) Info() (*Info, error) {
+	var info Info
+	eid, err := l.EID()
+	if err != nil {
+		return nil, err
+	}
+	info.EID = hex.EncodeToString(eid)
+	country, manufacturer, productName := util.LookupEUM(info.EID)
+	info.Product = &Product{
+		Country:      country,
+		Manufacturer: manufacturer,
+		Brand:        productName,
+	}
+
+	tlv, err := l.EUICCInfo2()
+	if err != nil {
+		return nil, err
+	}
+
+	// sasAcreditationNumber
+	info.SasAcreditationNumber = string(tlv.First(bertlv.Universal.Primitive(12)).Value)
+
+	// euiccCiPKIdListForSigning
+	for _, child := range tlv.First(bertlv.ContextSpecific.Constructed(10)).Children {
+		info.Certificates = append(info.Certificates, util.FindCertificateIssuer(hex.EncodeToString(child.Value)))
+	}
+
+	// extResource.freeNonVolatileMemory
+	resource := tlv.First(bertlv.ContextSpecific.Primitive(4))
+	if resource == nil {
+		return nil, errors.New("resource not found")
+	}
+	resource.ParseChildren()
+	primitive.UnmarshalInt(&info.FreeSpace).UnmarshalBinary(resource.First(bertlv.ContextSpecific.Primitive(2)).Value)
+	return &info, nil
 }
 
-func (l *LPA) sendNotificationsAfterExecution(action func() error) error {
-	currentNotifications, err := l.GetNotifications()
+func (l *LPA) Delete(id sgp22.ICCID) error {
+	if err := l.DeleteProfile(id); err != nil {
+		return err
+	}
+	return l.sendNotification(id, sgp22.NotificationEventDelete)
+}
+
+func (l *LPA) sendNotification(id sgp22.ICCID, event sgp22.NotificationEvent) error {
+	ln, err := l.ListNotification(event)
 	if err != nil {
 		return err
 	}
-	var lastSeqNumber int
-	if len(currentNotifications) > 0 {
-		lastSeqNumber = currentNotifications[len(currentNotifications)-1].SeqNumber
-	}
-
-	if err := action(); err != nil {
-		slog.Error("failed to execute action", "error", err)
-		return err
-	}
-
-	notifications, err := l.GetNotifications()
-	if err != nil {
-		slog.Error("failed to get notifications", "error", err)
-		return err
-	}
-	for _, notification := range notifications {
-		if notification.SeqNumber > lastSeqNumber {
-			if err := l.ProcessNotification(
-				notification.SeqNumber,
-				notification.ProfileManagementOperation != libeuicc.NotificationProfileManagementOperationDelete,
-			); err != nil {
-				slog.Error("failed to process notification", "error", err, "notification", notification)
-				return err
-			}
-			slog.Info("notification processed", "notification", notification)
+	var latest sgp22.SequenceNumber
+	for _, n := range ln {
+		if n.SequenceNumber > latest && n.ICCID.String() == id.String() {
+			latest = n.SequenceNumber
 		}
 	}
-	return nil
+	slog.Info("Sending notification", "event", event, "sequence", latest)
+	n, err := l.RetrieveNotificationList(latest)
+	if err != nil {
+		return err
+	}
+	return l.HandleNotification(n[0])
 }
 
-func (l *LPA) FindProfile(iccid string) (*libeuicc.Profile, error) {
-	profiles, err := l.GetProfiles()
+func (l *LPA) Download(ctx context.Context, activationCode *lpa.ActivationCode, handler lpa.DownloadHandler) error {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	slog.Info("Downloading profile", "activation", activationCode)
+	n, err := l.DownloadProfile(ctx, activationCode, handler)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	for _, profile := range profiles {
-		if profile.Iccid == iccid {
-			return profile, nil
-		}
+	slog.Info("Sending download notification", "sequence", n.Notification.SequenceNumber)
+	ns, err := l.RetrieveNotificationList(n.Notification.SequenceNumber)
+	if err != nil {
+		return err
 	}
-	return nil, nil
+	return l.HandleNotification(ns[0])
 }

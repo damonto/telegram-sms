@@ -1,23 +1,28 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
-	"time"
 
 	"github.com/damonto/telegram-sms/internal/app"
 	"github.com/damonto/telegram-sms/internal/pkg/config"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
-	"github.com/maltegrosse/go-modemmanager"
-	"gopkg.in/telebot.v3"
+	"github.com/godbus/dbus/v5"
+	"github.com/mymmrac/telego"
+	tu "github.com/mymmrac/telego/telegoutil"
 )
 
 var Version string
+
+type Subscriber struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+}
 
 func init() {
 	flag.StringVar(&config.C.BotToken, "bot-token", "", "telegram bot token")
@@ -31,78 +36,125 @@ func main() {
 	if config.C.Verbose {
 		slog.SetLogLoggerLevel(slog.LevelDebug)
 	}
+
 	if os.Geteuid() != 0 {
-		slog.Error("please run as root")
+		slog.Error("Please run as root")
 		os.Exit(1)
 	}
-
 	if err := config.C.IsValid(); err != nil {
-		slog.Error("config is invalid", "error", err)
+		slog.Error("Config is invalid", "error", err)
 		os.Exit(1)
 	}
 
-	slog.Info("you are using", "version", Version)
+	slog.Info("Starting telegram sms bot", "version", Version)
 
-	bot, err := telebot.NewBot(telebot.Settings{
-		Token: config.C.BotToken,
-		URL:   config.C.Endpoint,
-		Client: &http.Client{
-			Timeout: 30 * time.Second,
-			Transport: &http.Transport{
-				Proxy: http.ProxyFromEnvironment,
-			},
-		},
-		Poller: &telebot.LongPoller{Timeout: 30 * time.Second},
-	})
+	mm, err := modem.NewManager()
 	if err != nil {
-		slog.Error("failed to create bot", "error", err)
+		panic(err)
+	}
+	if err := mm.ScanDevices(); err != nil {
 		panic(err)
 	}
 
-	mmgr, err := modem.NewManager()
+	bot, err := telego.NewBot(config.C.BotToken,
+		telego.WithAPIServer(config.C.Endpoint),
+		telego.WithDefaultLogger(config.C.Verbose, true),
+	)
 	if err != nil {
-		slog.Error("failed to create modem manager", "error", err)
 		panic(err)
 	}
 
+	go subscribe(bot, mm)
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+	me, err := bot.GetMe(ctx)
+	if err != nil {
+		panic(err)
+	}
+	slog.Info("Bot started", "username", me.Username, "id", me.ID)
+
+	app, err := app.NewApp(ctx, bot, mm)
+	if err != nil {
+		panic(err)
+	}
 	go func() {
-		mmgr.SubscribeMessaging(func(modem *modem.Modem, sms modemmanager.Sms) {
-			subscribe(bot, modem, sms)
-		})
+		if err := app.Start(); err != nil {
+			panic(err)
+		}
 	}()
-
-	go app.NewApp(bot).Start()
-
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, os.Interrupt)
-	<-sig
+	<-ctx.Done()
+	slog.Info("Stopping telegram sms bot")
+	app.Shutdown()
+	slog.Info("Goodbye!")
 }
 
-func subscribe(bot *telebot.Bot, modem *modem.Modem, sms modemmanager.Sms) {
-	sender, _ := sms.GetNumber()
-	operatorName, _ := modem.GetOperatorName()
-	text, _ := sms.GetText()
-	slog.Info("new SMS received", "operatorName", operatorName, "sender", sender, "text", text)
+func subscribe(bot *telego.Bot, mm *modem.Manager) {
+	var err error
+	subscribers := make(map[dbus.ObjectPath]*Subscriber)
+	modems, err := mm.Modems()
+	if err != nil {
+		panic(err)
+	}
 
+	go subscribeMessaging(bot, modems, subscribers)
+
+	err = mm.Subscribe(func(modems map[dbus.ObjectPath]*modem.Modem) error {
+		for path, s := range subscribers {
+			slog.Debug("Canceling subscriber", "path", path)
+			s.cancel()
+		}
+		go subscribeMessaging(bot, modems, subscribers)
+		return nil
+	})
+	if err != nil {
+		panic(err)
+	}
+}
+
+func subscribeMessaging(bot *telego.Bot, modems map[dbus.ObjectPath]*modem.Modem, subscribers map[dbus.ObjectPath]*Subscriber) {
+	for path, m := range modems {
+		slog.Info("Subscribing to modem messaging", "path", path)
+		ctx, cancel := context.WithCancel(context.Background())
+		go func(ctx context.Context, m *modem.Modem) {
+			if err := m.SubscribeMessaging(ctx, func(message *modem.SMS) error {
+				if err := send(bot, m, message); err != nil {
+					slog.Error("Failed to send message", "error", err)
+				}
+				return nil
+			}); err != nil {
+				slog.Error("Failed to subscribe to modem messaging", "error", err)
+			}
+		}(ctx, m)
+		subscribers[path] = &Subscriber{ctx: ctx, cancel: cancel}
+	}
+}
+
+func send(bot *telego.Bot, modem *modem.Modem, messsage *modem.SMS) error {
 	template := `
 *\[%s\] \- %s*
 %s
 `
+	operatorName, err := modem.OperatorName()
+	if err != nil {
+		slog.Error("Failed to get operator name", "error", err)
+		operatorName = "unknown"
+	}
 	message := fmt.Sprintf(
 		template,
 		util.EscapeText(operatorName),
-		util.EscapeText(sender),
-		fmt.Sprintf("`%s`", util.EscapeText(text)),
+		util.EscapeText(messsage.Number),
+		fmt.Sprintf("`%s`", util.EscapeText(messsage.Text)),
 	)
 	for _, adminId := range config.C.AdminId.ToInt64() {
-		if _, err := bot.Send(
-			telebot.ChatID(adminId),
+		msg, err := bot.SendMessage(context.Background(), tu.Message(
+			tu.ID(adminId),
 			message,
-			&telebot.SendOptions{
-				ParseMode:             telebot.ModeMarkdownV2,
-				DisableWebPagePreview: true,
-			}); err != nil {
-			slog.Error("failed to send message", "error", err)
+		).WithParseMode(telego.ModeMarkdownV2))
+		if err != nil {
+			slog.Error("Failed to send message", "error", err, "to", adminId, "message", message)
 		}
+		slog.Info("Message sent", "id", msg.Chat.ID, "to", adminId)
 	}
+	return nil
 }

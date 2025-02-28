@@ -1,21 +1,23 @@
 package handler
 
 import (
-	"fmt"
-
 	"github.com/damonto/telegram-sms/internal/pkg/util"
-	"gopkg.in/telebot.v3"
+	"github.com/mymmrac/telego"
+	th "github.com/mymmrac/telego/telegohandler"
 )
 
-type StartHandler struct{}
+type StartHandler struct {
+	*Handler
+}
 
-func HandleStartCommand(c telebot.Context) error {
-	message := `
-Hello, *%s %s*\!
-Thanks for using this bot\.
-Your UID is *%d*
-	`
-	return c.Send(fmt.Sprintf(message, util.EscapeText(c.Sender().FirstName), util.EscapeText(c.Sender().LastName), c.Sender().ID), &telebot.SendOptions{
-		ParseMode: telebot.ModeMarkdownV2,
-	})
+func NewStartHandler() *StartHandler {
+	h := new(StartHandler)
+	return h
+}
+
+func (h *StartHandler) Handle() th.Handler {
+	return func(ctx *th.Context, update telego.Update) error {
+		_, err := h.Reply(ctx, update, util.EscapeText("Welcome to the SMS bot."), nil)
+		return err
+	}
 }

@@ -6,159 +6,130 @@ import (
 	"log/slog"
 	"os/exec"
 
-	"github.com/damonto/telegram-sms/internal/pkg/lpa"
-	"github.com/maltegrosse/go-modemmanager"
+	"github.com/damonto/telegram-sms/internal/pkg/util"
+	"github.com/godbus/dbus/v5"
 )
 
-var (
-	ErrNoATPortFound    = errors.New("no at port found")
-	ErrNoQMIDeviceFound = errors.New("no QMI device found")
-)
+const ModemInterface = ModemManagerInterface + ".Modem"
 
-func (m *Modem) Lock() {
-	m.mutex.Lock()
+type Modem struct {
+	objectPath          dbus.ObjectPath
+	dbusObject          dbus.BusObject
+	Manufacturer        string
+	EquipmentIdentifier string
+	Driver              string
+	Model               string
+	FirmwareRevision    string
+	Number              string
+	PrimaryPort         string
+	Ports               []ModemPort
+	SimSlots            []dbus.ObjectPath
+	PrimarySimSlot      uint32
+	Sim                 *SIM
+	State               ModemState
 }
 
-func (m *Modem) Unlock() {
-	m.mutex.Unlock()
+type ModemPort struct {
+	PortType ModemPortType
+	Device   string
 }
 
-func (m *Modem) detectEuicc() (bool, string) {
-	m.Lock()
-	defer m.Unlock()
-	var usbDevice string
-	var err error
+func (m *Modem) Enable() error {
+	return m.dbusObject.Call(ModemInterface+".Enable", 0, true).Err
+}
 
-	usbDevice, err = m.GetQMIDevice()
-	if err != nil {
-		slog.Error("failed to get modem port", "error", err)
-		return false, ""
-	}
+func (m *Modem) Disable() error {
+	return m.dbusObject.Call(ModemInterface+".Enable", 0, false).Err
+}
 
-	slot, err := m.GetPrimarySimSlot()
-	if err != nil {
-		slog.Error("failed to get primary sim slot", "error", err)
-		return false, ""
-	}
+func (m *Modem) SetPrimarySimSlot(slot uint32) error {
+	return m.dbusObject.Call(ModemInterface+".SetPrimarySimSlot", 0, slot).Err
+}
 
-	l, err := lpa.New(usbDevice, int(slot))
+func (m *Modem) SignalQuality() (percent uint32, recent bool, err error) {
+	variant, err := m.dbusObject.GetProperty(ModemInterface + ".SignalQuality")
 	if err != nil {
-		slog.Error("failed to create lpa", "error", err)
-		return false, ""
+		return 0, false, err
 	}
-	defer l.Close()
-
-	eid, err := l.GetEid()
-	if err != nil {
-		slog.Error("failed to get chip info", "error", err)
-		return false, ""
-	}
-	slog.Info("eUICC chip detected", "eid", eid)
-	return eid != "", eid
+	values := variant.Value().([]any)
+	return values[0].(uint32), values[1].(bool), nil
 }
 
 func (m *Modem) Restart() error {
-	qmiDevice, err := m.GetQMIDevice()
-	if err != nil {
-		return err
-	}
-	simslot, err := m.GetPrimarySimSlot()
-	if err != nil {
-		return err
-	}
-	if result, err := exec.Command("qmicli", "-d", qmiDevice, "-p", fmt.Sprintf("--uim-sim-power-off=%d", simslot)).Output(); err != nil {
-		slog.Error("failed to power off sim", "error", err, "result", string(result))
-		return err
-	}
-	if result, err := exec.Command("qmicli", "-d", qmiDevice, "-p", fmt.Sprintf("--uim-sim-power-on=%d", simslot)).Output(); err != nil {
-		slog.Error("failed to power on sim", "error", err, "result", string(result))
-		return err
+	if m.PortType() == ModemPortTypeQmi {
+		if err := m.RepowerViaQMI(); err != nil {
+			return err
+		}
 	}
 	// Some older modems require disabling and enabling the modem to take effect.
-	if err := m.modem.Disable(); err != nil {
-		slog.Warn("failed to disable modem", "error", err)
+	if err := m.Disable(); err != nil {
+		slog.Warn("Failed to disable modem", "error", err)
 	}
 	return nil
 }
 
-func (m *Modem) GetAtPort() (string, error) {
-	ports, err := m.modem.GetPorts()
+func (m *Modem) RepowerViaQMI() error {
+	device, err := m.Port(ModemPortTypeQmi)
 	if err != nil {
-		return "", err
+		return err
 	}
-	for _, port := range ports {
-		if port.PortType == modemmanager.MmModemPortTypeAt {
-			return fmt.Sprintf("/dev/%s", port.PortName), nil
+	// If multiple SIM slots aren't supported, this property will report value 0.
+	// On QMI based modems the SIM slot is 1 based.
+	slot := util.If(m.PrimarySimSlot > 0, m.PrimarySimSlot, 1)
+	if result, err := exec.Command("/usr/bin/qmicli", "-d", device, "-p", fmt.Sprintf("--uim-sim-power-off=%d", slot)).Output(); err != nil {
+		slog.Error("Failed to power off sim", "error", err, "result", string(result))
+		return err
+	}
+	if result, err := exec.Command("/usr/bin/qmicli", "-d", device, "-p", fmt.Sprintf("--uim-sim-power-on=%d", slot)).Output(); err != nil {
+		slog.Error("Failed to power on sim", "error", err, "result", string(result))
+		return err
+	}
+	return nil
+}
+
+func (m *Modem) PortType() ModemPortType {
+	supportedPorts := []ModemPortType{ModemPortTypeQmi, ModemPortTypeMbim}
+	for _, port := range m.Ports {
+		for _, supportedPort := range supportedPorts {
+			if port.PortType == supportedPort {
+				return supportedPort
+			}
 		}
 	}
-	return "", ErrNoATPortFound
+	return ModemPortTypeUnknown
 }
 
-func (m *Modem) GetQMIDevice() (string, error) {
-	ports, err := m.modem.GetPorts()
-	if err != nil {
-		return "", err
-	}
-	for _, port := range ports {
-		if port.PortType == modemmanager.MmModemPortTypeQmi {
-			return fmt.Sprintf("/dev/%s", port.PortName), nil
+func (m *Modem) Port(portType ModemPortType) (string, error) {
+	for _, port := range m.Ports {
+		if port.PortType == portType {
+			return port.Device, nil
 		}
 	}
-	return "", ErrNoQMIDeviceFound
+	return "", errors.New("port not found")
 }
 
-func (m *Modem) GetManufacturer() (string, error) {
-	return m.modem.GetManufacturer()
-}
-
-func (m *Modem) GetIccid() (string, error) {
-	sim, err := m.modem.GetSim()
+func (m *Modem) SystemBusPrivate() (*dbus.Conn, error) {
+	dbusConn, err := dbus.SystemBusPrivate()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return sim.GetSimIdentifier()
-}
-
-func (m *Modem) GetImei() (string, error) {
-	threeGpp, err := m.modem.Get3gpp()
+	err = dbusConn.Auth(nil)
 	if err != nil {
-		return "", err
+		dbusConn.Close()
+		return nil, err
 	}
-	return threeGpp.GetImei()
-}
-
-func (m *Modem) GetModel() (string, error) {
-	return m.modem.GetModel()
-}
-
-func (m *Modem) GetRevision() (string, error) {
-	return m.modem.GetRevision()
-}
-
-func (m *Modem) GetOperatorName() (string, error) {
-	threeGpp, err := m.modem.Get3gpp()
+	err = dbusConn.Hello()
 	if err != nil {
-		return "", err
+		dbusConn.Close()
+		return nil, err
 	}
-	return threeGpp.GetOperatorName()
+	return dbusConn, nil
 }
 
-func (m *Modem) GetOperatorCode() (string, error) {
-	threeGpp, err := m.modem.Get3gpp()
+func (m *Modem) privateDbusObject(objectPath dbus.ObjectPath) (dbus.BusObject, error) {
+	dbusConn, err := dbus.SystemBus()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return threeGpp.GetOperatorCode()
-}
-
-func (m *Modem) GetSignalQuality() (uint32, error) {
-	percent, _, err := m.modem.GetSignalQuality()
-	if err != nil {
-		return 0, err
-	}
-	return percent, err
-}
-
-func (m *Modem) GetOwnNumbers() ([]string, error) {
-	return m.modem.GetOwnNumbers()
+	return dbusConn.Object(ModemManagerInterface, objectPath), nil
 }

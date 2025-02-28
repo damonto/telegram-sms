@@ -3,69 +3,87 @@ package handler
 import (
 	"fmt"
 	"strconv"
-	"time"
+	"strings"
 
+	"github.com/damonto/telegram-sms/internal/app/state"
+	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
-	"gopkg.in/telebot.v3"
+	"github.com/mymmrac/telego"
+	th "github.com/mymmrac/telego/telegohandler"
+	tu "github.com/mymmrac/telego/telegoutil"
 )
 
-type SimSlotHandler struct {
-	handler
+type SIMSlotHandler struct {
+	*Handler
 }
 
-func HandleSimSlotCommand(c telebot.Context) error {
-	h := new(SimSlotHandler)
-	h.init(c)
-	return h.handle(c)
+type SIMValue struct {
+	Modem *modem.Modem
 }
 
-func (h *SimSlotHandler) handle(c telebot.Context) error {
-	simSlots, err := h.modem.GetSimSlots()
-	if err != nil {
-		return err
-	}
-	if len(simSlots) == 0 {
-		return c.Send("No SIM slots found.")
-	}
-	template := `
-%s SIM %d \- *%s*
-%s
-	`
-	var text string
-	selector := new(telebot.ReplyMarkup)
-	buttons := make([]telebot.Btn, 0, len(simSlots))
-	for slotId, simSlot := range simSlots {
-		active, err := h.modem.GetSimActiveStatus(simSlot.GetObjectPath())
-		if err != nil {
-			return err
+const SIMSlotMessageTemplate = `
+*SIM Slot %d*
+Operator: %s
+ICCID: %s
+`
+
+const CallbackQuerySIMSlotPrefix = "simslot"
+
+func NewSIMSlotHandler() state.Handler {
+	h := new(SIMSlotHandler)
+	return h
+}
+
+func (h *SIMSlotHandler) Handle() th.Handler {
+	return func(ctx *th.Context, update telego.Update) error {
+		var message string
+		var buttons [][]telego.InlineKeyboardButton
+		modem := h.Modem(ctx)
+		state.M.Enter(update.Message.Chat.ID, &state.ChatState{Handler: h, Value: &SIMValue{Modem: modem}})
+		for idx, slot := range modem.SimSlots {
+			sim, err := modem.SIM(slot)
+			if err != nil {
+				return err
+			}
+			button, text := h.message(idx+1, sim)
+			message += text + "\n"
+			buttons = append(buttons, button)
 		}
-		identifier, _ := simSlot.GetSimIdentifier()
-		operatorName, _ := simSlot.GetOperatorName()
-		if active {
-			text += fmt.Sprintf(template, "🟢", slotId+1, util.EscapeText(operatorName), identifier)
-		} else {
-			text += fmt.Sprintf(template, "🔴", slotId+1, util.EscapeText(operatorName), identifier)
-		}
-		btn := selector.Data(fmt.Sprintf("SIM %d (%s)", slotId+1, identifier), fmt.Sprint(time.Now().UnixNano()), fmt.Sprint(slotId+1))
-		c.Bot().Handle(&btn, func(c telebot.Context) error {
-			return h.handleActiveSimSlot(c)
+		message = strings.TrimRight(message, "\n")
+		_, err := h.Reply(ctx, update, message, func(message *telego.SendMessageParams) error {
+			message.ReplyMarkup = tu.InlineKeyboard(buttons...)
+			return nil
 		})
-		buttons = append(buttons, btn)
+		return err
 	}
-	selector.Inline(selector.Split(1, buttons)...)
-	return c.Send(text, &telebot.SendOptions{
-		ReplyMarkup: selector,
-		ParseMode:   telebot.ModeMarkdownV2,
-	})
 }
 
-func (h *SimSlotHandler) handleActiveSimSlot(c telebot.Context) error {
-	slot, err := strconv.ParseUint(c.Data(), 10, 32)
+func (h *SIMSlotHandler) message(slot int, sim *modem.SIM) ([]telego.InlineKeyboardButton, string) {
+	message := fmt.Sprintf(
+		SIMSlotMessageTemplate,
+		slot,
+		util.EscapeText(util.LookupCarrier(sim.OperatorIdentifier)),
+		sim.Identifier,
+	)
+	return tu.InlineKeyboardRow(telego.InlineKeyboardButton{
+		Text:         fmt.Sprintf("%s [Slot %d] %s", util.If(sim.Active, "🟢", "🔴"), slot, sim.Identifier),
+		CallbackData: fmt.Sprintf("%s:%d", CallbackQuerySIMSlotPrefix, slot),
+	}), message
+}
+
+func (h *SIMSlotHandler) HandleCallbackQuery(ctx *th.Context, query telego.CallbackQuery, s *state.ChatState) error {
+	v, err := strconv.Atoi(query.Data[len(CallbackQuerySIMSlotPrefix)+1:])
 	if err != nil {
 		return err
 	}
-	if err := h.modem.SetPrimarySimSlot(uint32(slot)); err != nil {
+	if err := s.Value.(*SIMValue).Modem.SetPrimarySimSlot(uint32(v)); err != nil {
 		return err
 	}
-	return c.Send(fmt.Sprintf("Primary SIM slot set to %d.", slot))
+	state.M.Exit(query.From.ID)
+	_, err = h.ReplyCallbackQuery(ctx, query, util.EscapeText(fmt.Sprintf("Primary SIM slot set to %d", v)), nil)
+	return err
+}
+
+func (h *SIMSlotHandler) HandleMessage(ctx *th.Context, message telego.Message, s *state.ChatState) error {
+	return nil
 }

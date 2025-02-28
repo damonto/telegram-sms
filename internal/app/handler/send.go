@@ -1,59 +1,64 @@
 package handler
 
 import (
-	"fmt"
-
-	"gopkg.in/telebot.v3"
+	"github.com/damonto/telegram-sms/internal/app/state"
+	"github.com/damonto/telegram-sms/internal/pkg/modem"
+	"github.com/damonto/telegram-sms/internal/pkg/util"
+	"github.com/mymmrac/telego"
+	th "github.com/mymmrac/telego/telegohandler"
 )
 
 type SendHandler struct {
-	handler
-	phoneNumber string
+	*Handler
+}
+
+type SMSValue struct {
+	To    string
+	Modem *modem.Modem
 }
 
 const (
-	StateSendAskPhoneNumber = "send_ask_phone_number"
-	StateSendAskMessage     = "send_ask_message"
+	SendActionAskPhoneNumber state.State = "send_ask_phone_number"
+	SendActionAskText        state.State = "send_ask_text"
 )
 
-func HandleSendCommand(c telebot.Context) error {
+func NewSendHandler() state.Handler {
 	h := new(SendHandler)
-	h.init(c)
-	h.state = h.stateManager.New(c)
-	h.state.States(map[string]telebot.HandlerFunc{
-		StateSendAskPhoneNumber: h.handlePhoneNumber,
-		StateSendAskMessage:     h.handleMessage,
-	})
-	return h.handle(c)
+	return h
 }
 
-func (h *SendHandler) handle(c telebot.Context) error {
-	h.state.Next(StateSendAskPhoneNumber)
-	return c.Send("Please send me the phone number you want to send the message to.")
-}
-
-func (h *SendHandler) handlePhoneNumber(c telebot.Context) error {
-	if len(c.Text()) < 3 {
-		if err := c.Send("The phone number you provided is invalid. Please send me the correct phone number."); err != nil {
-			return err
-		}
-	}
-
-	h.state.Next(StateSendAskMessage)
-	h.phoneNumber = c.Text()
-	return c.Send("Please send me the message you want to send.")
-}
-
-func (h *SendHandler) handleMessage(c telebot.Context) error {
-	if err := h.modem.SendSMS(h.phoneNumber, c.Text()); err != nil {
-		c.Send(fmt.Sprintf("Failed to send SMS to *%s*\\.", h.phoneNumber), &telebot.SendOptions{
-			ParseMode: telebot.ModeMarkdownV2,
+func (h *SendHandler) Handle() th.Handler {
+	return func(ctx *th.Context, update telego.Update) error {
+		state.M.Enter(update.Message.Chat.ID, &state.ChatState{
+			Handler: h,
+			State:   SendActionAskPhoneNumber,
+			Value:   &SMSValue{Modem: h.Modem(ctx)},
 		})
-		h.stateManager.Done(c)
+		_, err := h.Reply(ctx, update, util.EscapeText("Enter the phone number you want to send the SMS to."), nil)
 		return err
 	}
-	h.stateManager.Done(c)
-	return c.Send(fmt.Sprintf("Your SMS has been sent to *%s*\\.", h.phoneNumber), &telebot.SendOptions{
-		ParseMode: telebot.ModeMarkdownV2,
-	})
+}
+
+func (h *SendHandler) HandleMessage(ctx *th.Context, message telego.Message, s *state.ChatState) error {
+	value := s.Value.(*SMSValue)
+	if s.State == SendActionAskPhoneNumber {
+		value.To = message.Text
+		state.M.Current(message.Chat.ID, SendActionAskText)
+		_, err := h.ReplyMessage(ctx, message, util.EscapeText("Enter the text of the SMS you want to send."), nil)
+		return err
+	}
+	if s.State == SendActionAskText {
+		_, err := value.Modem.SendSMS(value.To, message.Text)
+		if err != nil {
+			return err
+		}
+		state.M.Exit(message.Chat.ID)
+		_, err = h.ReplyMessage(ctx, message, util.EscapeText("SMS sent successfully."), nil)
+		return err
+	}
+	return nil
+}
+
+func (h *SendHandler) HandleCallbackQuery(ctx *th.Context, query telego.CallbackQuery, s *state.ChatState) error {
+	return nil
 }

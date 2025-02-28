@@ -3,229 +3,260 @@ package handler
 import (
 	"fmt"
 	"log/slog"
-	"time"
 
-	"github.com/damonto/libeuicc-go"
+	sgp22 "github.com/damonto/euicc-go/v2"
+	"github.com/damonto/telegram-sms/internal/app/state"
+	"github.com/damonto/telegram-sms/internal/pkg/lpa"
+	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
-	"gopkg.in/telebot.v3"
+	"github.com/mymmrac/telego"
+	th "github.com/mymmrac/telego/telegohandler"
+	tu "github.com/mymmrac/telego/telegoutil"
 )
 
 type ProfileHandler struct {
-	handler
-	Iccid string
+	*Handler
 }
 
 const (
-	StateProfileHandleAction = "profile_handle_action"
-	StateProfileActionDelete = "profile_delete"
-	StateProfileActionRename = "profile_rename"
+	ProfileActionCallbackDataPrefix = "profile"
 
-	ProfileActionRename = "Rename"
-	ProfileActionDelete = "Delete"
-	ProfileActionEnable = "Enable"
+	ProfileMessageTemplate = `
+%s *%s*
+%s
+	`
+
+	ProfileActionSetNickname state.State = "Set Nickname"
+	ProfileActionDelete      state.State = "Delete"
+	ProfileActionEnable      state.State = "Enable"
 )
 
-func HandleProfilesCommand(c telebot.Context) error {
+type ProfileValue struct {
+	ICCID   sgp22.ICCID
+	Action  state.State
+	Profile *sgp22.ProfileInfo
+	Value   string
+	Modem   *modem.Modem
+}
+
+func NewProfileHandler() state.Handler {
 	h := new(ProfileHandler)
-	h.init(c)
-	h.state = h.stateManager.New(c)
-	h.state.States(map[string]telebot.HandlerFunc{
-		StateProfileHandleAction: h.handleAction,
-		StateProfileActionRename: h.handleActionRename,
-		StateProfileActionDelete: h.handleActionDelete,
-	})
-	return h.handle(c)
+	return h
 }
 
-func (h *ProfileHandler) handle(c telebot.Context) error {
-	h.modem.Lock()
-	defer h.modem.Unlock()
-	l, err := h.GetLPA()
+func (h *ProfileHandler) HandleCallbackQuery(ctx *th.Context, query telego.CallbackQuery, state *state.ChatState) error {
+	var err error
+	value := state.Value.(*ProfileValue)
+	value.ICCID, _ = sgp22.NewICCID(query.Data[len(ProfileActionCallbackDataPrefix)+1:])
+	l, err := lpa.New(value.Modem)
+	if err != nil {
+		return err
+	}
+	ps, err := l.ListProfile(value.ICCID)
 	if err != nil {
 		return err
 	}
 	defer l.Close()
-	profiles, err := l.GetProfiles()
-	if err != nil {
-		return err
-	}
-	if len(profiles) == 0 {
-		return c.Send("No profiles found.")
-	}
-
-	message, buttons := h.toTextMessage(c, profiles)
-	return c.Send(message, &telebot.SendOptions{
-		ParseMode:   telebot.ModeMarkdownV2,
-		ReplyMarkup: buttons,
-	})
+	value.Profile = ps[0]
+	return h.sendActionMessage(ctx, query, ps[0])
 }
 
-func (h *ProfileHandler) toTextMessage(c telebot.Context, profiles []*libeuicc.Profile) (string, *telebot.ReplyMarkup) {
-	selector := new(telebot.ReplyMarkup)
-	template := `
-%s *%s*
-%s
-	`
+func (h *ProfileHandler) sendActionMessage(ctx *th.Context, query telego.CallbackQuery, profile *sgp22.ProfileInfo) error {
+	var buttons []telego.KeyboardButton
+	if profile.ProfileState == sgp22.ProfileEnabled {
+		buttons = tu.KeyboardRow(tu.KeyboardButton(string(ProfileActionSetNickname)))
+	} else {
+		buttons = tu.KeyboardRow(
+			tu.KeyboardButton(string(ProfileActionSetNickname)),
+			tu.KeyboardButton(string(ProfileActionEnable)),
+			tu.KeyboardButton(string(ProfileActionDelete)),
+		)
+	}
+
 	var message string
-	buttons := make([]telebot.Btn, 0, len(profiles))
-	for _, p := range profiles {
-		name := fmt.Sprintf("[%s] ", p.ProviderName)
-		if p.Nickname != "" {
-			name += p.Nickname
-		} else {
-			name += p.ProfileName
-		}
-		var emoji string
-		if p.State == libeuicc.ProfileStateEnabled {
-			emoji = "✅"
-		} else {
-			emoji = "🅾️"
-		}
-		message += fmt.Sprintf(template, emoji, util.EscapeText(name), p.Iccid)
-		btn := selector.Data(fmt.Sprintf("%s (%s)", name, p.Iccid[len(p.Iccid)-4:]), fmt.Sprint(time.Now().UnixNano()), p.Iccid)
-		c.Bot().Handle(&btn, func(c telebot.Context) error {
-			h.Iccid = c.Data()
-			h.state.Next(StateProfileHandleAction)
-			return h.handleAskAction(c)
-		})
-		buttons = append(buttons, btn)
-	}
-	selector.Inline(selector.Split(1, buttons)...)
-	return message, selector
-}
-
-func (h *ProfileHandler) handleAction(c telebot.Context) error {
-	switch c.Text() {
-	case ProfileActionEnable:
-		return h.handleActionEnable(c)
-	case ProfileActionRename:
-		h.state.Next(StateProfileActionRename)
-		return c.Send("OK. Send me the new name.")
-	case ProfileActionDelete:
-		h.state.Next(StateProfileActionDelete)
-		return c.Send("Are you sure you want to delete this profile?", &telebot.ReplyMarkup{
-			OneTimeKeyboard: true,
-			ResizeKeyboard:  true,
-			ReplyKeyboard: [][]telebot.ReplyButton{
-				{
-					{
-						Text: "Yes",
-					},
-					{
-						Text: "No",
-					},
-				},
-			},
-		})
-	default:
-		return c.Send("Invalid action.")
-	}
-}
-
-func (h *ProfileHandler) handleAskAction(c telebot.Context) error {
-	h.modem.Lock()
-	defer h.modem.Unlock()
-
-	l, err := h.GetLPA()
-	if err != nil {
-		return err
-	}
-	defer l.Close()
-	profile, err := l.FindProfile(h.Iccid)
-	if err != nil {
-		return err
-	}
-
-	buttons := []telebot.ReplyButton{
-		{
-			Text: ProfileActionRename,
-		},
-	}
-	if profile.State == libeuicc.ProfileStateDisabled {
-		buttons = append(buttons, telebot.ReplyButton{
-			Text: ProfileActionEnable,
-		}, telebot.ReplyButton{
-			Text: ProfileActionDelete,
-		})
-	}
-
-	template := `
-%s *%s*
-%s
-What do you want to do with this profile?
-	`
-	name := fmt.Sprintf("[%s] ", profile.ProviderName)
-	if profile.Nickname != "" {
-		name += profile.Nickname
-	} else {
-		name += profile.ProfileName
-	}
-
-	var emoji string
-	if profile.State == libeuicc.ProfileStateEnabled {
-		emoji = "✅"
-	} else {
-		emoji = "🅾️"
-	}
-	return c.Send(fmt.Sprintf(template, emoji, util.EscapeText(name), fmt.Sprintf("`%s`", profile.Iccid)), &telebot.SendOptions{
-		ParseMode: telebot.ModeMarkdownV2,
-		ReplyMarkup: &telebot.ReplyMarkup{
-			OneTimeKeyboard: true,
-			ResizeKeyboard:  true,
-			ReplyKeyboard:   [][]telebot.ReplyButton{buttons},
-		},
+	name := fmt.Sprintf("[%s] %s",
+		profile.ServiceProviderName,
+		util.If(profile.ProfileNickname != "", profile.ProfileNickname, profile.ProfileName),
+	)
+	message += fmt.Sprintf(ProfileMessageTemplate,
+		util.If(profile.ProfileState == sgp22.ProfileEnabled, "✅", "🅾️"),
+		util.EscapeText(name),
+		profile.ICCID,
+	)
+	message = util.EscapeText("What do you want to do with the profile? \n") + message
+	_, err := h.ReplyCallbackQuery(ctx, query, message, func(message *telego.SendMessageParams) error {
+		message.WithReplyMarkup(
+			tu.Keyboard(buttons).
+				WithOneTimeKeyboard().
+				WithResizeKeyboard().
+				WithInputFieldPlaceholder("Select an action"),
+		)
+		return nil
 	})
+	return err
 }
 
-func (h *ProfileHandler) handleActionDelete(c telebot.Context) error {
-	if c.Text() != "Yes" {
-		return c.Send("Canceled! Your profile won't be deleted. /profiles")
+func (h *ProfileHandler) HandleMessage(ctx *th.Context, message telego.Message, s *state.ChatState) error {
+	if state.State(message.Text) == ProfileActionSetNickname {
+		return h.askNickname(ctx, message, s)
 	}
-	h.modem.Lock()
-	defer h.modem.Unlock()
-	l, err := h.GetLPA()
+	if s.State == ProfileActionSetNickname {
+		return h.setNickname(ctx, message, s)
+	}
+	if state.State(message.Text) == ProfileActionEnable {
+		return h.enableProfile(ctx, message, s)
+	}
+	if state.State(message.Text) == ProfileActionDelete {
+		return h.confirmDelete(ctx, message, s)
+	}
+	if s.State == ProfileActionDelete {
+		return h.deleteProfile(ctx, message, s)
+	}
+	state.M.Exit(message.Chat.ID)
+	return nil
+}
+
+func (h *ProfileHandler) deleteProfile(ctx *th.Context, message telego.Message, s *state.ChatState) error {
+	if message.Text != "Yes" {
+		_, err := h.ReplyMessage(ctx, message, util.EscapeText("Okay, the profile will not be deleted."), nil)
+		return err
+	}
+	value := s.Value.(*ProfileValue)
+	l, err := lpa.New(value.Modem)
 	if err != nil {
 		return err
 	}
 	defer l.Close()
-	if err := l.Delete(h.Iccid); err != nil {
+	if err := l.Delete(value.ICCID); err != nil {
 		return err
 	}
-	return c.Send("Your profile has been deleted. /profiles")
+	_, err = h.ReplyMessage(ctx, message, util.EscapeText("The profile has been deleted. /profiles"), nil)
+	return err
 }
 
-func (h *ProfileHandler) handleActionEnable(c telebot.Context) error {
-	h.modem.Lock()
-	l, err := h.GetLPA()
+func (h *ProfileHandler) confirmDelete(ctx *th.Context, message telego.Message, s *state.ChatState) error {
+	state.M.Current(message.Chat.ID, ProfileActionDelete)
+	value := s.Value.(*ProfileValue)
+	_, err := h.ReplyMessage(
+		ctx,
+		message,
+		util.EscapeText(
+			fmt.Sprintf(
+				"Are you sure you want to delete the profile %s?",
+				util.If(value.Profile.ProfileNickname != "", value.Profile.ProfileNickname, value.Profile.ProfileName),
+			),
+		),
+		func(m *telego.SendMessageParams) error {
+			m.WithReplyMarkup(tu.Keyboard(
+				tu.KeyboardRow(
+					tu.KeyboardButton("Yes"),
+					tu.KeyboardButton("No"),
+				),
+			).WithOneTimeKeyboard().WithResizeKeyboard().WithInputFieldPlaceholder("Confirm delete"))
+			return nil
+		},
+	)
+	return err
+}
+
+func (h *ProfileHandler) enableProfile(ctx *th.Context, message telego.Message, s *state.ChatState) error {
+	value := s.Value.(*ProfileValue)
+	l, err := lpa.New(value.Modem)
 	if err != nil {
 		return err
 	}
-	if err := l.EnableProfile(h.Iccid, false); err != nil {
-		h.modem.Unlock()
+	if err := l.EnableProfile(value.ICCID); err != nil {
 		return err
 	}
 	l.Close()
-	h.modem.Unlock()
-	// Sometimes the modem needs to be restarted to apply the changes.
-	if err := h.modem.Restart(); err != nil {
-		slog.Error("unable to restart modem, you may need to restart this modem manually.", "error", err)
+	if err := value.Modem.Restart(); err != nil {
+		slog.Warn("Failed to restart the modem", "error", err)
 	}
-	return c.Send("Your profile has been enabled. Please wait a moment for it to take effect. /profiles")
+	_, err = h.ReplyMessage(
+		ctx,
+		message,
+		util.EscapeText("The profile has been enabled. It may take a few seconds for the profile to be activated."),
+		nil,
+	)
+	return err
 }
 
-func (h *ProfileHandler) handleActionRename(c telebot.Context) error {
-	h.modem.Lock()
-	defer h.modem.Unlock()
-
-	l, err := h.GetLPA()
+func (h *ProfileHandler) setNickname(ctx *th.Context, message telego.Message, s *state.ChatState) error {
+	value := s.Value.(*ProfileValue)
+	value.Value = message.Text
+	l, err := lpa.New(value.Modem)
 	if err != nil {
 		return err
 	}
 	defer l.Close()
-	if err := l.SetNickname(h.Iccid, c.Text()); err != nil {
+	if err := l.SetNickname(value.ICCID, value.Value); err != nil {
 		return err
 	}
-	return c.Send(fmt.Sprintf("Your profile has been renamed to *%s*\\. /profiles", util.EscapeText(c.Text())), &telebot.SendOptions{
-		ParseMode: telebot.ModeMarkdownV2,
-	})
+	_, err = h.ReplyMessage(
+		ctx,
+		message,
+		util.EscapeText("The nickname has been updated, you can now use the /profiles command to see the changes."),
+		nil,
+	)
+	return err
+}
+
+func (h *ProfileHandler) askNickname(ctx *th.Context, message telego.Message, s *state.ChatState) error {
+	state.M.Current(message.Chat.ID, ProfileActionSetNickname)
+	_, err := h.ReplyMessage(
+		ctx,
+		message,
+		util.EscapeText("Okay, please enter the new nickname for the profile."),
+		nil,
+	)
+	return err
+}
+
+func (h *ProfileHandler) Handle() th.Handler {
+	return func(ctx *th.Context, update telego.Update) error {
+		l, err := h.LPA(ctx)
+		if err != nil {
+			return err
+		}
+		defer l.Close()
+
+		state.M.Enter(update.Message.Chat.ID, &state.ChatState{
+			Handler: h,
+			Value: &ProfileValue{
+				Modem: h.Modem(ctx),
+			},
+		})
+
+		profiles, err := l.ListProfile(nil)
+		if err != nil {
+			return err
+		}
+		buttons, message := h.message(profiles)
+		_, err = h.Reply(ctx, update, message, func(message *telego.SendMessageParams) error {
+			message.WithReplyMarkup(buttons)
+			return nil
+		})
+		return err
+	}
+}
+
+func (h *ProfileHandler) message(profiles []*sgp22.ProfileInfo) (*telego.InlineKeyboardMarkup, string) {
+	var message string
+	var buttons [][]telego.InlineKeyboardButton
+	for _, profile := range profiles {
+		name := fmt.Sprintf("[%s] %s",
+			profile.ServiceProviderName,
+			util.If(profile.ProfileNickname != "", profile.ProfileNickname, profile.ProfileName),
+		)
+		message += fmt.Sprintf(ProfileMessageTemplate,
+			util.If(profile.ProfileState == sgp22.ProfileEnabled, "✅", "🅾️"),
+			util.EscapeText(name),
+			profile.ICCID,
+		)
+		buttons = append(buttons, tu.InlineKeyboardRow(telego.InlineKeyboardButton{
+			Text:         fmt.Sprintf("%s (%s)", name, profile.ICCID[len(profile.ICCID)-3:]),
+			CallbackData: fmt.Sprintf("%s:%s", ProfileActionCallbackDataPrefix, profile.ICCID),
+		}))
+	}
+	return tu.InlineKeyboard(buttons...), message
 }

@@ -3,73 +3,141 @@ package middleware
 import (
 	"errors"
 	"fmt"
-	"time"
+	"log/slog"
+	"strings"
 
+	"github.com/godbus/dbus/v5"
+	"github.com/mymmrac/telego"
+	th "github.com/mymmrac/telego/telegohandler"
+	tu "github.com/mymmrac/telego/telegoutil"
+
+	"github.com/damonto/telegram-sms/internal/pkg/lpa"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
-	"gopkg.in/telebot.v3"
+	"github.com/damonto/telegram-sms/internal/pkg/util"
 )
 
-var (
-	ErrNextHandlerNotSet = errors.New("next handler not set")
-	ErrNoEuiccModemFound = errors.New("no eUICC modem found")
-)
+const CallbackQueryAskModemPrefix = "ask_modem"
 
-func SelectModem(requiredEuicc bool) telebot.MiddlewareFunc {
-	return func(next telebot.HandlerFunc) telebot.HandlerFunc {
-		return func(c telebot.Context) error {
-			modems, err := modems(requiredEuicc)
-			if err != nil {
-				return err
-			}
-			if len(modems) == 1 {
-				for _, m := range modems {
-					c.Set("modem", m)
-					return next(c)
-				}
-			}
-
-			done := make(chan string, 1)
-			defer close(done)
-			if err := selectModem(c, modems, done); err != nil {
-				return err
-			}
-			c.Set("modem", modems[<-done])
-			return next(c)
-		}
-	}
+type ModemRequiredMiddleware struct {
+	mm    *modem.Manager
+	modem chan *modem.Modem
 }
 
-func selectModem(c telebot.Context, modems map[string]*modem.Modem, done chan string) error {
-	selector := new(telebot.ReplyMarkup)
-	btns := make([]telebot.Btn, 0, len(modems))
-	for k, m := range modems {
-		model, _ := m.GetModel()
-		btn := selector.Data(fmt.Sprintf("%s (%s)", model, k), fmt.Sprint(time.Now().UnixNano()), k)
-		c.Bot().Handle(&btn, func(c telebot.Context) error {
-			done <- c.Callback().Data
-			return c.Delete()
-		})
-		btns = append(btns, btn)
+func NewModemRequiredMiddleware(mm *modem.Manager, handler *th.BotHandler) *ModemRequiredMiddleware {
+	m := &ModemRequiredMiddleware{
+		mm:    mm,
+		modem: make(chan *modem.Modem, 1),
 	}
-	selector.Inline(selector.Split(1, btns)...)
-	return c.Send("I found the following modems, please select one:", selector)
+	handler.HandleCallbackQuery(m.HandleModemSelectionCallbackQuery, th.CallbackDataPrefix(CallbackQueryAskModemPrefix))
+	return m
 }
 
-func modems(requiredEuicc bool) (map[string]*modem.Modem, error) {
-	modems := modem.GetManager().GetModems()
-	if len(modems) == 0 {
-		return nil, modem.ErrModemNotFound
-	}
-
-	if requiredEuicc {
-		for k, m := range modems {
-			if !m.IsEuicc {
-				delete(modems, k)
-			}
+func (m *ModemRequiredMiddleware) Middleware(eUICCRequired bool) th.Handler {
+	return func(ctx *th.Context, update telego.Update) error {
+		modems, err := m.mm.Modems()
+		if err != nil {
+			return err
 		}
 		if len(modems) == 0 {
-			return nil, ErrNoEuiccModemFound
+			return m.sendErrorModemNotFound(ctx, update)
+		}
+		if eUICCRequired {
+			for path, modem := range modems {
+				// lpa.New will open the ISD-R logical channel, if it fails, the modem is not an eUICC.
+				l, err := lpa.New(modem)
+				slog.Debug("Checking if the SIM card is an eUICC", "objectPath", path)
+				if err != nil {
+					delete(modems, path)
+					slog.Error("Failed to create LPA", "error", err)
+				}
+				slog.Info("The SIM card is an eUICC", "objectPath", path)
+				l.Close()
+			}
+		}
+		return m.run(modems, ctx, update)
+	}
+}
+
+func (m *ModemRequiredMiddleware) run(modems map[dbus.ObjectPath]*modem.Modem, ctx *th.Context, update telego.Update) error {
+	if len(modems) == 0 {
+		return m.sendErrorModemNotFound(ctx, update)
+	}
+	// If there is only one modem, select it automatically.
+	if len(modems) == 1 {
+		for _, modem := range modems {
+			ctx = ctx.WithValue("modem", modem)
+			return ctx.Next(update)
 		}
 	}
-	return modems, nil
+	if err := m.ask(ctx, update, modems); err != nil {
+		return err
+	}
+	modem := <-m.modem
+	ctx = ctx.WithValue("modem", modem)
+	return ctx.Next(update)
+}
+
+func (m *ModemRequiredMiddleware) HandleModemSelectionCallbackQuery(ctx *th.Context, query telego.CallbackQuery) error {
+	objectPath := query.Data[len(CallbackQueryAskModemPrefix)+1:]
+	slog.Info("Modem selected", "objectPath", objectPath)
+	modems, err := m.mm.Modems()
+	if err != nil {
+		return err
+	}
+	m.modem <- modems[dbus.ObjectPath(objectPath)]
+	if err := ctx.Bot().AnswerCallbackQuery(ctx, &telego.AnswerCallbackQueryParams{
+		CallbackQueryID: query.ID,
+	}); err != nil {
+		return err
+	}
+	return ctx.Bot().DeleteMessage(ctx, &telego.DeleteMessageParams{
+		ChatID:    tu.ID(query.Message.GetChat().ID),
+		MessageID: query.Message.GetMessageID(),
+	})
+}
+
+func (m *ModemRequiredMiddleware) sendErrorModemNotFound(ctx *th.Context, update telego.Update) error {
+	_, err := ctx.Bot().SendMessage(
+		ctx,
+		tu.Message(
+			tu.ID(update.Message.From.ID),
+			"No modems found. Please connect a modem and try again.",
+		).WithReplyParameters(&telego.ReplyParameters{
+			MessageID: update.Message.MessageID,
+		}),
+	)
+	if err != nil {
+		return err
+	}
+	return errors.New("no modem found")
+}
+
+func (m *ModemRequiredMiddleware) ask(ctx *th.Context, update telego.Update, modems map[dbus.ObjectPath]*modem.Modem) error {
+	var err error
+	var buttons [][]telego.InlineKeyboardButton
+	for path, modem := range modems {
+		buttons = append(buttons, tu.InlineKeyboardRow(telego.InlineKeyboardButton{
+			Text:         modem.Model,
+			CallbackData: fmt.Sprintf("%s:%s", CallbackQueryAskModemPrefix, path),
+		}))
+	}
+	var message string
+	for _, modem := range modems {
+		message += fmt.Sprintf(`
+*%s*
+Manufacturer: %s
+IMEI: %s
+Firmware revision: %s
+		`, util.EscapeText(modem.Model),
+			util.EscapeText(modem.Manufacturer),
+			modem.EquipmentIdentifier,
+			util.EscapeText(modem.FirmwareRevision))
+	}
+	_, err = ctx.Bot().SendMessage(ctx, tu.Message(
+		tu.ID(update.Message.From.ID),
+		strings.TrimRight(message, "\n"),
+	).WithReplyMarkup(tu.InlineKeyboard(buttons...)).WithReplyParameters(&telego.ReplyParameters{
+		MessageID: update.Message.MessageID,
+	}).WithParseMode(telego.ModeMarkdownV2))
+	return err
 }

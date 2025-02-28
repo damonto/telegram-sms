@@ -1,63 +1,68 @@
 package modem
 
-import (
-	"github.com/godbus/dbus/v5"
-	"github.com/maltegrosse/go-modemmanager"
-)
+import "github.com/godbus/dbus/v5"
 
-const (
-	ModemPropertySimSlots       = modemmanager.ModemInterface + ".SimSlots"
-	ModemPropertyPrimarySimSlot = modemmanager.ModemInterface + ".PrimarySimSlot"
-	ModemSetPrimarySimSlot      = modemmanager.ModemInterface + ".SetPrimarySimSlot"
-	ModemPropertySimActive      = modemmanager.SimInterface + ".Active"
-)
+const ModemSimInterface = ModemManagerInterface + ".Sim"
 
-func (m *Modem) GetSimSlots() ([]modemmanager.Sim, error) {
-	prop, err := m.getProperty(m.modem.GetObjectPath(), ModemPropertySimSlots)
+type SIM struct {
+	Path               dbus.ObjectPath
+	Active             bool
+	Identifier         string
+	Eid                string
+	Imsi               string
+	OperatorIdentifier string
+	OperatorName       string
+}
+
+func (m *Modem) PrimarySIM() (*SIM, error) {
+	return m.SIM(m.Sim.Path)
+}
+
+func (m *Modem) SIM(path dbus.ObjectPath) (*SIM, error) {
+	var variant dbus.Variant
+	var err error
+	var s SIM
+	s.Path = path
+
+	dbusObject, err := m.privateDbusObject(path)
 	if err != nil {
 		return nil, err
 	}
-	var simSlots = make([]modemmanager.Sim, 0, len(prop.Value().([]dbus.ObjectPath)))
-	for _, obj := range prop.Value().([]dbus.ObjectPath) {
-		if obj == "/" {
-			continue
-		}
-		sim, err := modemmanager.NewSim(obj)
-		if err != nil {
-			return nil, err
-		}
-		simSlots = append(simSlots, sim)
-	}
-	return simSlots, nil
-}
 
-func (m *Modem) GetSimActiveStatus(objectPath dbus.ObjectPath) (bool, error) {
-	prop, err := m.getProperty(objectPath, ModemPropertySimActive)
+	variant, err = dbusObject.GetProperty(ModemSimInterface + ".Active")
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	return prop.Value().(bool), nil
-}
+	s.Active = variant.Value().(bool)
 
-func (m *Modem) GetPrimarySimSlot() (uint32, error) {
-	prop, err := m.getProperty(m.modem.GetObjectPath(), ModemPropertyPrimarySimSlot)
+	variant, err = dbusObject.GetProperty(ModemSimInterface + ".SimIdentifier")
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	slot := prop.Value().(uint32)
-	if slot == 0 {
-		slot = 1
-	}
-	return slot, nil
-}
+	s.Identifier = variant.Value().(string)
 
-func (m *Modem) SetPrimarySimSlot(slotId uint32) error {
-	primarySlot, err := m.GetPrimarySimSlot()
+	variant, err = dbusObject.GetProperty(ModemSimInterface + ".Eid")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if primarySlot == slotId {
-		return nil
+	s.Eid = variant.Value().(string)
+
+	variant, err = dbusObject.GetProperty(ModemSimInterface + ".Imsi")
+	if err != nil {
+		return nil, err
 	}
-	return m.call(m.modem.GetObjectPath(), ModemSetPrimarySimSlot, slotId)
+	s.Imsi = variant.Value().(string)
+
+	variant, err = dbusObject.GetProperty(ModemSimInterface + ".OperatorIdentifier")
+	if err != nil {
+		return nil, err
+	}
+	s.OperatorIdentifier = variant.Value().(string)
+
+	variant, err = dbusObject.GetProperty(ModemSimInterface + ".OperatorName")
+	if err != nil {
+		return nil, err
+	}
+	s.OperatorName = variant.Value().(string)
+	return &s, nil
 }

@@ -1,53 +1,41 @@
 package util
 
-//go:generate curl -L -o carrier_list.textpb https://android.googlesource.com/platform/packages/providers/TelephonyProvider/+/main/assets/latest_carrier_id/carrier_list.textpb?format=text
+//go:generate curl -L -o carrier.json https://mno-list.harded.org/unified.json
 
 import (
-	"bytes"
 	_ "embed"
-	"encoding/base64"
-	"log/slog"
-	"strings"
+	"encoding/json"
 )
 
-//go:embed carrier_list.textpb
-var textpb []byte
+//go:embed carrier.json
+var carrier []byte
 
 type Carrier struct {
-	CarrierName string
-	MCCMNCs     []string
+	Brand       string              `json:"brand,omitempty"`
+	Operator    string              `json:"operator,omitempty"`
+	MccmncTuple map[string][]string `json:"mccmnc_tuple,omitempty"`
 }
 
-var carrierList []*Carrier
+var dictionary map[string]string
 
 func init() {
-	decoded := make([]byte, base64.StdEncoding.DecodedLen(len(textpb)))
-	if _, err := base64.StdEncoding.Decode(decoded, textpb); err != nil {
-		slog.Error("failed to decode carrier list", "error", err)
+	dictionary = make(map[string]string)
+	var c []Carrier
+	if err := json.Unmarshal(carrier, &c); err != nil {
+		panic(err)
 	}
-	var carrier *Carrier
-	for _, b := range bytes.Split(decoded, []byte("\n")) {
-		line := strings.TrimSpace(string(b))
-		if strings.HasPrefix(line, "carrier_id {") {
-			carrier = new(Carrier)
-			carrierList = append(carrierList, carrier)
-		}
-		if strings.HasPrefix(line, "carrier_name:") {
-			carrier.CarrierName = strings.ReplaceAll(strings.TrimSpace(strings.Split(line, ":")[1]), "\"", "")
-		}
-		if strings.HasPrefix(line, "mccmnc_tuple:") {
-			carrier.MCCMNCs = append(carrier.MCCMNCs, strings.ReplaceAll(strings.TrimSpace(strings.Split(line, ":")[1]), "\"", ""))
-		}
-	}
-}
-
-func LookupCarrierName(code string) string {
-	for _, carrier := range carrierList {
-		for _, mccmnc := range carrier.MCCMNCs {
-			if mccmnc == code {
-				return carrier.CarrierName
+	for _, v := range c {
+		for _, tuple := range v.MccmncTuple {
+			for _, mccmnc := range tuple {
+				dictionary[mccmnc] = v.Operator
 			}
 		}
 	}
-	return code
+}
+
+func LookupCarrier(mccmnc string) string {
+	if operator, ok := dictionary[mccmnc]; ok {
+		return operator
+	}
+	return "Unknown"
 }

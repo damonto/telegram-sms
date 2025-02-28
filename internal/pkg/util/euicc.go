@@ -42,10 +42,10 @@ var EUMs []*EUM
 
 func init() {
 	if err := json.Unmarshal(eum, &EUMs); err != nil {
-		slog.Error("failed to unmarshal EUMs", "error", err)
+		slog.Error("Failed to unmarshal EUMs", "error", err)
 	}
 	if err := json.Unmarshal(ci, &certificateIssuers); err != nil {
-		slog.Error("failed to unmarshal certificate issuers", "error", err)
+		slog.Error("Failed to unmarshal certificate issuers", "error", err)
 	}
 }
 
@@ -58,8 +58,7 @@ func FindCertificateIssuer(keyID string) string {
 	return keyID
 }
 
-func LookupEUM(eid string) (string, string, string) {
-	var country, manufacturer, productName string
+func LookupEUM(eid string) (country string, manufacturer string, productName string) {
 	for _, manifest := range EUMs {
 		if strings.HasPrefix(eid, manifest.EUM) {
 			country = manifest.Country
@@ -67,7 +66,7 @@ func LookupEUM(eid string) (string, string, string) {
 			for _, product := range manifest.Products {
 				if strings.HasPrefix(eid, product.Prefix) {
 					if product.InRange != nil {
-						eidRange, _ := strconv.Atoi(eid[len(product.Prefix) : 30])
+						eidRange, _ := strconv.Atoi(eid[len(product.Prefix):30])
 						for _, inRange := range product.InRange {
 							if eidRange >= inRange[0] && eidRange <= inRange[1] {
 								return country, manufacturer, product.Name
