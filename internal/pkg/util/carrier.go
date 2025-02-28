@@ -5,7 +5,6 @@ package util
 import (
 	_ "embed"
 	"encoding/json"
-	"fmt"
 )
 
 //go:embed carrier.json
@@ -28,11 +27,7 @@ func init() {
 	for _, v := range c {
 		for _, tuple := range v.MccmncTuple {
 			for _, mccmnc := range tuple {
-				if v.Brand != "" {
-					dictionary[mccmnc] = fmt.Sprintf("%s - %s", v.Operator, v.Brand)
-				} else {
-					dictionary[mccmnc] = v.Operator
-				}
+				dictionary[mccmnc] = v.Operator
 			}
 		}
 	}

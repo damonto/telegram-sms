@@ -44,7 +44,7 @@ func (m *Modem) SubscribeMessaging(ctx context.Context, subscriber func(message 
 		return err
 	}
 	dbusConn.AddMatchSignal(
-		dbus.WithMatchMember(ModemMessagingInterface+".Added"),
+		dbus.WithMatchMember("Added"),
 		dbus.WithMatchPathNamespace(m.objectPath),
 	)
 	signalChan := make(chan *dbus.Signal, 10)
@@ -56,7 +56,7 @@ func (m *Modem) SubscribeMessaging(ctx context.Context, subscriber func(message 
 			if !sig.Body[1].(bool) {
 				continue
 			}
-			s, err := m.waitForSMSReceived(sig.Path)
+			s, err := m.waitForSMSReceived(sig.Body[0].(dbus.ObjectPath))
 			if err != nil {
 				slog.Error("Failed to process message", "error", err, "path", sig.Path)
 				continue

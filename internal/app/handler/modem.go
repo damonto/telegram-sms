@@ -63,7 +63,7 @@ func (h *ListModemHandler) message(m *modem.Modem) string {
 		util.EscapeText(m.FirmwareRevision),
 		m.EquipmentIdentifier,
 		util.EscapeText(util.LookupCarrier(code)),
-		util.EscapeText(util.LookupCarrier(m.Sim.OperatorIdentifier)),
+		util.EscapeText(util.If(m.Sim.OperatorName != "", m.Sim.OperatorName, util.LookupCarrier(m.Sim.OperatorIdentifier))),
 		util.EscapeText(m.Number),
 		percent,
 		m.Sim.Identifier,

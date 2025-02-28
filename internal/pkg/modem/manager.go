@@ -105,7 +105,6 @@ func (m *Manager) Subscribe(subscriber func(map[dbus.ObjectPath]*Modem) error) e
 	); err != nil {
 		return err
 	}
-
 	if err := m.dbusConn.AddMatchSignal(
 		dbus.WithMatchInterface("org.freedesktop.DBus.ObjectManager"),
 		dbus.WithMatchMember("InterfacesRemoved"),

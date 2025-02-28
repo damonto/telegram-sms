@@ -10,8 +10,6 @@ github.com/bytedance/sonic/loader v0.2.3/go.mod h1:N8A3vUdtUebEY2/VQC0MyhYeKUFos
 github.com/cloudwego/base64x v0.1.5 h1:XPciSp1xaq2VCSt6lF0phncD4koWyULpl5bUxbfCyP4=
 github.com/cloudwego/base64x v0.1.5/go.mod h1:0zlkT4Wn5C6NdauXdJRhSKRlJvmclQ1hhJgA0rcu/8w=
 github.com/cloudwego/iasm v0.2.0/go.mod h1:8rXZaNYT2n95jn+zTI1sDr+IgcD2GVs0nlbbQPiEFhY=
-github.com/damonto/euicc-go v0.0.0-20250228083349-b51efe277efd h1:z7/7jsYzIUmy2F6kbpZpuqspUS9ZbbzbIt2QXe54gkU=
-github.com/damonto/euicc-go v0.0.0-20250228083349-b51efe277efd/go.mod h1:pn+9b2mTaei6AKLDc1aVyUKK8JFRMZs1l18kNCFWmr8=
 github.com/damonto/euicc-go v0.0.0-20250228090421-35ae896aac09 h1:8xGqLnUhBBSlsuT7WxRbS7iyDFbEMW5TwTpzjTbRY7Y=
 github.com/damonto/euicc-go v0.0.0-20250228090421-35ae896aac09/go.mod h1:pn+9b2mTaei6AKLDc1aVyUKK8JFRMZs1l18kNCFWmr8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
