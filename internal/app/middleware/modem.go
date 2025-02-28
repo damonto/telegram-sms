@@ -49,6 +49,7 @@ func (m *ModemRequiredMiddleware) Middleware(eUICCRequired bool) th.Handler {
 					delete(modems, path)
 					slog.Error("Failed to create LPA", "error", err)
 				}
+				slog.Debug("The SIM card is an eUICC", "objectPath", path)
 				l.Close()
 			}
 		}
@@ -59,6 +60,14 @@ func (m *ModemRequiredMiddleware) Middleware(eUICCRequired bool) th.Handler {
 func (m *ModemRequiredMiddleware) run(modems map[dbus.ObjectPath]*modem.Modem, ctx *th.Context, update telego.Update) error {
 	if len(modems) == 0 {
 		return m.sendErrorModemNotFound(ctx, update)
+	}
+	// If there is only one modem, select it automatically.
+	if len(modems) == 1 {
+		for _, modem := range modems {
+			m.modem <- modem
+			ctx = ctx.WithValue("modem", modem)
+			return ctx.Next(update)
+		}
 	}
 	if err := m.ask(ctx, update, modems); err != nil {
 		return err

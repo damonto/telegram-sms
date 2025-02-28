@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os/exec"
 
+	"github.com/damonto/telegram-sms/internal/pkg/util"
 	"github.com/godbus/dbus/v5"
 )
 
@@ -56,7 +57,7 @@ func (m *Modem) SignalQuality() (percent uint32, recent bool, err error) {
 
 func (m *Modem) Restart() error {
 	if m.PortType() == ModemPortTypeQmi {
-		if err := m.QMIRestartSIMCard(); err != nil {
+		if err := m.RepowerViaQMI(); err != nil {
 			return err
 		}
 	}
@@ -67,17 +68,14 @@ func (m *Modem) Restart() error {
 	return nil
 }
 
-func (m *Modem) QMIRestartSIMCard() error {
+func (m *Modem) RepowerViaQMI() error {
 	device, err := m.Port(ModemPortTypeQmi)
 	if err != nil {
 		return err
 	}
-	slot := m.PrimarySimSlot
 	// If multiple SIM slots aren't supported, this property will report value 0.
 	// On QMI based modems the SIM slot is 1 based.
-	if slot == 0 {
-		slot = 1
-	}
+	slot := util.If(m.PrimarySimSlot > 0, m.PrimarySimSlot, 1)
 	if result, err := exec.Command("/usr/bin/qmicli", "-d", device, "-p", fmt.Sprintf("--uim-sim-power-off=%d", slot)).Output(); err != nil {
 		slog.Error("Failed to power off sim", "error", err, "result", string(result))
 		return err
