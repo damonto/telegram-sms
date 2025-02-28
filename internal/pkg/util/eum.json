@@ -121,6 +121,11 @@
     ]
   },
   {
+    "eum": "35060000",
+    "country": "CN",
+    "manufacturer": "HED"
+  },
+  {
     "eum": "35840574",
     "country": "CN",
     "manufacturer": "Beijing Watchdata"
