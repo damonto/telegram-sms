@@ -66,7 +66,7 @@ func (l *LPA) createTransmitter(m *modem.Modem) (driver.Transmitter, error) {
 	if err != nil {
 		return nil, err
 	}
-	return driver.NewTransmitter(channel, 240)
+	return driver.NewTransmitter(channel, 254)
 }
 
 func (l *LPA) Close() error {
