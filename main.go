@@ -36,7 +36,6 @@ func main() {
 	if config.C.Verbose {
 		slog.SetLogLoggerLevel(slog.LevelDebug)
 	}
-
 	if os.Geteuid() != 0 {
 		slog.Error("Please run as root")
 		os.Exit(1)

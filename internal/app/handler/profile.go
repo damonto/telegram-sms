@@ -118,7 +118,7 @@ func (h *ProfileHandler) HandleMessage(ctx *th.Context, message telego.Message, 
 
 func (h *ProfileHandler) deleteProfile(ctx *th.Context, message telego.Message, s *state.ChatState) error {
 	if message.Text != "Yes" {
-		_, err := h.ReplyMessage(ctx, message, util.EscapeText("Okay, the profile will not be deleted."), nil)
+		_, err := h.ReplyMessage(ctx, message, util.EscapeText("Okay, the profile will not be deleted. /profiles"), nil)
 		return err
 	}
 	value := s.Value.(*ProfileValue)
