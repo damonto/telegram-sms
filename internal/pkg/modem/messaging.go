@@ -10,7 +10,7 @@ import (
 
 const ModemMessagingInterface = ModemInterface + ".Messaging"
 
-func (m *Modem) Messages() ([]*SMS, error) {
+func (m *Modem) ListMessages() ([]*SMS, error) {
 	messages := new([]dbus.ObjectPath)
 	err := m.dbusObject.Call(ModemMessagingInterface+".List", 0).Store(messages)
 	var s []*SMS
@@ -26,11 +26,11 @@ func (m *Modem) Messages() ([]*SMS, error) {
 
 func (m *Modem) CreateMessage(to string, text string) (dbus.ObjectPath, error) {
 	var path dbus.ObjectPath
-	data := map[string]string{
+	data := map[string]any{
 		"number": to,
 		"text":   text,
 	}
-	err := m.dbusObject.Call(ModemMessagingInterface+".Create", 0, to, &data).Store(&path)
+	err := m.dbusObject.Call(ModemMessagingInterface+".Create", 0, &data).Store(&path)
 	return path, err
 }
 

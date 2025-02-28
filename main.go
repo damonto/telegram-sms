@@ -48,7 +48,6 @@ func main() {
 
 	slog.Info("Starting telegram sms bot", "version", Version)
 
-	// region
 	mm, err := modem.NewManager()
 	if err != nil {
 		panic(err)
