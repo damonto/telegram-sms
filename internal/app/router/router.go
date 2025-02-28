@@ -63,7 +63,7 @@ func (r *router) registerHandlers() {
 	admin.Handle(handler.NewListModemHandler(r.mm).Handle(), th.CommandEqual("modem"))
 
 	{
-		standard := admin.Group(r.predicate([]string{"/send", "/slot", "/ussd", "/send"}))
+		standard := admin.Group(r.predicate([]string{"/send", "/slot", "/ussd"}))
 		standard.Use(modemRequiredMiddleware.Middleware(false))
 		standard.Handle(handler.NewSIMSlotHandler().Handle(), th.CommandEqual("slot"))
 		standard.Handle(handler.NewUSSDHandler().Handle(), th.CommandEqual("ussd"))

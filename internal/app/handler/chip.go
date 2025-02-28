@@ -5,15 +5,13 @@ import (
 	"strings"
 
 	"github.com/damonto/telegram-sms/internal/pkg/lpa"
-	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 	"github.com/mymmrac/telego"
 	th "github.com/mymmrac/telego/telegohandler"
 )
 
 type ChipHandler struct {
-	Handler
-	mm *modem.Manager
+	*Handler
 }
 
 const ChipMessageTemplate = `

@@ -39,7 +39,7 @@ func (app *application) Start() error {
 }
 
 func (app *application) Shutdown() {
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second*5)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer stopCancel()
 
 outer:

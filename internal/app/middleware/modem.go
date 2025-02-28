@@ -45,11 +45,12 @@ func (m *ModemRequiredMiddleware) Middleware(eUICCRequired bool) th.Handler {
 			for path, modem := range modems {
 				// lpa.New will open the ISD-R logical channel, if it fails, the modem is not an eUICC.
 				l, err := lpa.New(modem)
+				slog.Debug("Checking if the SIM card is an eUICC", "objectPath", path)
 				if err != nil {
 					delete(modems, path)
 					slog.Error("Failed to create LPA", "error", err)
 				}
-				slog.Debug("The SIM card is an eUICC", "objectPath", path)
+				slog.Info("The SIM card is an eUICC", "objectPath", path)
 				l.Close()
 			}
 		}
@@ -64,7 +65,6 @@ func (m *ModemRequiredMiddleware) run(modems map[dbus.ObjectPath]*modem.Modem, c
 	// If there is only one modem, select it automatically.
 	if len(modems) == 1 {
 		for _, modem := range modems {
-			m.modem <- modem
 			ctx = ctx.WithValue("modem", modem)
 			return ctx.Next(update)
 		}

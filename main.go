@@ -97,6 +97,7 @@ func subscribe(bot *telego.Bot, mm *modem.Manager) {
 	if err != nil {
 		panic(err)
 	}
+
 	go subscribeMessaging(bot, modems, subscribers)
 
 	err = mm.Subscribe(func(modems map[dbus.ObjectPath]*modem.Modem) error {

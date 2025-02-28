@@ -60,8 +60,9 @@ func (l *LPA) createTransmitter(m *modem.Modem) (driver.Transmitter, error) {
 	if err != nil {
 		return nil, err
 	}
-	slog.Info("Creating APDU transmitter", "port", port)
-	channel, err := driver.NewQMI(port, int(m.PrimarySimSlot))
+	slot := util.If(m.PrimarySimSlot > 0, m.PrimarySimSlot, 1)
+	slog.Info("Creating APDU transmitter", "port", port, "slot", slot)
+	channel, err := driver.NewQMI(port, uint8(slot))
 	if err != nil {
 		return nil, err
 	}

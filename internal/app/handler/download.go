@@ -86,14 +86,15 @@ func (h *DownloadHandler) HandleMessage(ctx *th.Context, message telego.Message,
 }
 
 func (h *DownloadHandler) downloadProfile(ctx *th.Context, message telego.Message, s *state.ChatState, value *DownloadValue) error {
-	ac, ccRequired, err := h.parseActivationCode(value, message.Text)
+	var err error
+	var ccRequired bool
+	value.ActvationCode, ccRequired, err = h.parseActivationCode(value, message.Text)
 	if err != nil {
 		return err
 	}
-	value.ActvationCode = ac
 	if ccRequired {
 		state.M.Current(message.From.ID, DownloadAskConfirmationCodeFirst)
-		_, err := h.ReplyMessage(ctx, message, util.EscapeText("Please enter the confirmation code"), nil)
+		_, err := h.ReplyMessage(ctx, message, util.EscapeText("Please enter the confirmation code."), nil)
 		return err
 	}
 	return h.download(ctx, message, s, value)
@@ -106,13 +107,14 @@ func (d *profileDownload) Progress(progress lpa.DownloadProgress) {
 		lpa.DownloadProgressLoadBPP:            9,
 	}
 	progressBar := strings.Repeat("⣿", percent[progress]) + strings.Repeat("⣀", 10-percent[progress])
-	progressBar = util.EscapeText("Your profile is being downloaded.\n ⏳ "+progressBar) + fmt.Sprintf(" %d%%", percent[progress]*10)
+	progressBar = util.EscapeText("Your profile is being downloaded.\n ⏳ " + progressBar + fmt.Sprintf(" %d%%", percent[progress]*10))
 	var err error
 	if d.progressMessage != nil {
 		_, err = d.ctx.Bot().EditMessageText(d.ctx, &telego.EditMessageTextParams{
 			ChatID:    d.progressMessage.Chat.ChatID(),
 			MessageID: d.progressMessage.GetMessageID(),
 			Text:      progressBar,
+			ParseMode: telego.ModeMarkdownV2,
 		})
 	} else {
 		d.progressMessage, err = d.h.ReplyMessage(d.ctx, d.message, progressBar, nil)
@@ -131,7 +133,7 @@ func (d *profileDownload) Confirm(metadata *sgp22.ProfileInfo) chan bool {
 Provider Name: %s
 Profile Name: %s
 ICCID: %s
-`, metadata.ServiceProviderName, metadata.ProfileNickname, metadata.ICCID)),
+`, metadata.ServiceProviderName, metadata.ProfileName, metadata.ICCID)),
 		func(message *telego.SendMessageParams) error {
 			message.WithReplyMarkup(tu.InlineKeyboard(
 				tu.InlineKeyboardRow(
@@ -169,10 +171,23 @@ func (h *DownloadHandler) download(ctx *th.Context, message telego.Message, s *s
 	}
 	defer l.Close()
 	if err := l.Download(downloadCtx, value.ActvationCode, d); err != nil {
+		h.ReplyMessage(ctx, message, util.EscapeText(err.Error()), nil)
+		state.M.Exit(message.From.ID)
+		if d.progressMessage != nil {
+			ctx.Bot().DeleteMessage(ctx, &telego.DeleteMessageParams{
+				MessageID: d.progressMessage.GetMessageID(),
+				ChatID:    d.message.Chat.ChatID(),
+			})
+		}
 		return err
 	}
 	state.M.Exit(message.From.ID)
-	_, err = h.ReplyMessage(ctx, message, util.EscapeText("The profile has been downloaded. /profiles"), nil)
+	_, err = ctx.Bot().EditMessageText(ctx, &telego.EditMessageTextParams{
+		ChatID:    message.Chat.ChatID(),
+		MessageID: d.progressMessage.GetMessageID(),
+		Text:      util.EscapeText("The profile has been downloaded. /profiles"),
+		ParseMode: telego.ModeMarkdownV2,
+	})
 	return err
 }
 
