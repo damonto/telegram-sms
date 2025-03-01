@@ -155,7 +155,11 @@ ICCID: %s
 }
 
 func (d *profileDownload) ConfirmationCode() chan string {
-	d.h.ReplyMessage(d.ctx, d.message, util.EscapeText("Please enter the confirmation code."), nil)
+	if _, err := d.h.ReplyMessage(d.ctx, d.message, util.EscapeText("Please enter the confirmation code."), nil); err != nil {
+		state.M.Exit(d.message.From.ID)
+		d.cancel()
+		return d.h.confirmationCode
+	}
 	state.M.Current(d.message.From.ID, DownloadAskConfirmationCodeInProgress)
 	return d.h.confirmationCode
 }
