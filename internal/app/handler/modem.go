@@ -17,9 +17,9 @@ type ListModemHandler struct {
 }
 
 const ModemMessageTemplate = `
-Manufaturer: %s
+Manufacturer: %s
 Model: %s
-Revision: %s
+Firmware Revision: %s
 IMEI: %s
 Network: %s
 Operator: %s

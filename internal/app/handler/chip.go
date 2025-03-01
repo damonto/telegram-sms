@@ -16,7 +16,7 @@ type ChipHandler struct {
 
 const ChipMessageTemplate = `
 EID: %s
-Manufaturer: %s
+Manufacturer: %s
 Sas Accreditation Number: %s
 Free Space: %d KiB
 Sign Keys:
