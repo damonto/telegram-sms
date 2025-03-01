@@ -129,12 +129,16 @@ func (l *LPA) sendNotification(id sgp22.ICCID, event sgp22.NotificationEvent) er
 			latest = n.SequenceNumber
 		}
 	}
-	slog.Info("Sending notification", "event", event, "sequence", latest)
-	n, err := l.RetrieveNotificationList(latest)
-	if err != nil {
-		return err
+	// Some profiles may not have notifications
+	if latest > 0 {
+		slog.Info("Sending notification", "event", event, "sequence", latest)
+		n, err := l.RetrieveNotificationList(latest)
+		if err != nil {
+			return err
+		}
+		return l.HandleNotification(n[0])
 	}
-	return l.HandleNotification(n[0])
+	return nil
 }
 
 func (l *LPA) Download(ctx context.Context, activationCode *lpa.ActivationCode, handler lpa.DownloadHandler) error {
