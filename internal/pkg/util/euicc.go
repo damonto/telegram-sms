@@ -58,7 +58,7 @@ func FindCertificateIssuer(keyID string) string {
 	return keyID
 }
 
-func LookupEUM(eid string) (country string, manufacturer string, productName string) {
+func LookupEUM(eid string) (country string, manufacturer string, brand string) {
 	for _, manifest := range EUMs {
 		if strings.HasPrefix(eid, manifest.EUM) {
 			country = manifest.Country
@@ -73,10 +73,10 @@ func LookupEUM(eid string) (country string, manufacturer string, productName str
 							}
 						}
 					}
-					productName = product.Name
+					brand = product.Name
 				}
 			}
 		}
 	}
-	return country, manufacturer, productName
+	return country, manufacturer, brand
 }

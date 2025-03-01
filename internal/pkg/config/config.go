@@ -35,6 +35,7 @@ type Config struct {
 	BotToken string
 	AdminId  AdminId
 	Endpoint string
+	Slowdown bool
 	Verbose  bool
 }
 

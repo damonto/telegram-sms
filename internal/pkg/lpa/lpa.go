@@ -14,6 +14,7 @@ import (
 	sgp22http "github.com/damonto/euicc-go/http"
 	"github.com/damonto/euicc-go/lpa"
 	sgp22 "github.com/damonto/euicc-go/v2"
+	"github.com/damonto/telegram-sms/internal/pkg/config"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 )
@@ -61,12 +62,12 @@ func (l *LPA) createTransmitter(m *modem.Modem) (driver.Transmitter, error) {
 		return nil, err
 	}
 	slot := util.If(m.PrimarySimSlot > 0, m.PrimarySimSlot, 1)
-	slog.Info("Creating APDU transmitter", "port", port, "slot", slot)
+	slog.Info("Trying to connect", "port", port, "slot", slot)
 	channel, err := driver.NewQMI(port, uint8(slot))
 	if err != nil {
 		return nil, err
 	}
-	return driver.NewTransmitter(channel, 254)
+	return driver.NewTransmitter(channel, util.If(config.C.Slowdown, 120, 250))
 }
 
 func (l *LPA) Close() error {
@@ -80,11 +81,11 @@ func (l *LPA) Info() (*Info, error) {
 		return nil, err
 	}
 	info.EID = hex.EncodeToString(eid)
-	country, manufacturer, productName := util.LookupEUM(info.EID)
+	country, manufacturer, brand := util.LookupEUM(info.EID)
 	info.Product = &Product{
 		Country:      country,
 		Manufacturer: manufacturer,
-		Brand:        productName,
+		Brand:        brand,
 	}
 
 	tlv, err := l.EUICCInfo2()

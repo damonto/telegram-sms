@@ -161,6 +161,7 @@ func (d *profileDownload) ConfirmationCode() chan string {
 }
 
 func (h *DownloadHandler) download(ctx *th.Context, message telego.Message, s *state.ChatState, value *DownloadValue) error {
+	defer state.M.Exit(message.From.ID)
 	var downloadCtx context.Context
 	downloadCtx, value.cancel = context.WithTimeout(context.Background(), 10*time.Minute)
 	defer value.cancel()
@@ -172,7 +173,6 @@ func (h *DownloadHandler) download(ctx *th.Context, message telego.Message, s *s
 	defer l.Close()
 	if err := l.Download(downloadCtx, value.ActvationCode, d); err != nil {
 		h.ReplyMessage(ctx, message, util.EscapeText(err.Error()), nil)
-		state.M.Exit(message.From.ID)
 		if d.progressMessage != nil {
 			ctx.Bot().DeleteMessage(ctx, &telego.DeleteMessageParams{
 				MessageID: d.progressMessage.GetMessageID(),
@@ -181,7 +181,6 @@ func (h *DownloadHandler) download(ctx *th.Context, message telego.Message, s *s
 		}
 		return err
 	}
-	state.M.Exit(message.From.ID)
 	_, err = ctx.Bot().EditMessageText(ctx, &telego.EditMessageTextParams{
 		ChatID:    message.Chat.ChatID(),
 		MessageID: d.progressMessage.GetMessageID(),

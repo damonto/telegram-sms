@@ -72,6 +72,7 @@ func (h *SIMSlotHandler) message(slot int, sim *modem.SIM) ([]telego.InlineKeybo
 }
 
 func (h *SIMSlotHandler) HandleCallbackQuery(ctx *th.Context, query telego.CallbackQuery, s *state.ChatState) error {
+	defer state.M.Exit(query.From.ID)
 	v, err := strconv.Atoi(query.Data[len(CallbackQuerySIMSlotPrefix)+1:])
 	if err != nil {
 		return err
@@ -79,7 +80,6 @@ func (h *SIMSlotHandler) HandleCallbackQuery(ctx *th.Context, query telego.Callb
 	if err := s.Value.(*SIMValue).Modem.SetPrimarySimSlot(uint32(v)); err != nil {
 		return err
 	}
-	state.M.Exit(query.From.ID)
 	_, err = h.ReplyCallbackQuery(ctx, query, util.EscapeText(fmt.Sprintf("Primary SIM slot set to %d", v)), nil)
 	return err
 }
