@@ -1,6 +1,8 @@
 package modem
 
-import "github.com/godbus/dbus/v5"
+import (
+	"github.com/godbus/dbus/v5"
+)
 
 const ModemSimInterface = ModemManagerInterface + ".Sim"
 
@@ -21,9 +23,7 @@ func (m *Modem) PrimarySIM() (*SIM, error) {
 func (m *Modem) SIM(path dbus.ObjectPath) (*SIM, error) {
 	var variant dbus.Variant
 	var err error
-	var s SIM
-	s.Path = path
-
+	s := &SIM{Path: path}
 	dbusObject, err := m.privateDbusObject(path)
 	if err != nil {
 		return nil, err
@@ -64,5 +64,5 @@ func (m *Modem) SIM(path dbus.ObjectPath) (*SIM, error) {
 		return nil, err
 	}
 	s.OperatorName = variant.Value().(string)
-	return &s, nil
+	return s, nil
 }
