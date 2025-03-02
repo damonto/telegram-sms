@@ -47,7 +47,7 @@ func (h *ListModemHandler) Handle() th.Handler {
 		}
 		var message string
 		for _, m := range modems {
-			message += h.message(m) + "\n\n"
+			message += h.message(m)
 		}
 		_, err = h.Reply(ctx, update, message, nil)
 		return err
