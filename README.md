@@ -59,7 +59,7 @@ If you already have `libqmi` version **1.35.5** or later installed, you can skip
 git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
 cd libqmi
 meson setup build --prefix=/usr --buildtype=release
-ninja -j$(nproc) -C build
+sudo ninja -j$(nproc) -C build
 sudo ninja -C build install
 ```
 

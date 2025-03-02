@@ -47,7 +47,7 @@ jobs:
           git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
           cd libqmi
           meson setup build --prefix=/usr --buildtype=release -Dmbim_qmux=false -Dfirmware_update=false -Dudev=false -Dman=false -Dgtk_doc=false -Dintrospection=false -Dbash_completion=false
-          ninja -j$(nproc) -C build
+          sudo ninja -j$(nproc) -C build
           sudo ninja -C build install
 
       - name: Build for ${{ matrix.target.name }}
