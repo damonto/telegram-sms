@@ -113,13 +113,11 @@ func (m *Modem) SystemBusPrivate() (*dbus.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = dbusConn.Auth(nil)
-	if err != nil {
+	if err := dbusConn.Auth(nil); err != nil {
 		dbusConn.Close()
 		return nil, err
 	}
-	err = dbusConn.Hello()
-	if err != nil {
+	if err := dbusConn.Hello(); err != nil {
 		dbusConn.Close()
 		return nil, err
 	}
