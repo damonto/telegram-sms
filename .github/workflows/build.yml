@@ -25,7 +25,12 @@ jobs:
       matrix:
         target:
           - { runs-on: ubuntu-24.04, os: linux, arch: amd64, name: linux-amd64 }
-          - { runs-on: ubuntu-24.04-arm, os: linux, arch: arm64, name: linux-arm64 }
+          - {
+              runs-on: ubuntu-24.04-arm,
+              os: linux,
+              arch: arm64,
+              name: linux-arm64,
+            }
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -37,7 +42,7 @@ jobs:
         with:
           # disable cache on self-hosted runners.
           cache: false
-          go-version: 1.23
+          go-version: 1.24
 
       - name: Building libqmi
         run: |
