@@ -117,7 +117,7 @@ func (m *ModemRequiredMiddleware) ask(ctx *th.Context, update telego.Update, mod
 	var buttons [][]telego.InlineKeyboardButton
 	for path, modem := range modems {
 		buttons = append(buttons, tu.InlineKeyboardRow(telego.InlineKeyboardButton{
-			Text:         modem.Model,
+			Text:         fmt.Sprintf("%s (%s)", modem.Model, modem.EquipmentIdentifier[len(modem.EquipmentIdentifier)-4:]),
 			CallbackData: fmt.Sprintf("%s:%s", CallbackQueryAskModemPrefix, path),
 		}))
 	}

@@ -122,7 +122,6 @@ func (d *profileDownload) Progress(progress lpa.DownloadProgress) {
 	if err != nil {
 		slog.Error("Failed to send progress message", "error", err)
 	}
-	slog.Info("Download progress", "progress", progress)
 }
 
 func (d *profileDownload) Confirm(metadata *sgp22.ProfileInfo) chan bool {

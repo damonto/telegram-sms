@@ -148,15 +148,19 @@ func (l *LPA) sendNotification(id sgp22.ICCID, event sgp22.NotificationEvent) er
 func (l *LPA) Download(ctx context.Context, activationCode *lpa.ActivationCode, handler lpa.DownloadHandler) error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
-	slog.Info("Downloading profile", "activation", activationCode)
+	slog.Info("Downloading profile", "activationCode", activationCode)
 	n, err := l.DownloadProfile(ctx, activationCode, handler)
 	if err != nil {
 		return err
 	}
-	slog.Info("Sending download notification", "sequence", n.Notification.SequenceNumber)
-	ns, err := l.RetrieveNotificationList(n.Notification.SequenceNumber)
-	if err != nil {
-		return err
+	// Some profiles may not have notifications
+	if n.Notification.SequenceNumber > 0 {
+		slog.Info("Sending download notification", "sequence", n.Notification.SequenceNumber)
+		ns, err := l.RetrieveNotificationList(n.Notification.SequenceNumber)
+		if err != nil {
+			return err
+		}
+		return l.HandleNotification(ns[0])
 	}
-	return l.HandleNotification(ns[0])
+	return nil
 }

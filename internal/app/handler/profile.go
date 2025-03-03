@@ -280,8 +280,10 @@ func (h *ProfileHandler) message(profiles []*sgp22.ProfileInfo) (*telego.InlineK
 			util.EscapeText(name),
 			profile.ICCID,
 		)
+		id := profile.ICCID.String()
+		id = id[len(id)-4:]
 		buttons = append(buttons, tu.InlineKeyboardRow(telego.InlineKeyboardButton{
-			Text:         fmt.Sprintf("%s (%s)", name, profile.ICCID[len(profile.ICCID)-3:]),
+			Text:         fmt.Sprintf("%s (%s)", name, id),
 			CallbackData: fmt.Sprintf("%s:%s", ProfileActionCallbackDataPrefix, profile.ICCID),
 		}))
 	}
