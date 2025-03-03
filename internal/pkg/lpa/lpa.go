@@ -67,7 +67,11 @@ func (l *LPA) createTransmitter(m *modem.Modem) (driver.Transmitter, error) {
 	if err != nil {
 		return nil, err
 	}
-	return driver.NewTransmitter(channel, util.If(config.C.Slowdown, 120, 250))
+	AID, err := config.C.AID.UnmarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	return driver.NewTransmitter(channel, AID, util.If(config.C.Slowdown, 120, 250))
 }
 
 func (l *LPA) Close() error {

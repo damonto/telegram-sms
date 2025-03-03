@@ -10,8 +10,10 @@ github.com/bytedance/sonic/loader v0.2.3/go.mod h1:N8A3vUdtUebEY2/VQC0MyhYeKUFos
 github.com/cloudwego/base64x v0.1.5 h1:XPciSp1xaq2VCSt6lF0phncD4koWyULpl5bUxbfCyP4=
 github.com/cloudwego/base64x v0.1.5/go.mod h1:0zlkT4Wn5C6NdauXdJRhSKRlJvmclQ1hhJgA0rcu/8w=
 github.com/cloudwego/iasm v0.2.0/go.mod h1:8rXZaNYT2n95jn+zTI1sDr+IgcD2GVs0nlbbQPiEFhY=
-github.com/damonto/euicc-go v0.0.0-20250301053854-10abc2266b8d h1:OsRP5WrNLR5oXExJACKmX1Krp6Sf+Y1WztkwgYI1yIg=
-github.com/damonto/euicc-go v0.0.0-20250301053854-10abc2266b8d/go.mod h1:pn+9b2mTaei6AKLDc1aVyUKK8JFRMZs1l18kNCFWmr8=
+github.com/damonto/euicc-go v0.0.0-20250303020230-b7dabbc44e56 h1:+BBosi2T0D/2ZZTPKh36UAAVr3noUSZ/GEJymJPVsPo=
+github.com/damonto/euicc-go v0.0.0-20250303020230-b7dabbc44e56/go.mod h1:pn+9b2mTaei6AKLDc1aVyUKK8JFRMZs1l18kNCFWmr8=
+github.com/damonto/euicc-go v0.0.0-20250303025219-d88f7963f65c h1:tM5L3TDgSC+X32VzoltlOZv9IenxpckfNaLxFZr4xEI=
+github.com/damonto/euicc-go v0.0.0-20250303025219-d88f7963f65c/go.mod h1:pn+9b2mTaei6AKLDc1aVyUKK8JFRMZs1l18kNCFWmr8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

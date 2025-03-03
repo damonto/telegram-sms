@@ -27,8 +27,9 @@ type Subscriber struct {
 func init() {
 	flag.StringVar(&config.C.BotToken, "bot-token", "", "telegram bot token")
 	flag.Var(&config.C.AdminId, "admin-id", "telegram admin id")
-	flag.StringVar(&config.C.Endpoint, "endpoint", "https://api.telegram.org", "telegram endpoint")
 	flag.BoolVar(&config.C.Slowdown, "slowdown", false, "enable slowdown mode (MTU: 120)")
+	flag.Var(&config.C.AID, "aid", "The ISD-R Applet ID (default: sgp22, options: sgp22, 5ber, esimme)")
+	flag.StringVar(&config.C.Endpoint, "endpoint", "https://api.telegram.org", "telegram endpoint")
 	flag.BoolVar(&config.C.Verbose, "verbose", false, "enable verbose mode")
 	flag.Parse()
 }
@@ -46,7 +47,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	slog.Info("Starting telegram sms bot", "version", Version)
+	slog.Info("Starting telegram SMS bot", "version", Version)
 
 	mm, err := modem.NewManager()
 	if err != nil {
@@ -84,7 +85,7 @@ func main() {
 		}
 	}()
 	<-ctx.Done()
-	slog.Info("Stopping telegram sms bot")
+	slog.Info("Stopping telegram SMS bot")
 	app.Shutdown()
 	slog.Info("Goodbye!")
 }
@@ -146,7 +147,7 @@ func send(bot *telego.Bot, modem *modem.Modem, messsage *modem.SMS) error {
 		util.EscapeText(messsage.Number),
 		fmt.Sprintf("`%s`", util.EscapeText(messsage.Text)),
 	)
-	for _, adminId := range config.C.AdminId.ToInt64() {
+	for _, adminId := range config.C.AdminId.UnmarshalInt64() {
 		msg, err := bot.SendMessage(context.Background(), tu.Message(
 			tu.ID(adminId),
 			message,

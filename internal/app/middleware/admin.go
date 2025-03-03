@@ -14,7 +14,7 @@ var ErrPermissionDenied = errors.New("permission denied")
 
 func Admin() th.Handler {
 	return func(ctx *th.Context, update telego.Update) error {
-		if !slices.Contains(config.C.AdminId.ToInt64(), update.Message.From.ID) {
+		if !slices.Contains(config.C.AdminId.UnmarshalInt64(), update.Message.From.ID) {
 			return ErrPermissionDenied
 		}
 		return ctx.Next(update)
