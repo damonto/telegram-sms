@@ -19,7 +19,8 @@ I have thoroughly tested this program and found it to work well. However, its co
 ### Requirements
 
 * *ModemManager*: Essential for managing modems.
-* *libqmi*: Version 1.35.5 or higher is required.
+* *libqmi*: Version 1.35.5 or higher is required. (for QMI modems)
+* *libmbim*: Version 1.26.0 or higher is required. (for MBIM modems)
 
 ### Installation & Usage
 
