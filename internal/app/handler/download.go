@@ -163,7 +163,7 @@ func (d *profileDownload) ConfirmationCode() chan string {
 	return d.h.confirmationCode
 }
 
-func (h *DownloadHandler) download(ctx *th.Context, message telego.Message, s *state.ChatState, value *DownloadValue) error {
+func (h *DownloadHandler) download(ctx *th.Context, message telego.Message, _ *state.ChatState, value *DownloadValue) error {
 	defer state.M.Exit(message.From.ID)
 	var downloadCtx context.Context
 	downloadCtx, value.cancel = context.WithTimeout(context.Background(), 10*time.Minute)

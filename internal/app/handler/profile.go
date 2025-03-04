@@ -228,7 +228,7 @@ func (h *ProfileHandler) setNickname(ctx *th.Context, message telego.Message, s 
 	return err
 }
 
-func (h *ProfileHandler) askNickname(ctx *th.Context, message telego.Message, s *state.ChatState) error {
+func (h *ProfileHandler) askNickname(ctx *th.Context, message telego.Message, _ *state.ChatState) error {
 	state.M.Current(message.Chat.ID, ProfileActionSetNickname)
 	_, err := h.ReplyMessage(
 		ctx,
