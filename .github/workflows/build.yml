@@ -44,6 +44,10 @@ jobs:
           cache: false
           go-version: 1.24
 
+      - name: Install libmbim
+        run: sudo apt-get update -y
+          sudo apt-get -qq install -y libmbim-glib-dev
+
       - name: Building libqmi
         run: |
           # Remove this step once libqmi 1.36 is available in the Ubuntu repository.

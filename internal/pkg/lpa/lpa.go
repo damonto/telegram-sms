@@ -8,9 +8,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/damonto/euicc-go/apdu"
 	"github.com/damonto/euicc-go/bertlv"
 	"github.com/damonto/euicc-go/bertlv/primitive"
 	"github.com/damonto/euicc-go/driver"
+	"github.com/damonto/euicc-go/driver/mbim"
+	"github.com/damonto/euicc-go/driver/qmi"
 	sgp22http "github.com/damonto/euicc-go/http"
 	"github.com/damonto/euicc-go/lpa"
 	sgp22 "github.com/damonto/euicc-go/v2"
@@ -57,13 +60,23 @@ func New(m *modem.Modem) (*LPA, error) {
 }
 
 func (l *LPA) createTransmitter(m *modem.Modem) (driver.Transmitter, error) {
-	port, err := m.Port(modem.ModemPortTypeQmi)
-	if err != nil {
-		return nil, err
-	}
 	slot := util.If(m.PrimarySimSlot > 0, m.PrimarySimSlot, 1)
-	slog.Info("Trying to connect", "port", port, "slot", slot)
-	channel, err := driver.NewQMI(port, uint8(slot))
+	portType := m.PrimaryPortType()
+	if portType == modem.ModemPortTypeUnknown {
+		return nil, errors.New("unknown port type")
+	}
+	var err error
+	var channel apdu.SmartCardChannel
+	switch portType {
+	case modem.ModemPortTypeQmi:
+		slog.Info("Using QMI driver", "port", m.PrimaryPort, "slot", slot)
+		channel, err = qmi.New(m.PrimaryPort, uint8(slot))
+	case modem.ModemPortTypeMbim:
+		slog.Info("Using MBIM driver", "port", m.PrimaryPort, "slot", slot)
+		channel, err = mbim.New(m.PrimaryPort, uint8(slot))
+	default:
+		return nil, errors.New("unsupported port type")
+	}
 	if err != nil {
 		return nil, err
 	}

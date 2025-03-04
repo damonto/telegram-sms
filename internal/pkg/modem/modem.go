@@ -56,56 +56,49 @@ func (m *Modem) SignalQuality() (percent uint32, recent bool, err error) {
 }
 
 func (m *Modem) Restart() error {
-	if m.PortType() == ModemPortTypeQmi {
-		if err := m.RepowerViaQMI(); err != nil {
+	if m.PrimaryPortType() == ModemPortTypeQmi {
+		if err := m.reinitSimViaQMI(); err != nil {
 			return err
 		}
 	}
 	// Some older modems require disabling and enabling the modem to take effect.
 	if err := m.Disable(); err != nil {
-		slog.Warn("Failed to disable modem", "error", err)
+		slog.Warn("Unable to disable modem", "error", err)
 	}
 	return nil
 }
 
-func (m *Modem) RepowerViaQMI() error {
-	device, err := m.Port(ModemPortTypeQmi)
-	if err != nil {
-		return err
-	}
+func (m *Modem) reinitSimViaQMI() error {
 	// If multiple SIM slots aren't supported, this property will report value 0.
 	// On QMI based modems the SIM slot is 1 based.
 	slot := util.If(m.PrimarySimSlot > 0, m.PrimarySimSlot, 1)
-	if result, err := exec.Command("/usr/bin/qmicli", "-d", device, "-p", fmt.Sprintf("--uim-sim-power-off=%d", slot)).Output(); err != nil {
+	if result, err := exec.Command("/usr/bin/qmicli", "-d", m.PrimaryPort, "-p", fmt.Sprintf("--uim-sim-power-off=%d", slot)).Output(); err != nil {
 		slog.Error("Failed to power off sim", "error", err, "result", string(result))
 		return err
 	}
-	if result, err := exec.Command("/usr/bin/qmicli", "-d", device, "-p", fmt.Sprintf("--uim-sim-power-on=%d", slot)).Output(); err != nil {
+	if result, err := exec.Command("/usr/bin/qmicli", "-d", m.PrimaryPort, "-p", fmt.Sprintf("--uim-sim-power-on=%d", slot)).Output(); err != nil {
 		slog.Error("Failed to power on sim", "error", err, "result", string(result))
 		return err
 	}
 	return nil
 }
 
-func (m *Modem) PortType() ModemPortType {
-	supportedPorts := []ModemPortType{ModemPortTypeQmi, ModemPortTypeMbim}
+func (m *Modem) PrimaryPortType() ModemPortType {
 	for _, port := range m.Ports {
-		for _, supportedPort := range supportedPorts {
-			if port.PortType == supportedPort {
-				return supportedPort
-			}
+		if port.Device == m.PrimaryPort {
+			return port.PortType
 		}
 	}
 	return ModemPortTypeUnknown
 }
 
-func (m *Modem) Port(portType ModemPortType) (string, error) {
+func (m *Modem) Port(portType ModemPortType) (*ModemPort, error) {
 	for _, port := range m.Ports {
 		if port.PortType == portType {
-			return port.Device, nil
+			return &port, nil
 		}
 	}
-	return "", errors.New("port not found")
+	return nil, errors.New("port not found")
 }
 
 func (m *Modem) SystemBusPrivate() (*dbus.Conn, error) {
