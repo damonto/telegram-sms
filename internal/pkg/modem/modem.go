@@ -46,6 +46,15 @@ func (m *Modem) SetPrimarySimSlot(slot uint32) error {
 	return m.dbusObject.Call(ModemInterface+".SetPrimarySimSlot", 0, slot).Err
 }
 
+func (m *Modem) AccessTechnologies() ([]ModemAccessTechnology, error) {
+	variant, err := m.dbusObject.GetProperty(ModemInterface + ".AccessTechnologies")
+	if err != nil {
+		return nil, err
+	}
+	bitmask := variant.Value().(uint32)
+	return ModemAccessTechnology(bitmask).UnmarshalBitmask(bitmask), nil
+}
+
 func (m *Modem) SignalQuality() (percent uint32, recent bool, err error) {
 	variant, err := m.dbusObject.GetProperty(ModemInterface + ".SignalQuality")
 	if err != nil {
@@ -57,7 +66,7 @@ func (m *Modem) SignalQuality() (percent uint32, recent bool, err error) {
 
 func (m *Modem) Restart() error {
 	if m.PrimaryPortType() == ModemPortTypeQmi {
-		if err := m.reinitSimViaQMI(); err != nil {
+		if err := m.restartSIMViaQMI(); err != nil {
 			return err
 		}
 	}
@@ -68,7 +77,7 @@ func (m *Modem) Restart() error {
 	return nil
 }
 
-func (m *Modem) reinitSimViaQMI() error {
+func (m *Modem) restartSIMViaQMI() error {
 	// If multiple SIM slots aren't supported, this property will report value 0.
 	// On QMI based modems the SIM slot is 1 based.
 	slot := util.If(m.PrimarySimSlot > 0, m.PrimarySimSlot, 1)

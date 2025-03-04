@@ -58,11 +58,146 @@ const (
 	Modem3gppRegistrationStateRoamingCsfbNotPreferred                                   // Registered for "CSFB not preferred", roaming network (applicable only when on LTE).
 )
 
+func (m Modem3gppRegistrationState) String() string {
+	switch m {
+	case Modem3gppRegistrationStateIdle:
+		return "Idle"
+	case Modem3gppRegistrationStateHome:
+		return "Home"
+	case Modem3gppRegistrationStateSearching:
+		return "Searching"
+	case Modem3gppRegistrationStateDenied:
+		return "Denied"
+	case Modem3gppRegistrationStateUnknown:
+		return "Unknown"
+	case Modem3gppRegistrationStateRoaming:
+		return "Roaming"
+	case Modem3gppRegistrationStateHomeSmsOnly:
+		return "Home SMS Only"
+	case Modem3gppRegistrationStateRoamingSmsOnly:
+		return "Roaming SMS Only"
+	case Modem3gppRegistrationStateEmergencyOnly:
+		return "Emergency Only"
+	case Modem3gppRegistrationStateHomeCsfbNotPreferred:
+		return "Home CSFB Not Preferred"
+	case Modem3gppRegistrationStateRoamingCsfbNotPreferred:
+		return "Roaming CSFB Not Preferred"
+	default:
+		return "Undefined"
+	}
+}
+
 type Modem3gppUssdSessionState uint32
 
 const (
 	Modem3gppUssdSessionStateUnknown      Modem3gppUssdSessionState = iota // Unknown state.
-	Modem3gppUssdSessionStateIdle                                       // No active session.
-	Modem3gppUssdSessionStateActive                                     // A session is active and the mobile is waiting for a response.
-	Modem3gppUssdSessionStateUserResponse                               // The network is waiting for the client's response.
+	Modem3gppUssdSessionStateIdle                                          // No active session.
+	Modem3gppUssdSessionStateActive                                        // A session is active and the mobile is waiting for a response.
+	Modem3gppUssdSessionStateUserResponse                                  // The network is waiting for the client's response.
 )
+
+type ModemAccessTechnology uint32
+
+const (
+	ModemAccessTechnologyUnknown    ModemAccessTechnology = 0          // The access technology used is unknown.
+	ModemAccessTechnologyPots       ModemAccessTechnology = 1 << 0     // Analog wireline telephone.
+	ModemAccessTechnologyGsm        ModemAccessTechnology = 1 << 1     // GSM.
+	ModemAccessTechnologyGsmCompact ModemAccessTechnology = 1 << 2     // Compact GSM.
+	ModemAccessTechnologyGprs       ModemAccessTechnology = 1 << 3     // GPRS.
+	ModemAccessTechnologyEdge       ModemAccessTechnology = 1 << 4     // EDGE (ETSI 27.007: "GSM w/EGPRS").
+	ModemAccessTechnologyUmts       ModemAccessTechnology = 1 << 5     // UMTS (ETSI 27.007: "UTRAN").
+	ModemAccessTechnologyHsdpa      ModemAccessTechnology = 1 << 6     // HSDPA (ETSI 27.007: "UTRAN w/HSDPA").
+	ModemAccessTechnologyHsupa      ModemAccessTechnology = 1 << 7     // HSUPA (ETSI 27.007: "UTRAN w/HSUPA").
+	ModemAccessTechnologyHspa       ModemAccessTechnology = 1 << 8     // HSPA (ETSI 27.007: "UTRAN w/HSDPA and HSUPA").
+	ModemAccessTechnologyHspaPlus   ModemAccessTechnology = 1 << 9     // HSPA+ (ETSI 27.007: "UTRAN w/HSPA+").
+	ModemAccessTechnology1xrtt      ModemAccessTechnology = 1 << 10    // CDMA2000 1xRTT.
+	ModemAccessTechnologyEvdo0      ModemAccessTechnology = 1 << 11    // CDMA2000 EVDO revision 0.
+	ModemAccessTechnologyEvdoa      ModemAccessTechnology = 1 << 12    // CDMA2000 EVDO revision A.
+	ModemAccessTechnologyEvdob      ModemAccessTechnology = 1 << 13    // CDMA2000 EVDO revision B.
+	ModemAccessTechnologyLte        ModemAccessTechnology = 1 << 14    // LTE (ETSI 27.007: "E-UTRAN")
+	ModemAccessTechnology5GNR       ModemAccessTechnology = 1 << 15    // 5GNR (ETSI 27.007: "NG-RAN"). Since 1.14.
+	ModemAccessTechnologyLteCatM    ModemAccessTechnology = 1 << 16    // Cat-M (ETSI 23.401: LTE Category M1/M2). Since 1.20.
+	ModemAccessTechnologyLteNBIot   ModemAccessTechnology = 1 << 17    // NB IoT (ETSI 23.401: LTE Category NB1/NB2). Since 1.20.
+	ModemAccessTechnologyAny        ModemAccessTechnology = 0xFFFFFFFF // Mask specifying all access technologies.
+)
+
+func (m ModemAccessTechnology) UnmarshalBitmask(bitmask uint32) []ModemAccessTechnology {
+	if bitmask == 0 {
+		return nil
+	}
+	supported := []ModemAccessTechnology{
+		ModemAccessTechnologyPots,
+		ModemAccessTechnologyGsm,
+		ModemAccessTechnologyGsmCompact,
+		ModemAccessTechnologyGprs,
+		ModemAccessTechnologyEdge,
+		ModemAccessTechnologyUmts,
+		ModemAccessTechnologyHsdpa,
+		ModemAccessTechnologyHsupa,
+		ModemAccessTechnologyHspa,
+		ModemAccessTechnologyHspaPlus,
+		ModemAccessTechnology1xrtt,
+		ModemAccessTechnologyEvdo0,
+		ModemAccessTechnologyEvdoa,
+		ModemAccessTechnologyEvdob,
+		ModemAccessTechnologyLte,
+		ModemAccessTechnology5GNR,
+		ModemAccessTechnologyLteCatM,
+		ModemAccessTechnologyLteNBIot,
+		ModemAccessTechnologyAny,
+	}
+	var accessTechnologies []ModemAccessTechnology
+	for idx, x := range supported {
+		if bitmask&(1<<idx) > 0 {
+			accessTechnologies = append(accessTechnologies, x)
+		}
+	}
+	return accessTechnologies
+}
+
+func (m ModemAccessTechnology) String() string {
+	switch m {
+	case ModemAccessTechnologyUnknown:
+		return "Unknown"
+	case ModemAccessTechnologyPots:
+		return "POTS"
+	case ModemAccessTechnologyGsm:
+		return "GSM"
+	case ModemAccessTechnologyGsmCompact:
+		return "GSM Compact"
+	case ModemAccessTechnologyGprs:
+		return "GPRS"
+	case ModemAccessTechnologyEdge:
+		return "EDGE"
+	case ModemAccessTechnologyUmts:
+		return "UMTS"
+	case ModemAccessTechnologyHsdpa:
+		return "HSDPA"
+	case ModemAccessTechnologyHsupa:
+		return "HSUPA"
+	case ModemAccessTechnologyHspa:
+		return "HSPA"
+	case ModemAccessTechnologyHspaPlus:
+		return "HSPA+"
+	case ModemAccessTechnology1xrtt:
+		return "CDMA2000 1xRTT"
+	case ModemAccessTechnologyEvdo0:
+		return "CDMA2000 EVDO revision 0"
+	case ModemAccessTechnologyEvdoa:
+		return "CDMA2000 EVDO revision A"
+	case ModemAccessTechnologyEvdob:
+		return "CDMA2000 EVDO revision B"
+	case ModemAccessTechnologyLte:
+		return "LTE"
+	case ModemAccessTechnology5GNR:
+		return "5GNR"
+	case ModemAccessTechnologyLteCatM:
+		return "LTE Cat-M"
+	case ModemAccessTechnologyLteNBIot:
+		return "LTE NB-IoT"
+	case ModemAccessTechnologyAny:
+		return "Any"
+	default:
+		return "Unknown"
+	}
+}

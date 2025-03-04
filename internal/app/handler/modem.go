@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/damonto/telegram-sms/internal/pkg/lpa"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
@@ -57,12 +58,20 @@ func (h *ListModemHandler) Handle() th.Handler {
 func (h *ListModemHandler) message(m *modem.Modem) string {
 	percent, _, _ := m.SignalQuality()
 	code, _ := m.OperatorCode()
+	state, _ := m.RegistrationState()
+	var accessTech []string
+	accessTechnologies, _ := m.AccessTechnologies()
+	for _, at := range accessTechnologies {
+		accessTech = append(accessTech, at.String())
+	}
 	message := fmt.Sprintf(ModemMessageTemplate,
 		util.EscapeText(m.Manufacturer),
 		util.EscapeText(m.Model),
 		util.EscapeText(m.FirmwareRevision),
 		m.EquipmentIdentifier,
-		util.EscapeText(util.LookupCarrier(code)),
+		util.EscapeText(
+			fmt.Sprintf("%s (%s - %s)", util.LookupCarrier(code), strings.Join(accessTech, ", "), state),
+		),
 		util.EscapeText(util.If(m.Sim.OperatorName != "", m.Sim.OperatorName, util.LookupCarrier(m.Sim.OperatorIdentifier))),
 		util.EscapeText(m.Number),
 		percent,
