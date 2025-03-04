@@ -45,7 +45,8 @@ jobs:
           go-version: 1.24
 
       - name: Install libmbim
-        run: sudo apt-get update -y
+        run: |
+          sudo apt-get update -y
           sudo apt-get -qq install -y libmbim-glib-dev
 
       - name: Building libqmi
