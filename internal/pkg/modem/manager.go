@@ -8,12 +8,10 @@ import (
 )
 
 const (
-	ModemManagerInterface      = "org.freedesktop.ModemManager1"
 	ModemManagerManagedObjects = "org.freedesktop.DBus.ObjectManager.GetManagedObjects"
 	ModemManagerObjectPath     = "/org/freedesktop/ModemManager1"
 
-	// modemManagerMainObjectPath = "/org/freedesktop/ModemManager/"
-
+	ModemManagerInterface   = "org.freedesktop.ModemManager1"
 	ModemManagerScanDevices = ModemManagerInterface + ".ScanDevices"
 
 	ModemManagerInterfacesAdded   = "org.freedesktop.DBus.ObjectManager.InterfacesAdded"
@@ -54,7 +52,7 @@ func (m *Manager) Modems() (map[dbus.ObjectPath]*Modem, error) {
 		}
 		modem, err := m.createModem(objectPath, data["org.freedesktop.ModemManager1.Modem"])
 		if err != nil {
-			slog.Error("Failed to marshal modem", "error", err)
+			slog.Error("Failed to create modem", "error", err)
 			continue
 		}
 		m.modems[objectPath] = modem
@@ -125,7 +123,7 @@ func (m *Manager) Subscribe(subscriber func(map[dbus.ObjectPath]*Modem) error) e
 			raw := event.Body[1].(map[string]map[string]dbus.Variant)
 			modem, err := m.createModem(modemPath, raw["org.freedesktop.ModemManager1.Modem"])
 			if err != nil {
-				slog.Error("Failed to marshal modem", "error", err)
+				slog.Error("Failed to create modem", "error", err)
 				continue
 			}
 			if modem.State == ModemStateDisabled {

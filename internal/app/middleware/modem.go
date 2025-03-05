@@ -79,7 +79,7 @@ func (m *ModemRequiredMiddleware) run(modems map[dbus.ObjectPath]*modem.Modem, c
 
 func (m *ModemRequiredMiddleware) HandleModemSelectionCallbackQuery(ctx *th.Context, query telego.CallbackQuery) error {
 	objectPath := query.Data[len(CallbackQueryAskModemPrefix)+1:]
-	slog.Info("Modem selected", "objectPath", objectPath)
+	slog.Info("Using modem", "objectPath", objectPath)
 	modems, err := m.mm.Modems()
 	if err != nil {
 		return err
@@ -101,7 +101,7 @@ func (m *ModemRequiredMiddleware) sendErrorModemNotFound(ctx *th.Context, update
 		ctx,
 		tu.Message(
 			tu.ID(update.Message.From.ID),
-			"No modems found. Please connect a modem and try again.",
+			"No modems found. Please plug in a modem and try again.",
 		).WithReplyParameters(&telego.ReplyParameters{
 			MessageID: update.Message.MessageID,
 		}),

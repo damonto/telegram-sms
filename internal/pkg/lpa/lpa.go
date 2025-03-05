@@ -42,6 +42,8 @@ type Product struct {
 	Brand        string
 }
 
+const AdminProtocol = "gsma/rsp/v2.2.0"
+
 func New(m *modem.Modem) (*LPA, error) {
 	var l = new(LPA)
 	var err error
@@ -52,7 +54,7 @@ func New(m *modem.Modem) (*LPA, error) {
 	l.Client = &lpa.Client{
 		HTTP: &sgp22http.Client{
 			Client:        driver.NewHTTPClient(30 * time.Second),
-			AdminProtocol: "gsma/rsp/v2.2.0",
+			AdminProtocol: AdminProtocol,
 		},
 		APDU: l.transmitter,
 	}
@@ -60,20 +62,16 @@ func New(m *modem.Modem) (*LPA, error) {
 }
 
 func (l *LPA) createTransmitter(m *modem.Modem) (driver.Transmitter, error) {
-	slot := util.If(m.PrimarySimSlot > 0, m.PrimarySimSlot, 1)
-	portType := m.PrimaryPortType()
-	if portType == modem.ModemPortTypeUnknown {
-		return nil, errors.New("unknown port type")
-	}
+	slot := uint8(util.If(m.PrimarySimSlot > 0, m.PrimarySimSlot, 1))
 	var err error
 	var channel apdu.SmartCardChannel
-	switch portType {
+	switch m.PrimaryPortType() {
 	case modem.ModemPortTypeQmi:
 		slog.Info("Using QMI driver", "port", m.PrimaryPort, "slot", slot)
-		channel, err = qmi.New(m.PrimaryPort, uint8(slot))
+		channel, err = qmi.New(m.PrimaryPort, slot)
 	case modem.ModemPortTypeMbim:
 		slog.Info("Using MBIM driver", "port", m.PrimaryPort, "slot", slot)
-		channel, err = mbim.New(m.PrimaryPort, uint8(slot))
+		channel, err = mbim.New(m.PrimaryPort, slot)
 	default:
 		return nil, errors.New("unsupported port type")
 	}
@@ -99,25 +97,18 @@ func (l *LPA) Info() (*Info, error) {
 	}
 	info.EID = hex.EncodeToString(eid)
 	country, manufacturer, brand := util.LookupEUM(info.EID)
-	info.Product = &Product{
-		Country:      country,
-		Manufacturer: manufacturer,
-		Brand:        brand,
-	}
+	info.Product = &Product{Country: country, Manufacturer: manufacturer, Brand: brand}
 
 	tlv, err := l.EUICCInfo2()
 	if err != nil {
 		return nil, err
 	}
-
 	// sasAcreditationNumber
 	info.SasAcreditationNumber = string(tlv.First(bertlv.Universal.Primitive(12)).Value)
-
 	// euiccCiPKIdListForSigning
 	for _, child := range tlv.First(bertlv.ContextSpecific.Constructed(10)).Children {
 		info.Certificates = append(info.Certificates, util.FindCertificateIssuer(hex.EncodeToString(child.Value)))
 	}
-
 	// extResource.freeNonVolatileMemory
 	resource := tlv.First(bertlv.ContextSpecific.Primitive(4))
 	if resource == nil {
