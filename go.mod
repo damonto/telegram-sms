@@ -3,11 +3,11 @@ module github.com/damonto/telegram-sms
 go 1.24.0
 
 require (
-	github.com/damonto/euicc-go v0.0.0-20250304050158-fe40b4ef26c8
-	github.com/damonto/euicc-go/driver/mbim v0.0.0-20250304053740-fe107467e999
-	github.com/damonto/euicc-go/driver/qmi v0.0.0-20250304050158-fe40b4ef26c8
+	github.com/damonto/euicc-go v0.0.0-20250304071920-eb0dbcac5a3e
+	github.com/damonto/euicc-go/driver/mbim v0.0.0-20250305015753-7ed3ab48c024
+	github.com/damonto/euicc-go/driver/qmi v0.0.0-20250304071920-eb0dbcac5a3e
 	github.com/godbus/dbus/v5 v5.1.0
-	github.com/mymmrac/telego v1.0.0-rc1
+	github.com/mymmrac/telego v1.0.0
 )
 
 require (

@@ -10,10 +10,16 @@ github.com/cloudwego/base64x v0.1.5/go.mod h1:0zlkT4Wn5C6NdauXdJRhSKRlJvmclQ1hhJ
 github.com/cloudwego/iasm v0.2.0/go.mod h1:8rXZaNYT2n95jn+zTI1sDr+IgcD2GVs0nlbbQPiEFhY=
 github.com/damonto/euicc-go v0.0.0-20250304050158-fe40b4ef26c8 h1:23m3G3/PSZZiqYBZykcnCTQ/AJCVvc1yahEigFKawU0=
 github.com/damonto/euicc-go v0.0.0-20250304050158-fe40b4ef26c8/go.mod h1:pn+9b2mTaei6AKLDc1aVyUKK8JFRMZs1l18kNCFWmr8=
+github.com/damonto/euicc-go v0.0.0-20250304071920-eb0dbcac5a3e h1:QQwLU/fl8RuWzBb1x/uvJ2ZCGNUrkyRJ3ieo3/au2aE=
+github.com/damonto/euicc-go v0.0.0-20250304071920-eb0dbcac5a3e/go.mod h1:teGRRJUBWhmV8S+c/TCfjmlAJtTjb7qqPqguqu4tSCE=
 github.com/damonto/euicc-go/driver/mbim v0.0.0-20250304053740-fe107467e999 h1:+v3YG7pao0OvWr9HxBHkh28Yiaqmdvl3ixWT+XCI0SE=
 github.com/damonto/euicc-go/driver/mbim v0.0.0-20250304053740-fe107467e999/go.mod h1:KrGRv2MuBNzF4yma7lAN7A1rB/QlpaT2gVa0St4IqP4=
+github.com/damonto/euicc-go/driver/mbim v0.0.0-20250305015753-7ed3ab48c024 h1:7/EVjvV2h3xg9CbYzTx7KuZYdwFyCwsWbXfaCDAmycg=
+github.com/damonto/euicc-go/driver/mbim v0.0.0-20250305015753-7ed3ab48c024/go.mod h1:AkxvTALvGptzG+dvOwtRUMXtRcZ0a8LcDG0f0kANk3U=
 github.com/damonto/euicc-go/driver/qmi v0.0.0-20250304050158-fe40b4ef26c8 h1:8iFsLPCN05ped+vBcPFdIsMO556W7Sh53MB9gT/5NZ0=
 github.com/damonto/euicc-go/driver/qmi v0.0.0-20250304050158-fe40b4ef26c8/go.mod h1:mZTHcC9r/mfw3GaILYyAHkrSCdEuSpQvhKTN9zrjiXo=
+github.com/damonto/euicc-go/driver/qmi v0.0.0-20250304071920-eb0dbcac5a3e h1:fdOPHvhlXtC9DfLWuSVCwhEyjR8vwHmIuVhySB/KAEM=
+github.com/damonto/euicc-go/driver/qmi v0.0.0-20250304071920-eb0dbcac5a3e/go.mod h1:VePGdl3Nj+kA3v7Ma1Njju7uGUY693yJMs4X7v00e0w=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -29,6 +35,8 @@ github.com/klauspost/cpuid/v2 v2.2.10/go.mod h1:hqwkgyIinND0mEev00jJYCxPNVRVXFQe
 github.com/knz/go-libedit v1.10.1/go.mod h1:MZTVkCWyz0oBc7JOWP3wNAzd002ZbM/5hgShxwh4x8M=
 github.com/mymmrac/telego v1.0.0-rc1 h1:t/t6jKkNucYTcJY7Ozc0pUo7AReLjpDdi3YCW7V7Cz0=
 github.com/mymmrac/telego v1.0.0-rc1/go.mod h1:xwGn5QyhMkLwwj0ZHYSFdR0h1rud0mF6KtVh3Nmo9r0=
+github.com/mymmrac/telego v1.0.0 h1:IcJMLjER2c9gJH8YW7wA+YA8L5yPXoA+4vJO1LRdTIM=
+github.com/mymmrac/telego v1.0.0/go.mod h1:MCNk1czg30jOH76L12mqUSSULpnnPh9jGfw3h59sw4U=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
