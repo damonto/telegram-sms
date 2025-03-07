@@ -214,11 +214,13 @@ func (h *DownloadHandler) HandleCallbackQuery(ctx *th.Context, query telego.Call
 	}
 	confirmed := query.Data[len(DownloadCallbackDataPrefix)+1:]
 	h.confirmed <- confirmed == "yes"
-	if err := ctx.Bot().DeleteMessage(ctx, &telego.DeleteMessageParams{
-		ChatID:    tu.ID(query.From.ID),
-		MessageID: query.Message.GetMessageID(),
-	}); err != nil {
-		slog.Warn("Failed to delete message", "error", err)
+	if confirmed == "yes" {
+		if err := ctx.Bot().DeleteMessage(ctx, &telego.DeleteMessageParams{
+			ChatID:    tu.ID(query.From.ID),
+			MessageID: query.Message.GetMessageID(),
+		}); err != nil {
+			slog.Warn("Failed to delete message", "error", err)
+		}
 	}
 	if confirmed == "no" {
 		s.Value.(*DownloadValue).cancel()
