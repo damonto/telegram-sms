@@ -96,6 +96,7 @@ func (l *LPA) tryCreateTransmitter(channel apdu.SmartCardChannel) (driver.Transm
 			slog.Info("Using AID", "brand", brand, "AID", hex.EncodeToString(aid))
 			return l.transmitter, nil
 		}
+		slog.Error("Failed to create transmitter", "brand", brand, "AID", hex.EncodeToString(aid), "error", err)
 	}
 	return nil, errors.New("no supported ISD-R AID found or it's not an eUICC")
 }
