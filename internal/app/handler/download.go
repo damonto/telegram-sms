@@ -155,11 +155,11 @@ ICCID: %s
 
 func (d *profileDownload) ConfirmationCode() chan string {
 	defer func() {
-		d.progressMessage = nil
 		d.ctx.Bot().DeleteMessage(d.ctx, &telego.DeleteMessageParams{
-			MessageID: d.message.GetMessageID(),
-			ChatID:    d.message.Chat.ChatID(),
+			MessageID: d.progressMessage.GetMessageID(),
+			ChatID:    d.progressMessage.Chat.ChatID(),
 		})
+		d.progressMessage = nil
 	}()
 	if _, err := d.h.ReplyMessage(d.ctx, d.message, util.EscapeText("Please enter the confirmation code."), nil); err != nil {
 		state.M.Exit(d.message.From.ID)
