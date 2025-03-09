@@ -154,6 +154,13 @@ ICCID: %s
 }
 
 func (d *profileDownload) ConfirmationCode() chan string {
+	defer func() {
+		d.progressMessage = nil
+		d.ctx.Bot().DeleteMessage(d.ctx, &telego.DeleteMessageParams{
+			MessageID: d.message.GetMessageID(),
+			ChatID:    d.message.Chat.ChatID(),
+		})
+	}()
 	if _, err := d.h.ReplyMessage(d.ctx, d.message, util.EscapeText("Please enter the confirmation code."), nil); err != nil {
 		state.M.Exit(d.message.From.ID)
 		d.cancel()
@@ -199,7 +206,7 @@ func (h *DownloadHandler) parseActivationCode(value *DownloadValue, text string)
 		SMDP: &url.URL{Scheme: "https", Host: parts[1]},
 		IMEI: value.Modem.EquipmentIdentifier,
 	}
-	if len(parts) == 3 {
+	if len(parts) >= 3 {
 		ac.MatchingID = parts[2]
 	}
 	if len(parts) == 5 && parts[4] == "1" {

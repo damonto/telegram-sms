@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,10 +45,10 @@ type Product struct {
 
 const AdminProtocol = "gsma/rsp/v2.2.0"
 
-var AIDs = map[string][]byte{
-	"GSMA SGP.22": driver.SGP22AID,
-	"5ber Ultra":  {0xA0, 0x00, 0x00, 0x05, 0x59, 0x10, 0x10, 0xFF, 0xFF, 0xFF, 0xFF, 0x89, 0x00, 0x05, 0x05, 0x00},
-	"eSIM.me V2":  {0xA0, 0x00, 0x00, 0x05, 0x59, 0x10, 0x10, 0x00, 0x00, 0x00, 0x89, 0x00, 0x00, 0x00, 0x03, 0x00},
+var AIDs = [][]byte{
+	driver.SGP22AID,
+	{0xA0, 0x00, 0x00, 0x05, 0x59, 0x10, 0x10, 0xFF, 0xFF, 0xFF, 0xFF, 0x89, 0x00, 0x05, 0x05, 0x00},
+	{0xA0, 0x00, 0x00, 0x05, 0x59, 0x10, 0x10, 0x00, 0x00, 0x00, 0x89, 0x00, 0x00, 0x00, 0x03, 0x00},
 }
 
 func New(m *modem.Modem) (*LPA, error) {
@@ -89,14 +90,14 @@ func (l *LPA) createTransmitter(m *modem.Modem) (driver.Transmitter, error) {
 
 func (l *LPA) tryCreateTransmitter(channel apdu.SmartCardChannel) (driver.Transmitter, error) {
 	var err error
-	for brand, aid := range AIDs {
-		slog.Info("Trying AID", "brand", brand, "AID", hex.EncodeToString(aid))
+	for _, aid := range AIDs {
+		slog.Info("Trying", "AID", strings.ToUpper(hex.EncodeToString(aid)))
 		l.transmitter, err = driver.NewTransmitter(channel, aid, util.If(config.C.Slowdown, 120, 250))
 		if err == nil {
-			slog.Info("Using AID", "brand", brand, "AID", hex.EncodeToString(aid))
+			slog.Info("Using", "AID", strings.ToUpper(hex.EncodeToString(aid)))
 			return l.transmitter, nil
 		}
-		slog.Error("Failed to create transmitter", "brand", brand, "AID", hex.EncodeToString(aid), "error", err)
+		slog.Error("Failed to create transmitter", "AID", strings.ToUpper(hex.EncodeToString(aid)), "error", err)
 	}
 	return nil, errors.New("no supported ISD-R AID found or it's not an eUICC")
 }
