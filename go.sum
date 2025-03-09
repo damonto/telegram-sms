@@ -10,6 +10,8 @@ github.com/cloudwego/base64x v0.1.5/go.mod h1:0zlkT4Wn5C6NdauXdJRhSKRlJvmclQ1hhJ
 github.com/cloudwego/iasm v0.2.0/go.mod h1:8rXZaNYT2n95jn+zTI1sDr+IgcD2GVs0nlbbQPiEFhY=
 github.com/damonto/euicc-go v0.0.2 h1:2cE1nD5yD2Q6H4EXVvw0gH0OQodg7B40EMMHqBnoMzg=
 github.com/damonto/euicc-go v0.0.2/go.mod h1:teGRRJUBWhmV8S+c/TCfjmlAJtTjb7qqPqguqu4tSCE=
+github.com/damonto/euicc-go v0.0.3 h1:WR0NzYB6Na1WYv2WCs7RRnsYBC0ydI9WKZmC8GUGknY=
+github.com/damonto/euicc-go v0.0.3/go.mod h1:teGRRJUBWhmV8S+c/TCfjmlAJtTjb7qqPqguqu4tSCE=
 github.com/damonto/euicc-go/driver/mbim v0.0.1 h1:fp9IRzKRNW0lzsWrQ12/zndqD5SI2dRbpGXAty4ADTY=
 github.com/damonto/euicc-go/driver/mbim v0.0.1/go.mod h1:i8GWqvEf5kn0AjZW5ol1efn0bclF3Ak7+g8FGllWbZU=
 github.com/damonto/euicc-go/driver/qmi v0.0.1 h1:o8LIyyJ71/dZ+WVFGMoQYAaIQ9wkL0+P0P9GwD4wZbY=
