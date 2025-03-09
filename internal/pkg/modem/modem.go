@@ -65,21 +65,14 @@ func (m *Modem) SignalQuality() (percent uint32, recent bool, err error) {
 }
 
 func (m *Modem) Restart() error {
+	var err error
 	// Restarting the SIM is only supported on QMI based modems.
 	// Some modems require the SIM to be restarted to take effect.
 	if m.PrimaryPortType() == ModemPortTypeQmi {
-		if err := m.QMIRestartSIM(); err != nil {
-			return err
-		}
+		err = errors.Join(err, m.QMIRestartSIM())
 	}
 	// Some modems require disabling and enabling the modem to take effect.
-	if err := m.Disable(); err != nil {
-		slog.Warn("Unable to disable modem", "error", err)
-	}
-	if err := m.Enable(); err != nil {
-		slog.Warn("Unable to enable modem", "error", err)
-	}
-	return nil
+	return errors.Join(err, m.Disable(), m.Enable())
 }
 
 func (m *Modem) QMIRestartSIM() error {

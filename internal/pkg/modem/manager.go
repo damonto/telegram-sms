@@ -133,11 +133,7 @@ func (m *Manager) Subscribe(subscriber func(map[dbus.ObjectPath]*Modem) error) e
 					continue
 				}
 			}
-			m.modems[modemPath] = modem
-			// If user restart the ModemManager manually, Dbus will not send the InterfacesRemoved signal
-			// But it will send the InterfacesAdded signal again.
-			// So we need to remove the duplicate modem manually.
-			m.removeDuplicate(modem, m.modems)
+			m.updateModem(modem)
 		} else {
 			slog.Info("Modem unplugged", "path", modemPath)
 			delete(m.modems, modemPath)
@@ -148,12 +144,15 @@ func (m *Manager) Subscribe(subscriber func(map[dbus.ObjectPath]*Modem) error) e
 	}
 }
 
-func (m *Manager) removeDuplicate(modem *Modem, modems map[dbus.ObjectPath]*Modem) map[dbus.ObjectPath]*Modem {
-	for path, m := range modems {
-		if m.EquipmentIdentifier == modem.EquipmentIdentifier {
+func (m *Manager) updateModem(modem *Modem) {
+	// If user restart the ModemManager manually, Dbus will not send the InterfacesRemoved signal
+	// But it will send the InterfacesAdded signal again.
+	// So we need to remove the duplicate modem manually and update it.
+	for path, v := range m.modems {
+		if v.EquipmentIdentifier == modem.EquipmentIdentifier {
 			slog.Info("Removing duplicate modem", "path", path, "equipmentIdentifier", modem.EquipmentIdentifier)
-			delete(modems, path)
+			delete(m.modems, path)
 		}
 	}
-	return modems
+	m.modems[modem.objectPath] = modem
 }
