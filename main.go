@@ -28,7 +28,6 @@ func init() {
 	flag.StringVar(&config.C.BotToken, "bot-token", "", "telegram bot token")
 	flag.Var(&config.C.AdminId, "admin-id", "telegram admin id")
 	flag.BoolVar(&config.C.Slowdown, "slowdown", false, "enable slowdown mode (MTU: 120)")
-	flag.Var(&config.C.AID, "aid", "The ISD-R Applet ID (default: sgp22, options: sgp22, 5ber, esimme)")
 	flag.StringVar(&config.C.Endpoint, "endpoint", "https://api.telegram.org", "telegram endpoint")
 	flag.BoolVar(&config.C.Verbose, "verbose", false, "enable verbose mode")
 	flag.Parse()

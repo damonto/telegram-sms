@@ -44,6 +44,12 @@ type Product struct {
 
 const AdminProtocol = "gsma/rsp/v2.2.0"
 
+var AIDs = map[string][]byte{
+	"GSMA SGP.22": driver.SGP22AID,
+	"5ber Ultra":  {0xA0, 0x00, 0x00, 0x05, 0x59, 0x10, 0x10, 0xFF, 0xFF, 0xFF, 0xFF, 0x89, 0x00, 0x05, 0x05, 0x00},
+	"eSIM.me V2":  {0xA0, 0x00, 0x00, 0x05, 0x59, 0x10, 0x10, 0x00, 0x00, 0x00, 0x89, 0x00, 0x00, 0x00, 0x03, 0x00},
+}
+
 func New(m *modem.Modem) (*LPA, error) {
 	var l = new(LPA)
 	var err error
@@ -78,11 +84,20 @@ func (l *LPA) createTransmitter(m *modem.Modem) (driver.Transmitter, error) {
 	if err != nil {
 		return nil, err
 	}
-	AID, err := config.C.AID.UnmarshalBinary()
-	if err != nil {
-		return nil, err
+	return l.tryCreateTransmitter(channel)
+}
+
+func (l *LPA) tryCreateTransmitter(channel apdu.SmartCardChannel) (driver.Transmitter, error) {
+	var err error
+	for brand, aid := range AIDs {
+		slog.Info("Trying AID", "brand", brand, "AID", hex.EncodeToString(aid))
+		l.transmitter, err = driver.NewTransmitter(channel, aid, util.If(config.C.Slowdown, 120, 250))
+		if err == nil {
+			slog.Info("Using AID", "brand", brand, "AID", hex.EncodeToString(aid))
+			return l.transmitter, nil
+		}
 	}
-	return driver.NewTransmitter(channel, AID, util.If(config.C.Slowdown, 120, 250))
+	return nil, errors.New("no supported ISD-R AID found or it's not an eUICC")
 }
 
 func (l *LPA) Close() error {

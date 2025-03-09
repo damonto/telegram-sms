@@ -3,11 +3,8 @@ package config
 import (
 	"errors"
 	"log/slog"
-	"slices"
 	"strconv"
 	"strings"
-
-	"github.com/damonto/euicc-go/driver"
 )
 
 type AdminId []string
@@ -34,43 +31,15 @@ func (a *AdminId) UnmarshalInt64() []int64 {
 	return ids
 }
 
-type AID string
-
-var supportedAIDs = []string{"sgp22", "5ber", "esimme"}
-
-var AIDs = map[string][]byte{
-	"sgp22":  driver.SGP22AID,
-	"5ber":   {0xA0, 0x00, 0x00, 0x05, 0x59, 0x10, 0x10, 0xFF, 0xFF, 0xFF, 0xFF, 0x89, 0x00, 0x05, 0x05, 0x00},
-	"esimme": {0xA0, 0x00, 0x00, 0x05, 0x59, 0x10, 0x10, 0x00, 0x00, 0x00, 0x89, 0x00, 0x00, 0x00, 0x03, 0x00},
-}
-
-func (a *AID) Set(value string) error {
-	if !slices.Contains(supportedAIDs, value) {
-		return errors.New("unknown eUICC")
-	}
-	*a = AID(value)
-	return nil
-}
-
-func (a *AID) String() string { return string(*a) }
-
-func (a *AID) UnmarshalBinary() ([]byte, error) {
-	if aid, ok := AIDs[string(*a)]; ok {
-		return aid, nil
-	}
-	return nil, errors.New("unknown AID")
-}
-
 type Config struct {
 	BotToken string
 	AdminId  AdminId
-	AID      AID
 	Endpoint string
 	Slowdown bool
 	Verbose  bool
 }
 
-var C = &Config{AID: "sgp22"}
+var C = new(Config)
 
 var (
 	ErrBotTokenRequired = errors.New("bot token is required")
