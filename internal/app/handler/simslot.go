@@ -22,8 +22,9 @@ type SIMValue struct {
 }
 
 const SIMSlotMessageTemplate = `
-*SIM Slot %d*
+*\[Slot %d\]* %s
 Operator: %s
+IMSI: %s
 ICCID: %s
 `
 
@@ -62,7 +63,9 @@ func (h *SIMSlotHandler) message(slot int, sim *modem.SIM) ([]telego.InlineKeybo
 	message := fmt.Sprintf(
 		SIMSlotMessageTemplate,
 		slot,
-		util.EscapeText(util.LookupCarrier(sim.OperatorIdentifier)),
+		util.If(sim.Active, "🟢", "🔴"),
+		util.EscapeText(util.If(sim.OperatorName != "", sim.OperatorName, util.LookupCarrier(sim.OperatorIdentifier))),
+		sim.Imsi,
 		sim.Identifier,
 	)
 	return tu.InlineKeyboardRow(telego.InlineKeyboardButton{
