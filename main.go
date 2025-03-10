@@ -74,7 +74,7 @@ func main() {
 	}
 	slog.Info("Bot started", "username", me.Username, "id", me.ID)
 
-	app, err := app.NewApp(ctx, bot, mm)
+	app, err := app.New(ctx, bot, mm)
 	if err != nil {
 		panic(err)
 	}
@@ -146,7 +146,7 @@ func send(bot *telego.Bot, modem *modem.Modem, messsage *modem.SMS) error {
 		util.EscapeText(messsage.Number),
 		fmt.Sprintf("`%s`", util.EscapeText(messsage.Text)),
 	)
-	for _, adminId := range config.C.AdminId.UnmarshalInt64() {
+	for _, adminId := range config.C.AdminId.MarshalInt64() {
 		msg, err := bot.SendMessage(context.Background(), tu.Message(
 			tu.ID(adminId),
 			message,

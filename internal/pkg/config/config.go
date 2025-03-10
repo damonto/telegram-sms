@@ -18,7 +18,7 @@ func (a *AdminId) String() string {
 	return strings.Join(*a, ",")
 }
 
-func (a *AdminId) UnmarshalInt64() []int64 {
+func (a *AdminId) MarshalInt64() []int64 {
 	var ids []int64
 	for _, id := range *a {
 		id, err := strconv.Atoi(id)

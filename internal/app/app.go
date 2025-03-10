@@ -18,7 +18,7 @@ type application struct {
 	ctx     context.Context
 }
 
-func NewApp(ctx context.Context, bot *telego.Bot, m *modem.Manager) (*application, error) {
+func New(ctx context.Context, bot *telego.Bot, m *modem.Manager) (*application, error) {
 	app := &application{Bot: bot, m: m, ctx: ctx}
 	var err error
 	app.updates, err = bot.UpdatesViaLongPolling(ctx, nil)
