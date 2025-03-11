@@ -35,9 +35,9 @@ type profileDownload struct {
 }
 
 type DownloadValue struct {
-	Modem         *modem.Modem
-	cancel        context.CancelFunc
-	ActvationCode *lpa.ActivationCode
+	modem          *modem.Modem
+	cancel         context.CancelFunc
+	activationCode *lpa.ActivationCode
 }
 
 const (
@@ -62,7 +62,7 @@ func (h *DownloadHandler) Handle() th.Handler {
 		state.M.Enter(update.Message.Chat.ID, &state.ChatState{
 			Handler: h,
 			State:   DownloadAskActivationCode,
-			Value:   &DownloadValue{Modem: m},
+			Value:   &DownloadValue{modem: m},
 		})
 		_, err := h.Reply(ctx, update, util.EscapeText("Please enter the activation code."), nil)
 		return err
@@ -75,7 +75,7 @@ func (h *DownloadHandler) HandleMessage(ctx *th.Context, message telego.Message,
 		return h.downloadProfile(ctx, message, s, value)
 	}
 	if s.State == DownloadAskConfirmationCodeFirst {
-		value.ActvationCode.ConfirmationCode = message.Text
+		value.activationCode.ConfirmationCode = message.Text
 		return h.download(ctx, message, s, value)
 	}
 	if s.State == DownloadAskConfirmationCodeInProgress {
@@ -88,7 +88,7 @@ func (h *DownloadHandler) HandleMessage(ctx *th.Context, message telego.Message,
 func (h *DownloadHandler) downloadProfile(ctx *th.Context, message telego.Message, s *state.ChatState, value *DownloadValue) error {
 	var err error
 	var ccRequired bool
-	value.ActvationCode, ccRequired, err = h.parseActivationCode(value, message.Text)
+	value.activationCode, ccRequired, err = h.parseActivationCode(value, message.Text)
 	if err != nil {
 		return err
 	}
@@ -176,12 +176,12 @@ func (h *DownloadHandler) download(ctx *th.Context, message telego.Message, _ *s
 	downloadCtx, value.cancel = context.WithTimeout(context.Background(), 10*time.Minute)
 	defer value.cancel()
 	d := &profileDownload{h: h, ctx: ctx, downloadCtx: downloadCtx, cancel: value.cancel, message: message}
-	l, err := tlpa.New(value.Modem)
+	l, err := tlpa.New(value.modem)
 	if err != nil {
 		return err
 	}
 	defer l.Close()
-	if err := l.Download(downloadCtx, value.ActvationCode, d); err != nil {
+	if err := l.Download(downloadCtx, value.activationCode, d); err != nil {
 		h.ReplyMessage(ctx, message, util.EscapeText(err.Error()), nil)
 		if d.progressMessage != nil {
 			ctx.Bot().DeleteMessage(ctx, &telego.DeleteMessageParams{
@@ -204,7 +204,7 @@ func (h *DownloadHandler) parseActivationCode(value *DownloadValue, text string)
 	parts := strings.Split(text, "$")
 	ac = &lpa.ActivationCode{
 		SMDP: &url.URL{Scheme: "https", Host: parts[1]},
-		IMEI: value.Modem.EquipmentIdentifier,
+		IMEI: value.modem.EquipmentIdentifier,
 	}
 	if len(parts) >= 3 {
 		ac.MatchingID = parts[2]
@@ -232,7 +232,7 @@ func (h *DownloadHandler) HandleCallbackQuery(ctx *th.Context, query telego.Call
 	if confirmed == "no" {
 		value := s.Value.(*DownloadValue)
 		value.cancel()
-		slog.Info("Download canceled", "activationCode", value.ActvationCode)
+		slog.Info("Download canceled", "activationCode", value.activationCode)
 		state.M.Exit(query.From.ID)
 		_, err := h.ReplyCallbackQuery(ctx, query, util.EscapeText("Download canceled!"), nil)
 		return err
