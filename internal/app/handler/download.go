@@ -230,7 +230,9 @@ func (h *DownloadHandler) HandleCallbackQuery(ctx *th.Context, query telego.Call
 		}
 	}
 	if confirmed == "no" {
-		s.Value.(*DownloadValue).cancel()
+		value := s.Value.(*DownloadValue)
+		value.cancel()
+		slog.Info("Download canceled", "activationCode", value.ActvationCode)
 		state.M.Exit(query.From.ID)
 		_, err := h.ReplyCallbackQuery(ctx, query, util.EscapeText("Download canceled!"), nil)
 		return err
