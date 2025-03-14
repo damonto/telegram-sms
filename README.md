@@ -2,7 +2,7 @@
 
 ### Advertisement
 
-If you are looking for a removable eUICC solution, such as eSIM.me or 5ber.eSIM, I recommend buying [eSTK.me](https://www.estk.me?aid=esim). It is more reliable and offers more features. You can purchase it [here](https://www.estk.me?aid=esim), and you can use the coupon code `eSIMCyou` to get a 10% discount.
+If you are looking for a removable eUICC solution, such as eSIM.me or 5ber.eSIM, I recommend buying [eSTK.me](https://www.estk.me?aid=esim). It is more reliable and offers more features. You can purchase it [here](https://www.estk.me?aid=esim), and you can use the coupon code `eSIMCyou` to get a `5%` discount.
 
 ### Introduction
 
