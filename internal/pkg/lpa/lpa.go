@@ -76,10 +76,10 @@ func (l *LPA) createTransmitter(m *modem.Modem) (driver.Transmitter, error) {
 	switch m.PrimaryPortType() {
 	case modem.ModemPortTypeQmi:
 		slog.Info("Using QMI driver", "port", m.PrimaryPort, "slot", slot)
-		channel, err = qmi.New(m.PrimaryPort, slot)
+		channel, err = qmi.New(m.PrimaryPort, slot, true)
 	case modem.ModemPortTypeMbim:
 		slog.Info("Using MBIM driver", "port", m.PrimaryPort, "slot", slot)
-		channel, err = mbim.New(m.PrimaryPort, slot)
+		channel, err = mbim.New(m.PrimaryPort, slot, true)
 	default:
 		return nil, errors.New("unsupported port type")
 	}

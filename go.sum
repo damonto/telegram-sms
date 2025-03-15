@@ -14,8 +14,12 @@ github.com/damonto/euicc-go v0.0.6 h1:jBSj4KXYpapIryqvdhNT/+JR0o6UB/PUU5OHayb+jm
 github.com/damonto/euicc-go v0.0.6/go.mod h1:teGRRJUBWhmV8S+c/TCfjmlAJtTjb7qqPqguqu4tSCE=
 github.com/damonto/euicc-go/driver/mbim v0.0.2 h1:KZmbBMSDJrMX94ZGc9UOAPgIxVxst8t0Mp0u4HJOnik=
 github.com/damonto/euicc-go/driver/mbim v0.0.2/go.mod h1:VFxiu7BNaCoK8MJJimNvyQsG5t7cjKLjI129/NVl+D4=
+github.com/damonto/euicc-go/driver/mbim v0.0.3 h1:t8cHMga47U0cHKv0pcOxmAv+fySi2mvtFyLbJ/TbCxc=
+github.com/damonto/euicc-go/driver/mbim v0.0.3/go.mod h1:+s4zkg+v4zdLStZ76FQMqLkejV8aSmUFxWVdDptxf/Q=
 github.com/damonto/euicc-go/driver/qmi v0.0.2 h1:+O0e2ukbtO3h318z1jZlok7hsEVdmmTJL7QBfVvYHWY=
 github.com/damonto/euicc-go/driver/qmi v0.0.2/go.mod h1:INOVz0B8+L6oBBtNSCYml/lmXjqoPpbBsujo7fSSPHU=
+github.com/damonto/euicc-go/driver/qmi v0.0.3 h1:lVSyb0B8K49RYfsbX2ARjdKtMh18kvPL30CXjXkSy+0=
+github.com/damonto/euicc-go/driver/qmi v0.0.3/go.mod h1:V8svken3D6D68oMNc1JI9hNJ3islJFPOsAiGp4ojK9U=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
