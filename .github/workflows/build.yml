@@ -25,7 +25,12 @@ jobs:
       matrix:
         target:
           - { runs-on: ubuntu-24.04, os: linux, arch: amd64, name: linux-amd64 }
-          - { runs-on: ubuntu-24.04-arm, os: linux, arch: arm64, name: linux-arm64 }
+          - {
+              runs-on: ubuntu-24.04-arm,
+              os: linux,
+              arch: arm64,
+              name: linux-arm64,
+            }
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -48,7 +53,8 @@ jobs:
           # Remove this step once libqmi 1.36 is available in the Ubuntu repository.
           sudo apt-get update -y
           sudo apt-get -qq install -y meson ninja-build pkg-config libglib2.0-dev libgudev-1.0-dev libqrtr-glib-dev
-          git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
+          # git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
+          git clone git@github.com:linux-mobile-broadband/libqmi.git
           cd libqmi
           meson setup build --prefix=/usr --buildtype=release -Dmbim_qmux=false -Dfirmware_update=false -Dudev=false -Dman=false -Dgtk_doc=false -Dintrospection=false -Dbash_completion=false
           sudo ninja -j$(nproc) -C build
