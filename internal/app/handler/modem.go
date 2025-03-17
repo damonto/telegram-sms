@@ -43,7 +43,7 @@ func (h *ListModemHandler) Handle() th.Handler {
 			return err
 		}
 		if len(modems) == 0 {
-			_, err := h.Reply(ctx, update, util.EscapeText("No modems found."), nil)
+			_, err := h.Reply(ctx, update, util.EscapeText("No modems were found."), nil)
 			return err
 		}
 		var message string

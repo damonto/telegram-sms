@@ -173,7 +173,7 @@ func (h *ProfileHandler) enableProfile(ctx *th.Context, message telego.Message, 
 	if err != nil {
 		return err
 	}
-	if err := l.EnableProfile(value.ICCID); err != nil {
+	if err := l.EnableProfile(value.ICCID, true); err != nil {
 		return err
 	}
 	l.Close()
@@ -196,7 +196,7 @@ func (h *ProfileHandler) disableProfile(ctx *th.Context, message telego.Message,
 		return err
 	}
 	defer l.Close()
-	if err := l.DisableProfile(value.ICCID); err != nil {
+	if err := l.DisableProfile(value.ICCID, true); err != nil {
 		return err
 	}
 	_, err = h.ReplyMessage(

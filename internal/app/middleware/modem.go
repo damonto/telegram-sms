@@ -101,7 +101,7 @@ func (m *ModemRequiredMiddleware) sendErrorModemNotFound(ctx *th.Context, update
 		ctx,
 		tu.Message(
 			tu.ID(update.Message.From.ID),
-			"No modems found. Please plug in a modem and try again.",
+			"No modems were found. Please plug in a modem and try again.",
 		).WithReplyParameters(&telego.ReplyParameters{
 			MessageID: update.Message.MessageID,
 		}),
