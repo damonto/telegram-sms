@@ -72,7 +72,7 @@ func paddingRight(value []byte, length int) []byte {
 func (m *Modem) SetMSISDNCommands(hasPrefix bool, name []byte, number []byte) iter.Seq[string] {
 	commands := [][]byte{
 		{0x00, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, 0x6F, 0x40}, // Select DF Telecom -> MSISDN
-		{0x00, 0xDC, 0x01, 0x04, 0x1E, 0x4C},                   // Update Binary
+		{0x00, 0xDC, 0x01, 0x04, 0x1E, 0x4C},                   // Update Binary. 0x01: We only need to update the first record.
 	}
 	numberType := []byte{0x05, 0x81}
 	if hasPrefix {
