@@ -48,7 +48,12 @@ func (h *MSISDNHandler) HandleMessage(ctx *th.Context, message telego.Message, s
 	if err := value.Modem.Restart(); err != nil {
 		slog.Warn("Failed to restart modem", "error", err)
 	}
-	h.ReplyMessage(ctx, message, util.EscapeText("I have updated the MSISDN on the SIM. If you don't see the changes, you may need to restart the ModemManager manually."), nil)
+	h.ReplyMessage(
+		ctx,
+		message,
+		util.EscapeText("I have updated the MSISDN on the SIM. If you don't see the changes, you may need to restart the ModemManager manually. /modem"),
+		nil,
+	)
 	return nil
 }
 

@@ -76,12 +76,14 @@ func (m *Modem) CRSMCommand(at *AT, hasPrefix bool, name []byte, number []byte) 
 	}
 	valueLen := len(strings.Replace(strings.Replace(output, "+CRSM: 144,0,", "", 1), "\"", "", -1)) / 2
 	numberType := []byte{0x05, 0x81}
-	name = paddingRight(name, valueLen-len(name)-len(number)+2)
 	if hasPrefix {
 		numberType = []byte{0x07, 0x91}
 	}
-	number = paddingRight(number, 12)
-	cmd := fmt.Sprintf("%X", append(name, append(numberType, number...)...))
+	number = append(numberType, paddingRight(number, 12)...)
+	cmd := fmt.Sprintf("%X", append(
+		paddingRight(name, valueLen-len(number)), // Name
+		number...,                                // Phone Number
+	))
 	return fmt.Sprintf("AT+CRSM=220,28480,1,4,%d,\"%s\"", valueLen, cmd), nil
 }
 
