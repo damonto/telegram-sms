@@ -25,11 +25,11 @@ func (m *Modem) SetMSISDN(name string, number string) error {
 		return err
 	}
 	if len(numberBytes) > 12 {
-		return errors.New("phone number can be at most 24 digits")
+		return errors.New("the phone number can be at most 12 characters")
 	}
 	nameBytes := []byte(name)
 	if len(nameBytes) > 15 {
-		return errors.New("name can be at most 30 characters")
+		return errors.New("the name can be at most 15 characters")
 	}
 	for command := range m.SetMSISDNCommands(strings.HasPrefix(number, "+"), nameBytes, numberBytes) {
 		slog.Debug("[MSISDN] Sending command", "command", command)
