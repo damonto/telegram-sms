@@ -32,11 +32,12 @@ func (a *AdminId) MarshalInt64() []int64 {
 }
 
 type Config struct {
-	BotToken string
-	AdminId  AdminId
-	Endpoint string
-	Slowdown bool
-	Verbose  bool
+	BotToken   string
+	AdminId    AdminId
+	Endpoint   string
+	Slowdown   bool
+	Compatible bool
+	Verbose    bool
 }
 
 var C = new(Config)

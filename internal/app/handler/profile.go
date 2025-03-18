@@ -6,6 +6,7 @@ import (
 
 	sgp22 "github.com/damonto/euicc-go/v2"
 	"github.com/damonto/telegram-sms/internal/app/state"
+	"github.com/damonto/telegram-sms/internal/pkg/config"
 	"github.com/damonto/telegram-sms/internal/pkg/lpa"
 	"github.com/damonto/telegram-sms/internal/pkg/modem"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
@@ -177,8 +178,10 @@ func (h *ProfileHandler) enableProfile(ctx *th.Context, message telego.Message, 
 		return err
 	}
 	l.Close()
-	if err := value.Modem.Restart(); err != nil {
-		slog.Warn("Failed to restart the modem", "error", err)
+	if config.C.Compatible {
+		if err := value.Modem.Restart(); err != nil {
+			slog.Warn("Failed to restart the modem", "error", err)
+		}
 	}
 	_, err = h.ReplyMessage(
 		ctx,
