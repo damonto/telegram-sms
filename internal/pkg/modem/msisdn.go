@@ -21,6 +21,9 @@ func (m *Modem) SetMSISDN(name string, number string) error {
 		return err
 	}
 	defer at.Close()
+	if len(name) > 30 {
+		return errors.New("the name can be at most 30 characters")
+	}
 	regexp, err := regexp.Compile(`^\+?[0-9]{1,15}$`)
 	if err != nil {
 		return err
@@ -28,18 +31,14 @@ func (m *Modem) SetMSISDN(name string, number string) error {
 	if !regexp.MatchString(number) {
 		return errors.New("invalid phone number")
 	}
-	numberBytes, err := binaryCodedDecimalEncode(strings.TrimPrefix(number, "+"))
+	nb, err := binaryCodedDecimalEncode(strings.TrimPrefix(number, "+"))
 	if err != nil {
 		return err
 	}
-	if len(numberBytes) > 12 {
+	if len(nb) > 12 {
 		return errors.New("the phone number can be at most 24 characters")
 	}
-	nameBytes := []byte(name)
-	if len(nameBytes) > 15 {
-		return errors.New("the name can be at most 30 characters")
-	}
-	return m.updateMSISDN(at, strings.HasPrefix(number, "+"), nameBytes, numberBytes)
+	return m.updateMSISDN(at, strings.HasPrefix(number, "+"), []byte(name), nb)
 }
 
 func (m *Modem) updateMSISDN(at *AT, hasPrefix bool, name []byte, number []byte) error {
