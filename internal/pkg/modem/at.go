@@ -68,6 +68,11 @@ func (a *AT) Run(command string) (string, error) {
 	}
 }
 
+func (a *AT) Support(command string) bool {
+	_, err := a.Run(command)
+	return err == nil
+}
+
 func (a *AT) Close() error {
 	return a.f.Close()
 }
