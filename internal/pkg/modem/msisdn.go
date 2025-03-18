@@ -21,7 +21,6 @@ func (m *Modem) SetMSISDN(name string, number string) error {
 		return err
 	}
 	defer at.Close()
-
 	regexp, err := regexp.Compile(`^\+?[0-9]{1,15}$`)
 	if err != nil {
 		return err
@@ -29,7 +28,6 @@ func (m *Modem) SetMSISDN(name string, number string) error {
 	if !regexp.MatchString(number) {
 		return errors.New("invalid phone number")
 	}
-
 	numberBytes, err := binaryCodedDecimalEncode(strings.TrimPrefix(number, "+"))
 	if err != nil {
 		return err
@@ -50,7 +48,7 @@ func (m *Modem) SetMSISDN(name string, number string) error {
 		}
 		sw = sw[len(sw)-5:]
 		if sw[0:2] != "90" && sw[0:2] != "61" {
-			return errors.New("failed to set MSISDN: " + sw)
+			return fmt.Errorf("failed to update MSISDN. SW: %s", sw)
 		}
 	}
 	return nil
