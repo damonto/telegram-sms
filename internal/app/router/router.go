@@ -39,6 +39,7 @@ func (r *router) registerCommands() {
 		{Command: "chip", Description: "Get the eUICC chip information"},
 		{Command: "ussd", Description: "Send a USSD command to the carrier"},
 		{Command: "send", Description: "Send an SMS to a phone number"},
+		{Command: "msisdn", Description: "Update the MSISDN on the SIM"},
 		{Command: "profiles", Description: "List all profiles on the eUICC"},
 		{Command: "download", Description: "Download a profile into the eUICC"},
 	}
@@ -63,11 +64,12 @@ func (r *router) registerHandlers() {
 	admin.Handle(handler.NewListModemHandler(r.mm).Handle(), th.CommandEqual("modem"))
 
 	{
-		standard := admin.Group(r.predicate([]string{"/send", "/slot", "/ussd"}))
+		standard := admin.Group(r.predicate([]string{"/send", "/slot", "/ussd", "/msisdn"}))
 		standard.Use(modemRequiredMiddleware.Middleware(false))
 		standard.Handle(handler.NewSIMSlotHandler().Handle(), th.CommandEqual("slot"))
 		standard.Handle(handler.NewUSSDHandler().Handle(), th.CommandEqual("ussd"))
 		standard.Handle(handler.NewSendHandler().Handle(), th.CommandEqual("send"))
+		standard.Handle(handler.NewMSISDNHandler().Handle(), th.CommandEqual("msisdn"))
 	}
 
 	{
