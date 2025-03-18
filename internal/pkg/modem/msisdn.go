@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"iter"
 	"log/slog"
+	"regexp"
 	"strings"
 )
 
@@ -19,7 +20,16 @@ func (m *Modem) SetMSISDN(name string, number string) error {
 	if err != nil {
 		return err
 	}
-	defer at.f.Close()
+	defer at.Close()
+
+	regexp, err := regexp.Compile(`^\+?[0-9]{1,15}$`)
+	if err != nil {
+		return err
+	}
+	if !regexp.MatchString(number) {
+		return errors.New("invalid phone number")
+	}
+
 	numberBytes, err := binaryCodedDecimalEncode(strings.TrimPrefix(number, "+"))
 	if err != nil {
 		return err

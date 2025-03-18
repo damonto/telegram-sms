@@ -67,3 +67,7 @@ func (a *AT) Run(command string) (string, error) {
 		}
 	}
 }
+
+func (a *AT) Close() error {
+	return a.f.Close()
+}
