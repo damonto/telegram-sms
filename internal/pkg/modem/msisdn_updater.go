@@ -157,9 +157,9 @@ func (r *CSIMRunner) command(command []byte) string {
 }
 
 func (r *CSIMRunner) run(command []byte) ([]byte, error) {
-	slog.Debug("[CSIM] MSISDN Sending command", "command", r.command(command))
+	slog.Debug("[CSIM] MSISDN Sending", "command", r.command(command))
 	response, err := r.at.Run(r.command(command))
-	slog.Debug("[CSIM] MSISDN Received response", "response", response, "error", err)
+	slog.Debug("[CSIM] MSISDN Received", "response", response, "error", err)
 	if err != nil {
 		return nil, err
 	}
