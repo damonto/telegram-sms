@@ -55,6 +55,9 @@ func (u *updater) len() (int, error) {
 		return 0, err
 	}
 	data := u.search(b, 0x82)
+	if data == nil {
+		return 0, fmt.Errorf("unexpected response: %X", b)
+	}
 	return int(data[4])<<8 + int(data[5]), nil
 }
 
