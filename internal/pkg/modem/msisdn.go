@@ -110,7 +110,7 @@ func NewCSIMUpdater(at *AT) Updater {
 }
 
 func (u *CSIMUpdater) Update(hasPrefix bool, name []byte, number []byte) error {
-	n, err := u.selectFile()
+	n, err := u.readLength()
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func (u *CSIMUpdater) Update(hasPrefix bool, name []byte, number []byte) error {
 	return err
 }
 
-func (u *CSIMUpdater) selectFile() (int, error) {
+func (u *CSIMUpdater) readLength() (int, error) {
 	r, err := u.run([]byte{0x00, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, 0x6F, 0x40})
 	if err != nil {
 		return 0, err
