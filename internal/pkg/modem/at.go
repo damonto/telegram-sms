@@ -36,8 +36,8 @@ func (a *AT) setTermios() error {
 		return err
 	}
 	t := unix.Termios{
-		Ispeed: unix.B19200,
-		Ospeed: unix.B19200,
+		Ispeed: unix.B9600,
+		Ospeed: unix.B9600,
 		Cflag:  unix.CS8 | unix.CLOCAL | unix.CREAD,
 	}
 	t.Cc[unix.VMIN] = 1
