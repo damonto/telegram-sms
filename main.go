@@ -49,14 +49,6 @@ func main() {
 
 	slog.Info("Starting telegram SMS bot", "version", Version)
 
-	mm, err := modem.NewManager()
-	if err != nil {
-		panic(err)
-	}
-	if err := mm.ScanDevices(); err != nil {
-		panic(err)
-	}
-
 	bot, err := telego.NewBot(config.C.BotToken,
 		telego.WithAPIServer(config.C.Endpoint),
 		telego.WithDefaultLogger(config.C.Verbose, true),
@@ -64,7 +56,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
+	mm, err := modem.NewManager()
+	if err != nil {
+		panic(err)
+	}
 	go subscribe(bot, mm)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)

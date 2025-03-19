@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"os/exec"
+	"time"
 
+	"github.com/damonto/telegram-sms/internal/pkg/config"
 	"github.com/damonto/telegram-sms/internal/pkg/util"
 	"github.com/godbus/dbus/v5"
 )
@@ -13,8 +15,10 @@ import (
 const ModemInterface = ModemManagerInterface + ".Modem"
 
 type Modem struct {
+	mmgr                *Manager
 	objectPath          dbus.ObjectPath
 	dbusObject          dbus.BusObject
+	Device              string
 	Manufacturer        string
 	EquipmentIdentifier string
 	Driver              string
@@ -66,13 +70,26 @@ func (m *Modem) SignalQuality() (percent uint32, recent bool, err error) {
 
 func (m *Modem) Restart() error {
 	var err error
+	// Some older modems require the SIM to be restarted to take effect.
 	// Restarting the SIM is only supported on QMI based modems.
-	// Some modems require the SIM to be restarted to take effect.
 	if m.PrimaryPortType() == ModemPortTypeQmi {
 		err = errors.Join(err, m.QMIRestartSIM())
+		// Wait for the SIM card to be ready.
+		time.Sleep(200 * time.Millisecond)
 	}
-	// Some modems require disabling and enabling the modem to take effect.
-	return errors.Join(err, m.Disable(), m.Enable())
+	// Some older modems require the modem to be disabled and enabled to take effect.
+	if e := m.dbusObject.Call(ModemInterface+".Simple.GetStatus", 0).Err; e == nil {
+		err = errors.Join(err, m.Disable(), m.Enable())
+	}
+	// Inhibiting the device will cause the ModemManager to reload the device.
+	// This workaround is needed for some modems that don't properly reload.
+	if config.C.Compatible {
+		time.Sleep(200 * time.Millisecond)
+		if e := m.dbusObject.Call(ModemInterface+".Simple.GetStatus", 0).Err; e == nil {
+			err = errors.Join(err, m.mmgr.InhibitDevice(m.Device, true), m.mmgr.InhibitDevice(m.Device, false))
+		}
+	}
+	return err
 }
 
 func (m *Modem) QMIRestartSIM() error {

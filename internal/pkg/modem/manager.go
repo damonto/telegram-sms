@@ -11,8 +11,7 @@ const (
 	ModemManagerManagedObjects = "org.freedesktop.DBus.ObjectManager.GetManagedObjects"
 	ModemManagerObjectPath     = "/org/freedesktop/ModemManager1"
 
-	ModemManagerInterface   = "org.freedesktop.ModemManager1"
-	ModemManagerScanDevices = ModemManagerInterface + ".ScanDevices"
+	ModemManagerInterface = "org.freedesktop.ModemManager1"
 
 	ModemManagerInterfacesAdded   = "org.freedesktop.DBus.ObjectManager.InterfacesAdded"
 	ModemManagerInterfacesRemoved = "org.freedesktop.DBus.ObjectManager.InterfacesRemoved"
@@ -38,7 +37,11 @@ func NewManager() (*Manager, error) {
 }
 
 func (m *Manager) ScanDevices() error {
-	return m.dbusObject.Call(ModemManagerScanDevices, 0).Err
+	return m.dbusObject.Call(ModemManagerInterface+".ScanDevices", 0).Err
+}
+
+func (m *Manager) InhibitDevice(uid string, inhibit bool) error {
+	return m.dbusObject.Call(ModemManagerInterface+".InhibitDevice", 0, uid, inhibit).Err
 }
 
 func (m *Manager) Modems() (map[dbus.ObjectPath]*Modem, error) {
@@ -62,8 +65,10 @@ func (m *Manager) Modems() (map[dbus.ObjectPath]*Modem, error) {
 
 func (m *Manager) createModem(objectPath dbus.ObjectPath, data map[string]dbus.Variant) (*Modem, error) {
 	modem := &Modem{
+		mmgr:                m,
 		objectPath:          objectPath,
 		dbusObject:          m.dbusConn.Object(ModemManagerInterface, objectPath),
+		Device:              data["Physdev"].Value().(string),
 		Manufacturer:        data["Manufacturer"].Value().(string),
 		EquipmentIdentifier: data["EquipmentIdentifier"].Value().(string),
 		Driver:              data["Drivers"].Value().([]string)[0],

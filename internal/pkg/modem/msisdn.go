@@ -24,6 +24,9 @@ func (m *Modem) SetMSISDN(name string, number string) error {
 	if len(name) > 30 {
 		return errors.New("the name can be at most 30 characters")
 	}
+	if len(number) > 24 {
+		return errors.New("the phone number can be at most 24 characters")
+	}
 	regexp, err := regexp.Compile(`^\+?[0-9]{1,15}$`)
 	if err != nil {
 		return err
@@ -34,9 +37,6 @@ func (m *Modem) SetMSISDN(name string, number string) error {
 	nb, err := binaryCodedDecimalEncode(strings.TrimPrefix(number, "+"))
 	if err != nil {
 		return err
-	}
-	if len(nb) > 12 {
-		return errors.New("the phone number can be at most 24 characters")
 	}
 	return m.updateMSISDN(at, strings.HasPrefix(number, "+"), []byte(name), nb)
 }
@@ -52,7 +52,7 @@ func (m *Modem) updateMSISDN(at *AT, hasPrefix bool, name []byte, number []byte)
 }
 
 func (m *Modem) updateViaCRSM(at *AT, hasPrefix bool, name []byte, number []byte) error {
-	command, err := m.CRSMCommand(at, hasPrefix, name, number)
+	command, err := buildCRSMCommand(at, hasPrefix, name, number)
 	if err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func (m *Modem) updateViaCRSM(at *AT, hasPrefix bool, name []byte, number []byte
 	return nil
 }
 
-func (m *Modem) CRSMCommand(at *AT, hasPrefix bool, name []byte, number []byte) (string, error) {
+func buildCRSMCommand(at *AT, hasPrefix bool, name []byte, number []byte) (string, error) {
 	output, err := at.Run("AT+CRSM=178,28480,1,4,0")
 	if err != nil {
 		return "", err
@@ -87,7 +87,7 @@ func (m *Modem) CRSMCommand(at *AT, hasPrefix bool, name []byte, number []byte) 
 }
 
 func (m *Modem) updateViaCSIM(at *AT, hasPrefix bool, name []byte, number []byte) error {
-	for command := range m.CSIMCommands(hasPrefix, name, number) {
+	for command := range buildCSIMCommands(hasPrefix, name, number) {
 		slog.Debug("[CSIM] MSISDN Sending command", "command", command)
 		sw, err := at.Run(command)
 		slog.Debug("[CSIM] MSISDN Received response", "response", sw, "error", err)
@@ -102,7 +102,7 @@ func (m *Modem) updateViaCSIM(at *AT, hasPrefix bool, name []byte, number []byte
 	return nil
 }
 
-func (m *Modem) CSIMCommands(hasPrefix bool, name []byte, number []byte) iter.Seq[string] {
+func buildCSIMCommands(hasPrefix bool, name []byte, number []byte) iter.Seq[string] {
 	commands := [][]byte{
 		{0x00, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, 0x6F, 0x40},
 		{0x00, 0xDC, 0x01, 0x04, 0x1E, 0x4C}, // 0x01: We only need to update the first record.
