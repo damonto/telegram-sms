@@ -68,7 +68,7 @@ func (m *Manager) createModem(objectPath dbus.ObjectPath, data map[string]dbus.V
 		mmgr:                m,
 		objectPath:          objectPath,
 		dbusObject:          m.dbusConn.Object(ModemManagerInterface, objectPath),
-		Device:              data["Physdev"].Value().(string),
+		Device:              data["Device"].Value().(string),
 		Manufacturer:        data["Manufacturer"].Value().(string),
 		EquipmentIdentifier: data["EquipmentIdentifier"].Value().(string),
 		Driver:              data["Drivers"].Value().([]string)[0],
