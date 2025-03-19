@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"regexp"
 	"strings"
+
+	"github.com/damonto/telegram-sms/internal/pkg/util"
 )
 
 func (m *Modem) SetMSISDN(name string, number string) error {
@@ -23,9 +25,6 @@ func (m *Modem) SetMSISDN(name string, number string) error {
 	defer at.Close()
 	if len(name) > 30 {
 		return errors.New("the name can be at most 30 characters")
-	}
-	if len(number) > 24 {
-		return errors.New("the phone number can be at most 24 characters")
 	}
 	regexp, err := regexp.Compile(`^\+?[0-9]{1,15}$`)
 	if err != nil {
@@ -74,14 +73,10 @@ func buildCRSMCommand(at *AT, hasPrefix bool, name []byte, number []byte) (strin
 		return "", err
 	}
 	valueLen := len(strings.Replace(strings.Replace(output, "+CRSM: 144,0,", "", 1), "\"", "", -1)) / 2
-	numberType := []byte{0x05, 0x81}
-	if hasPrefix {
-		numberType = []byte{0x07, 0x91}
-	}
-	number = append(numberType, paddingRight(number, 12)...)
+	number = append([]byte{byte(len(number)), util.If(hasPrefix, byte(0x91), byte(0x81))}, paddingRight(number, 13)...)
 	cmd := fmt.Sprintf("%X", append(
-		paddingRight(name, valueLen-len(number)), // Name
-		number...,                                // Phone Number
+		paddingRight(name, valueLen-len(number)),
+		number...,
 	))
 	return fmt.Sprintf("AT+CRSM=220,28480,1,4,%d,\"%s\"", valueLen, cmd), nil
 }
@@ -105,14 +100,13 @@ func (m *Modem) updateViaCSIM(at *AT, hasPrefix bool, name []byte, number []byte
 func buildCSIMCommands(hasPrefix bool, name []byte, number []byte) iter.Seq[string] {
 	commands := [][]byte{
 		{0x00, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, 0x6F, 0x40},
-		{0x00, 0xDC, 0x01, 0x04, 0x1E, 0x4C}, // 0x01: We only need to update the first record.
-	}
-	numberType := []byte{0x05, 0x81}
-	if hasPrefix {
-		numberType = []byte{0x07, 0x91}
+		{0x00, 0xDC, 0x01, 0x04, 0x1E}, // 0x01: We only need to update the first record.
 	}
 	commands[1] = append(commands[1], paddingRight(name, 15)...)
-	commands[1] = append(commands[1], append(append(commands[1], numberType...), paddingRight(number, 12)...)...)
+	commands[1] = append(commands[1], append(
+		[]byte{byte(len(number)), util.If(hasPrefix, byte(0x91), byte(0x81))},
+		paddingRight(number, 13)...,
+	)...)
 	return func(yield func(string) bool) {
 		for _, command := range commands {
 			cmd := fmt.Sprintf("%X", command)
