@@ -137,11 +137,7 @@ type CRSMRunner struct{ at *AT }
 func NewCRSMRunner(at *AT) MSISDNCommandRunner { return &CRSMRunner{at: at} }
 
 func (r *CRSMRunner) Select() ([]byte, error) {
-	sw, err := r.run("192,28480")
-	if err != nil {
-		return nil, err
-	}
-	return sw, nil
+	return r.run("192,28480")
 }
 
 func (r *CRSMRunner) Run(data []byte) error {
