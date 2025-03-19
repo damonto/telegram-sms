@@ -2,7 +2,7 @@ package modem
 
 import (
 	"bufio"
-	"fmt"
+	"errors"
 	"os"
 	"strings"
 	"syscall"
@@ -61,7 +61,7 @@ func (a *AT) Run(command string) (string, error) {
 		case strings.Contains(line, "OK"):
 			return strings.TrimSpace(sb.String()), nil
 		case strings.Contains(line, "ERR"):
-			return "", fmt.Errorf("AT command failed: %s", line)
+			return "", errors.New(line)
 		default:
 			sb.WriteString(line + "\n")
 		}
