@@ -41,7 +41,7 @@ func (a *AT) setTermios() error {
 		Cflag:  unix.CS8 | unix.CLOCAL | unix.CREAD,
 	}
 	t.Cc[unix.VMIN] = 1
-	t.Cc[unix.VTIME] = 0
+	t.Cc[unix.VTIME] = 30
 	return unix.IoctlSetTermios(fd, unix.TCSETS, &t)
 }
 
