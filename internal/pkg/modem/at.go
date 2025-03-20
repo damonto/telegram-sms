@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"strings"
-	"syscall"
 
 	"golang.org/x/sys/unix"
 )
@@ -15,7 +14,7 @@ type AT struct{ f *os.File }
 func NewAT(device string) (*AT, error) {
 	var at AT
 	var err error
-	at.f, err = os.OpenFile(device, os.O_RDWR|unix.O_NOCTTY|unix.O_NONBLOCK, 0666)
+	at.f, err = os.OpenFile(device, os.O_RDWR|unix.O_NOCTTY, 0666)
 	if err != nil {
 		return nil, err
 	}
@@ -32,9 +31,6 @@ func (a *AT) setTermios() error {
 		return err
 	}
 	defer unix.IoctlSetTermios(fd, unix.TCSETS, oldTermios)
-	if err := syscall.SetNonblock(fd, false); err != nil {
-		return err
-	}
 	t := unix.Termios{
 		Ispeed: unix.B9600,
 		Ospeed: unix.B9600,
