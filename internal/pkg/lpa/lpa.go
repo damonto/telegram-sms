@@ -33,6 +33,7 @@ type Info struct {
 	EID                   string
 	FreeSpace             int32
 	SasAcreditationNumber string
+	Manufacturer          string
 	Certificates          []string
 	Product               *Product
 }
@@ -125,6 +126,9 @@ func (l *LPA) Info() (*Info, error) {
 	}
 	// sasAcreditationNumber
 	info.SasAcreditationNumber = string(tlv.First(bertlv.Universal.Primitive(12)).Value)
+	if site := util.FindSasUpAccreditedSite(info.SasAcreditationNumber); site != nil {
+		info.Manufacturer = site.Supplier
+	}
 	// euiccCiPKIdListForSigning
 	for _, child := range tlv.First(bertlv.ContextSpecific.Constructed(10)).Children {
 		info.Certificates = append(info.Certificates, util.FindCertificateIssuer(hex.EncodeToString(child.Value)))

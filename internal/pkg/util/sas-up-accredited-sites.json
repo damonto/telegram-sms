@@ -1,0 +1,234 @@
+[
+    {
+        "supplier": "Beijing Huahong IC Design Co., Ltd.",
+        "site": "Beijing, China",
+        "first_year": "2015",
+        "valid_to": "Sep 2026",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/09/GSMA-SAS_UP-Certificate-Beijing-Huahong-IC-Design-Co.-Ltd.-Beijing-China-0926.pdf",
+        "certificate_no": "HG-BG-UP-0926"
+    },
+    {
+        "supplier": "Beijing Watchdata Co., Ltd.",
+        "site": "Beijing, China",
+        "first_year": "2007",
+        "valid_to": "Jan 2026",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/08/GSMA-SAS_UP-Certificate-Beijing-Watchdata-Beijing-China-0126-2.pdf",
+        "certificate_no": "WD-BG-UP-0126-2"
+    },
+    {
+        "supplier": "Chutian Dragon Co., Ltd.",
+        "site": "Dongguan, China",
+        "first_year": "2014",
+        "valid_to": "Feb 2026",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2025/02/GSMA-SAS_UP-Certificate-Chutian-Dragon-Co.-Ltd.-Dongguan-China-0226-3.pdf",
+        "certificate_no": "CD-DN-UP-0226-3"
+    },
+    {
+        "supplier": "Eastcompeace Technology Co., Ltd",
+        "site": "Zhuhai, China",
+        "first_year": "2002",
+        "valid_to": "Aug 2026",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/08/GSMA-SAS_UP-Certificate-Eastcompeace-technology-Co.-Ltd.-Zhuhai-China-0826-1.pdf",
+        "certificate_no": "ED-ZI-UP-0826"
+    },
+    {
+        "supplier": "E-Kart Elektronik Kart Sistemleri A.\u015e",
+        "site": "Istanbul, Turkey",
+        "first_year": "2004",
+        "valid_to": "Jun 2026",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/09/GSMA-SAS_UP-Certificate-E-Kart-Istanbul-Turkey-0626.pdf",
+        "certificate_no": "ET-IL-UP-0626"
+    },
+    {
+        "supplier": "Giesecke+Devrient Mobile Security TCD Iberia S.L.",
+        "site": "Barcelona, Spain",
+        "first_year": "2016",
+        "valid_to": "Apr 2025",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/10/GSMA-SAS_UP-Certificate-GieseckeDevrient-Mobile-Security-TCD-Iberia-S.L.-Barcelona-Spain-0425-8.pdf",
+        "certificate_no": "GD-BA-UP-0425-8"
+    },
+    {
+        "supplier": "Giesecke+Devrient (Jiangxi) Technology Co., Ltd.",
+        "site": "Nanchang, China",
+        "first_year": "2007",
+        "valid_to": "Dec 2025",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/08/GSMA-SAS_UP-Certificate-GieseckeDevrient-Jiangxi-Technology-Co.-Ltd.-Nanchang-China-1225-5.pdf",
+        "certificate_no": "GD-NG-UP-1225-5"
+    },
+    {
+        "supplier": "Giesecke+Devrient Mobile Security America, Inc.",
+        "site": "Markham, Canada",
+        "first_year": "2020",
+        "valid_to": "Jul 2026",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/08/GSMA-SAS_UP-Certificate-GieseckeDevrient-Mobile-Security-America-Inc.-Markham-Canada-0726.pdf",
+        "certificate_no": "GD-MM-UP-0726"
+    },
+    {
+        "supplier": "Giesecke & Devrient MS India Private Limited",
+        "site": "Chennai, India",
+        "first_year": "2018",
+        "valid_to": "Aug 2026",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/08/GSMA-SAS_UP-Certificate-GieseckeDevrient-MS-India-Pvt-Ltd.-Chennai-India-0826.pdf",
+        "certificate_no": "GD-CI-UP-0826"
+    },
+    {
+        "supplier": "Hengbao Co., Ltd",
+        "site": "Danyang, China",
+        "first_year": "2008",
+        "valid_to": "Dec 2025",
+        "certificate_url": "https://www.gsma.com/security/wp-content/uploads/2023/12/GSMA-SAS_UP-Certificate-Hengbao-Danyang-China-1225.pdf",
+        "certificate_no": "HO-DG-UP-1225"
+    },
+    {
+        "supplier": "IDEMIA (Shenzhen) Technologies Company Limited",
+        "site": "Shenzhen, China",
+        "first_year": "2006",
+        "valid_to": "Aug 2025",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/07/GSMA-SAS_UP-Certificate-Idemia-Shenzhen-Technologies-Company-Ltd.-Shenzhen-China-0825-2.pdf",
+        "certificate_no": "ID-SN-UP-0825-2"
+    },
+    {
+        "supplier": "Idemia VNF",
+        "site": "Vitr\u00e9, France",
+        "first_year": "2024",
+        "valid_to": "Jun 2025",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/09/GSMA-SAS_UP-Provisional-Certificate-Idemia-VNF-Vitre-France-0625-1.pdf",
+        "certificate_no": "IA-VE-UP-0625"
+    },
+    {
+        "supplier": "Idemia Syscom India Private Limited",
+        "site": "Noida, India",
+        "first_year": "2008",
+        "valid_to": "Jan 2027",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2025/02/GSMA-SAS_UP-Certificate-Idemia-Syscom-India-Private-Limited-Noida-India-0127.pdf",
+        "certificate_no": "ID-NA-UP-0127"
+    },
+    {
+        "supplier": "Kigen (UK) Limited",
+        "site": "Dublin, Ireland",
+        "first_year": "2019",
+        "valid_to": "Mar 2025",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/10/GSMA-SAS_UP-Temp-Extension-Certificate-Kigen-UK-Limited-Dublin-Ireland-0325T2.pdf",
+        "certificate_no": "KN-DN-UP-0325T"
+    },
+    {
+        "supplier": "Kigen (India) Private Limited",
+        "site": "Noida, India",
+        "first_year": "2023",
+        "valid_to": "Jun 2026",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/10/GSMA-SAS_UP-Certificate-Kigen-India-Pvt-Ltd.-Noida-India-0626-2pdf.pdf",
+        "certificate_no": "KN-NA-UP-0626-2"
+    },
+    {
+        "supplier": "Nordic eSIM",
+        "site": "Copenhagen, Denmark",
+        "first_year": "2024",
+        "valid_to": "Mar 2026",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2025/03/SAS-UP-Certificate-Nordic-eSIM-Copenhagen-Denmark-0326.pdf",
+        "certificate_no": "NC-GP-UP-0326"
+    },
+    {
+        "supplier": "NXP Semiconductors Germany GmbH",
+        "site": "Hamburg, Germany",
+        "first_year": "2018",
+        "valid_to": "Oct 2025",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/06/GSMA-SAS_UP-Certificate-NXP-Semiconductors-Germany-GmbH-Hamburg-Germany-1025-2.pdf",
+        "certificate_no": "NP-HG-UP-1025-2"
+    },
+    {
+        "supplier": "NXP Semiconductors (Tianjin) Ltd. [1]",
+        "site": "Tianjin, China",
+        "first_year": "2022",
+        "valid_to": "Apr 2025",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/11/GSMA-SAS_UP-Temp-Extension-Provisional-Certificate-NXP-Semiconductors-Tianjin-Ltd-Tianjin-China-0425T.pdf",
+        "certificate_no": "NP-TN-UP-0425T"
+    },
+    {
+        "supplier": "Oasis Smart SIM Europe",
+        "site": "St Germain en Laye, France",
+        "first_year": "2022",
+        "valid_to": "Oct 2025",
+        "certificate_url": "https://www.gsma.com/security/wp-content/uploads/2023/11/GSMA-SAS_UP-Certificate-Oasis-Smart-SIM-Europe-St-Germain-France-1025.pdf",
+        "certificate_no": "OS-SG-UP-1025"
+    },
+    {
+        "supplier": "STMicroelectronics srl",
+        "site": "Caserta, Italy",
+        "first_year": "2002",
+        "valid_to": "May 2026",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/07/GSMA-SAS_UP-Certificate-STMicroelectronics-srl-Caserta-Italy-0526-pdf.pdf",
+        "certificate_no": "SM-CA-UP-0526"
+    },
+    {
+        "supplier": "Thales DIS France SAS",
+        "site": "Pont Audemer, France",
+        "first_year": "2001",
+        "valid_to": "Apr 2025",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/07/GSMA-SAS_UP-Certificate-Thales-DIS-France-SAS-Pont-Audemer-France-0425-3.pdf",
+        "certificate_no": "TS-PA-UP-0425-3"
+    },
+    {
+        "supplier": "Thales DIS Mexico S.A. de C.V.",
+        "site": "Cuernavaca, Mexico",
+        "first_year": "2012",
+        "valid_to": "Aug 2025",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/07/GSMA-SAS_UP-Certificate-Thales-DIS-Mexico-S.A.-de-C.V.-Cuernavaca-Mexico-0825-3.pdf",
+        "certificate_no": "TS-CA-UP-0825-3"
+    },
+    {
+        "supplier": "Thales DIS (Shanghai) Co., Ltd.",
+        "site": "Shanghai, China",
+        "first_year": "2014",
+        "valid_to": "Jun 2026",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/07/GSMA-SAS_UP-Certificate-Thales-DIS-Shanghai-Co.-Ltd.-Shanghai-China-0626.pdf",
+        "certificate_no": "TS-SI-UP-0626"
+    },
+    {
+        "supplier": "Thales DIS USA, Inc.",
+        "site": "Montgomeryville, USA",
+        "first_year": "2006",
+        "valid_to": "Jun 2025",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/07/GSMA-SAS_UP-Certificate-Thales-DIS-USA-Inc.-Montgomeryville-USA-0625-3.pdf",
+        "certificate_no": "TS-ME-UP-0625-3"
+    },
+    {
+        "supplier": "Tongxin Microelectronics Co.,LTD.",
+        "site": "Beijing, China",
+        "first_year": "2023",
+        "valid_to": "Oct 2025",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/08/GSMA-SAS_UP-Certificate-Tongxin-Microelectronics-Co.LTD_.-Beijing-China1025-2.pdf",
+        "certificate_no": "TN-BG-UP-1025-2"
+    },
+    {
+        "supplier": "Trasna Solutions FZ LLC",
+        "site": "Dubai, United Arab Emirates",
+        "first_year": "2017",
+        "valid_to": "Feb 2026",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2025/03/SAS-UP-Certificate-Trasna-Solutions-FZ-LLC-Dubai-UAE-0226-2.pdf",
+        "certificate_no": "TA-DI-UP-0226-2"
+    },
+    {
+        "supplier": "Valid Card Manufacturing (Suzhou) Co., Ltd",
+        "site": "Suzhou, China",
+        "first_year": "2016",
+        "valid_to": "Aug 2025",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/08/GSMA-SAS_UP-Certificate-Valid-Card-Manufacturing-Suzhou-Co.-Ltd.-Suzhou-China-0825.pdf",
+        "certificate_no": "VD-SU-UP-0825"
+    },
+    {
+        "supplier": "Valid Soluciones Tecnol\u00f3gicas S.A.U.",
+        "site": "Madrid, Spain",
+        "first_year": "2012",
+        "valid_to": "Oct 2026",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/11/GSMA-SAS_UP-Certificate-Valid-Soluciones-Technologicas-S.A.U.-Madrid-Spain-1026.pdf",
+        "certificate_no": "VD-MD-UP-1026"
+    },
+    {
+        "supplier": "Wuhan Tianyu Information Industry Co., Ltd. - Lefeng Road",
+        "site": "Wuhan, China",
+        "first_year": "2019",
+        "valid_to": "Feb 2026",
+        "certificate_url": "https://www.gsma.com/solutions-and-impact/industry-services/wp-content/uploads/2024/07/GSMA-SAS_UP-Certificate-Wuhan-Tianyu-Information-Industry-Co.-Ltd.-Lefeng-Rd-Wuhan-China-0226.pdf",
+        "certificate_no": "WN-HI-UP-0226"
+    }
+]
