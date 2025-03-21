@@ -43,8 +43,8 @@ type CertificateIssuer struct {
 type SasUpAccreditedSite struct {
 	Supplier      string `json:"supplier"`
 	Site          string `json:"site"`
-	FirstYear     int    `json:"first_year"`
-	ValidTo       int    `json:"valid_to"`
+	FirstYear     string `json:"first_year"`
+	ValidTo       string `json:"valid_to"`
 	CertificateNo string `json:"certificate_no"`
 }
 
