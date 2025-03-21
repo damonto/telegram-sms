@@ -54,7 +54,7 @@ func (h *ProfileHandler) HandleCallbackQuery(ctx *th.Context, query telego.Callb
 	if err != nil {
 		return err
 	}
-	ps, err := l.ListProfile(value.ICCID)
+	ps, err := l.ListProfile(value.ICCID, nil)
 	if err != nil {
 		return err
 	}
@@ -257,7 +257,7 @@ func (h *ProfileHandler) Handle() th.Handler {
 			},
 		})
 
-		profiles, err := l.ListProfile(nil)
+		profiles, err := l.ListProfile(nil, nil)
 		if err != nil {
 			return err
 		}
