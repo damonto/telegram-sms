@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log/slog"
 	"regexp"
 	"strings"
 
@@ -132,90 +131,44 @@ func (u *updater) search(bs []byte, tag byte) []byte {
 
 // region CRSMRunner
 
-type CRSMRunner struct{ at *AT }
+type CRSMRunner struct {
+	commander ATCommand
+}
 
-func NewCRSMRunner(at *AT) MSISDNCommandRunner { return &CRSMRunner{at: at} }
+func NewCRSMRunner(at *AT) MSISDNCommandRunner { return &CRSMRunner{commander: NewCRSM(at)} }
 
 func (r *CRSMRunner) Select() ([]byte, error) {
-	return r.run("192,28480")
+	command := CRSMCommand{Instruction: CRSMGetResponse, FileID: 0x6F40}
+	return r.commander.Run(command.Bytes())
 }
 
 func (r *CRSMRunner) Run(data []byte) error {
-	_, err := r.run(fmt.Sprintf("220,28480,1,4,%d,\"%X\"", len(data), data))
+	command := CRSMCommand{
+		Instruction: CRSMUpdateRecord,
+		FileID:      0x6F40,
+		P1:          1,
+		P2:          4,
+		Data:        data,
+	}
+	_, err := r.commander.Run(command.Bytes())
 	return err
-}
-
-func (r *CRSMRunner) run(command string) ([]byte, error) {
-	command = fmt.Sprintf("AT+CRSM=%s", command)
-	slog.Debug("[CRSM] MSISDN Sending", "command", command)
-	response, err := r.at.Run(command)
-	slog.Debug("[CRSM] MSISDN Received", "response", response, "error", err)
-	if err != nil {
-		return nil, err
-	}
-	return r.sw(response)
-}
-
-func (r *CRSMRunner) sw(sw string) ([]byte, error) {
-	if !strings.Contains(sw, "+CRSM: 144") {
-		return nil, fmt.Errorf("unexpected response: %s", sw)
-	}
-	data := strings.Replace(sw, "+CRSM: 144,0,", "", 1)
-	return hex.DecodeString(data[1 : len(data)-1])
 }
 
 // endregion
 
 // region CSIMRunner
 
-type CSIMRunner struct{ at *AT }
+type CSIMRunner struct{ commander ATCommand }
 
-func NewCSIMRunner(at *AT) MSISDNCommandRunner { return &CSIMRunner{at: at} }
+func NewCSIMRunner(at *AT) MSISDNCommandRunner { return &CSIMRunner{commander: NewCSIM(at)} }
 
 func (r *CSIMRunner) Run(data []byte) error {
-	_, err := r.run(append([]byte{0x00, 0xDC, 0x01, 0x04, byte(len(data))}, data...))
+	_, err := r.commander.Run(append([]byte{0x00, 0xDC, 0x01, 0x04, byte(len(data))}, data...))
 	return err
 }
 
 func (r *CSIMRunner) Select() ([]byte, error) {
-	return r.run([]byte{0x00, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, 0x6F, 0x40})
-}
-
-func (r *CSIMRunner) command(command []byte) string {
-	cmd := fmt.Sprintf("%X", command)
-	return fmt.Sprintf("AT+CSIM=%d,\"%s\"", len(cmd), cmd)
-}
-
-func (r *CSIMRunner) run(command []byte) ([]byte, error) {
-	slog.Debug("[CSIM] MSISDN Sending", "command", r.command(command))
-	response, err := r.at.Run(r.command(command))
-	slog.Debug("[CSIM] MSISDN Received", "response", response, "error", err)
-	if err != nil {
-		return nil, err
-	}
-	sw, err := r.sw(response)
-	if err != nil {
-		return nil, err
-	}
-	if sw[0] != 0x61 && sw[len(sw)-2] != 0x90 {
-		return sw, fmt.Errorf("unexpected response: %s", sw)
-	}
-	if sw[0] == 0x61 {
-		return r.read(sw[1:])
-	}
-	return sw, nil
-}
-
-func (r *CSIMRunner) read(length []byte) ([]byte, error) {
-	return r.run(append([]byte{0x00, 0xC0, 0x00, 0x00}, length...))
-}
-
-func (r *CSIMRunner) sw(sw string) ([]byte, error) {
-	lastIdx := strings.LastIndex(sw, ",")
-	if lastIdx == -1 {
-		return nil, errors.New("invalid response")
-	}
-	return hex.DecodeString(sw[lastIdx+2 : len(sw)-1])
+	return r.commander.Run([]byte{0x00, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, 0x6F, 0x40})
 }
 
 // endregion

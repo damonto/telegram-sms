@@ -2,7 +2,10 @@ package modem
 
 import (
 	"bufio"
+	"encoding/hex"
 	"errors"
+	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -75,4 +78,98 @@ func (a *AT) Support(command string) bool {
 
 func (a *AT) Close() error {
 	return a.f.Close()
+}
+
+type ATCommand interface {
+	Run(command []byte) ([]byte, error)
+}
+
+// region CSIM
+
+type CSIM struct{ at *AT }
+
+func NewCSIM(at *AT) ATCommand { return &CSIM{at: at} }
+
+func (c *CSIM) Run(command []byte) ([]byte, error) {
+	cmd := fmt.Sprintf("%X", command)
+	cmd = fmt.Sprintf("AT+CSIM=%d,\"%s\"", len(cmd), cmd)
+	slog.Debug("[AT] CSIM sending", "command", cmd)
+	response, err := c.at.Run(cmd)
+	slog.Debug("[AT] CSIM Received", "response", response, "error", err)
+	if err != nil {
+		return nil, err
+	}
+	sw, err := c.sw(response)
+	if err != nil {
+		return nil, err
+	}
+	if sw[0] != 0x61 && sw[len(sw)-2] != 0x90 {
+		return sw, fmt.Errorf("unexpected response: %X", sw)
+	}
+	if sw[0] == 0x61 {
+		return c.read(sw[1:])
+	}
+	return sw, nil
+}
+
+func (c *CSIM) read(length []byte) ([]byte, error) {
+	return c.Run(append([]byte{0x00, 0xC0, 0x00, 0x00}, length...))
+}
+
+func (c *CSIM) sw(sw string) ([]byte, error) {
+	lastIdx := strings.LastIndex(sw, ",")
+	if lastIdx == -1 {
+		return nil, errors.New("invalid response")
+	}
+	return hex.DecodeString(sw[lastIdx+2 : len(sw)-1])
+}
+
+// endregion
+
+// region CRSM
+
+type CRSM struct{ at *AT }
+
+func NewCRSM(at *AT) ATCommand { return &CRSM{at: at} }
+
+type CRSMInstruction uint16
+
+const (
+	CRSMReadBinary   CRSMInstruction = 0xB0
+	CRSMReadRecord   CRSMInstruction = 0xB2
+	CRSMGetResponse  CRSMInstruction = 0xC0
+	CRSMUpdateBinary CRSMInstruction = 0xD6
+	CRSMUpdateRecord CRSMInstruction = 0xDC
+	CRSMStatus       CRSMInstruction = 0xF2
+)
+
+type CRSMCommand struct {
+	Instruction CRSMInstruction
+	FileID      uint16
+	P1          byte
+	P2          byte
+	Data        []byte
+}
+
+func (c CRSMCommand) Bytes() []byte {
+	return fmt.Appendf(nil, "%d,%d,%d,%d,%d,\"%X\"", c.Instruction, c.FileID, c.P1, c.P2, len(c.Data), c.Data)
+}
+
+func (c *CRSM) Run(command []byte) ([]byte, error) {
+	cmd := fmt.Sprintf("AT+CRSM=%s", command)
+	slog.Debug("[AT] CRSM Sending", "command", cmd)
+	response, err := c.at.Run(cmd)
+	slog.Debug("[AT] CRSM Received", "response", response, "error", err)
+	if err != nil {
+		return nil, err
+	}
+	return c.sw(response)
+}
+
+func (r *CRSM) sw(sw string) ([]byte, error) {
+	if !strings.Contains(sw, "+CRSM: 144") {
+		return nil, fmt.Errorf("unexpected response: %s", sw)
+	}
+	data := strings.Replace(sw, "+CRSM: 144,0,", "", 1)
+	return hex.DecodeString(data[1 : len(data)-1])
 }
