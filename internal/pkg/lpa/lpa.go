@@ -13,6 +13,7 @@ import (
 	"github.com/damonto/euicc-go/bertlv"
 	"github.com/damonto/euicc-go/bertlv/primitive"
 	"github.com/damonto/euicc-go/driver"
+	"github.com/damonto/euicc-go/driver/at"
 	"github.com/damonto/euicc-go/driver/mbim"
 	"github.com/damonto/euicc-go/driver/qmi"
 	sgp22http "github.com/damonto/euicc-go/http"
@@ -84,7 +85,12 @@ func (l *LPA) createTransmitter(m *modem.Modem) (driver.Transmitter, error) {
 		slog.Info("Using MBIM driver", "port", m.PrimaryPort, "slot", slot)
 		channel, err = mbim.New(m.PrimaryPort, slot, true)
 	default:
-		return nil, errors.New("unsupported port type")
+		var port *modem.ModemPort
+		if port, err = m.Port(modem.ModemPortTypeAt); err != nil {
+			return nil, err
+		}
+		slog.Info("Using AT driver", "port", port.Device, "slot", slot)
+		channel, err = at.New(port.Device)
 	}
 	if err != nil {
 		return nil, err
