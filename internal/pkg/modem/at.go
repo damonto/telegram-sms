@@ -173,3 +173,5 @@ func (r *CRSM) sw(sw string) ([]byte, error) {
 	data := strings.Replace(sw, "+CRSM: 144,0,", "", 1)
 	return hex.DecodeString(data[1 : len(data)-1])
 }
+
+// endregion
