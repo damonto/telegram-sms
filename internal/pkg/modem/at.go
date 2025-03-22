@@ -103,10 +103,10 @@ func (c *CSIM) Run(command []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if sw[0] != 0x61 && sw[len(sw)-2] != 0x90 {
+	if sw[len(sw)-2] != 0x61 && sw[len(sw)-2] != 0x90 {
 		return sw, fmt.Errorf("unexpected response: %X", sw)
 	}
-	if sw[0] == 0x61 {
+	if sw[len(sw)-2] == 0x61 {
 		return c.read(sw[1:])
 	}
 	return sw, nil
