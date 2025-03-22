@@ -12,7 +12,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type AT struct{ f *os.File }
+type AT struct {
+	f          *os.File
+	oldTermios *unix.Termios
+}
 
 func NewAT(device string) (*AT, error) {
 	var at AT
@@ -29,11 +32,10 @@ func NewAT(device string) (*AT, error) {
 
 func (a *AT) setTermios() error {
 	fd := int(a.f.Fd())
-	oldTermios, err := unix.IoctlGetTermios(fd, unix.TCGETS)
-	if err != nil {
+	var err error
+	if a.oldTermios, err = unix.IoctlGetTermios(fd, unix.TCGETS); err != nil {
 		return err
 	}
-	defer unix.IoctlSetTermios(fd, unix.TCSETS, oldTermios)
 	t := unix.Termios{
 		Ispeed: unix.B9600,
 		Ospeed: unix.B9600,
@@ -77,6 +79,9 @@ func (a *AT) Support(command string) bool {
 }
 
 func (a *AT) Close() error {
+	if err := unix.IoctlSetTermios(int(a.f.Fd()), unix.TCSETS, a.oldTermios); err != nil {
+		return err
+	}
 	return a.f.Close()
 }
 
