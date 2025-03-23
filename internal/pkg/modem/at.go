@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"sync"
 
 	"golang.org/x/sys/unix"
 )
@@ -15,6 +16,7 @@ import (
 type AT struct {
 	f          *os.File
 	oldTermios *unix.Termios
+	mutex      sync.Mutex
 }
 
 func NewAT(device string) (*AT, error) {
@@ -50,6 +52,8 @@ func (a *AT) setTermios() error {
 }
 
 func (a *AT) Run(command string) (string, error) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	if _, err := a.f.WriteString(command + "\r\n"); err != nil {
 		return "", err
 	}
