@@ -94,7 +94,10 @@ type ATCommand interface {
 
 // region CSIM
 
-type CSIM struct{ at *AT }
+type CSIM struct {
+	at   *AT
+	data []byte
+}
 
 func NewCSIM(at *AT) ATCommand { return &CSIM{at: at} }
 
@@ -121,7 +124,17 @@ func (c *CSIM) Run(command []byte) ([]byte, error) {
 }
 
 func (c *CSIM) read(length []byte) ([]byte, error) {
-	return c.Run(append([]byte{0x00, 0xC0, 0x00, 0x00}, length...))
+	for {
+		b, err := c.Run(append([]byte{0x00, 0xC0, 0x00, 0x00}, length...))
+		if err != nil {
+			return nil, err
+		}
+		c.data = append(c.data, b[:len(b)-2]...)
+		if b[len(b)-2] == 0x90 {
+			break
+		}
+	}
+	return c.data, nil
 }
 
 func (c *CSIM) sw(sw string) ([]byte, error) {
