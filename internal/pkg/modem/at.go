@@ -174,7 +174,7 @@ func (c *CRSM) Run(command []byte) ([]byte, error) {
 	return c.sw(response)
 }
 
-func (r *CRSM) sw(sw string) ([]byte, error) {
+func (c *CRSM) sw(sw string) ([]byte, error) {
 	if !strings.Contains(sw, "+CRSM: 144") {
 		return nil, fmt.Errorf("unexpected response: %s", sw)
 	}
