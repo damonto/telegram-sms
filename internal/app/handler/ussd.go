@@ -59,7 +59,7 @@ func (h *USSDHandler) respond(ctx *th.Context, message telego.Message, s *state.
 	m := s.Value.(*USSDValue).Modem
 	response, err := m.RespondUSSD(message.Text)
 	if err != nil {
-		h.ReplyMessage(ctx, message, err.Error(), nil)
+		h.ReplyMessage(ctx, message, util.EscapeText(err.Error()), nil)
 		return err
 	}
 	_, err = h.ReplyMessage(ctx, message, util.EscapeText(response), nil)
@@ -70,7 +70,7 @@ func (h *USSDHandler) initiate(ctx *th.Context, message telego.Message, s *state
 	m := s.Value.(*USSDValue).Modem
 	response, err := m.InitiateUSSD(message.Text)
 	if err != nil {
-		h.ReplyMessage(ctx, message, err.Error(), nil)
+		h.ReplyMessage(ctx, message, util.EscapeText(err.Error()), nil)
 		return err
 	}
 	state.M.Current(message.Chat.ID, USSDActionRespond)
