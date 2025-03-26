@@ -141,10 +141,11 @@ func (l *LPA) Info() (*Info, error) {
 	}
 	// extResource.freeNonVolatileMemory
 	resource := tlv.First(bertlv.ContextSpecific.Primitive(4))
-	if resource == nil {
-		return nil, errors.New("resource not found")
+	data, _ := resource.MarshalBinary()
+	data[0] = 0x30
+	if err := resource.UnmarshalBinary(data); err != nil {
+		return nil, err
 	}
-	resource.ParseChildren()
 	primitive.UnmarshalInt(&info.FreeSpace).UnmarshalBinary(resource.First(bertlv.ContextSpecific.Primitive(2)).Value)
 	return &info, nil
 }
