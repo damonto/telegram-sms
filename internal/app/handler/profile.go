@@ -135,10 +135,13 @@ func (h *ProfileHandler) deleteProfile(ctx *th.Context, message telego.Message, 
 		return err
 	}
 	defer l.Close()
-	if err := l.Delete(value.ICCID); err != nil {
+	seq, err := l.Delete(value.ICCID)
+	if err != nil {
 		return err
 	}
-	_, err = h.ReplyMessage(ctx, message, util.EscapeText("The profile has been deleted. /profiles"), nil)
+	_, err = h.ReplyMessage(ctx, message,
+		fmt.Sprintf("The profile has been deleted\\. If your operator hasn\\'t received the deletion notification, you can resend it using the command: `/send_notification %d`\\. /profiles", seq),
+		nil)
 	return err
 }
 

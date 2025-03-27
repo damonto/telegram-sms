@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"slices"
+	"strings"
 
 	"github.com/damonto/telegram-sms/internal/app/handler"
 	"github.com/damonto/telegram-sms/internal/app/middleware"
@@ -73,16 +74,20 @@ func (r *router) registerHandlers() {
 	}
 
 	{
-		euicc := admin.Group(r.predicate([]string{"/chip", "/profiles", "/download"}))
+		euicc := admin.Group(r.predicate([]string{"/chip", "/profiles", "/download", "/send_notification"}))
 		euicc.Use(modemRequiredMiddleware.Middleware(true))
 		euicc.Handle(handler.NewChipHandler().Handle(), th.CommandEqual("chip"))
 		euicc.Handle(handler.NewProfileHandler().Handle(), th.CommandEqual("profiles"))
 		euicc.Handle(handler.NewDownloadHandler().Handle(), th.CommandEqual("download"))
+		euicc.Handle(handler.NewSendNotificationHandler().Handle(), th.CommandEqualArgc("send_notification", 1))
 	}
 }
 
 func (r *router) predicate(filters []string) th.Predicate {
 	return func(ctx context.Context, update telego.Update) bool {
+		if strings.HasPrefix(update.Message.Text, "/") {
+			return slices.Contains(filters, strings.Split(update.Message.Text, " ")[0])
+		}
 		return slices.Contains(filters, update.Message.Text)
 	}
 }

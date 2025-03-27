@@ -150,17 +150,28 @@ func (l *LPA) Info() (*Info, error) {
 	return &info, nil
 }
 
-func (l *LPA) Delete(id sgp22.ICCID) error {
+func (l *LPA) Delete(id sgp22.ICCID) (sgp22.SequenceNumber, error) {
 	if err := l.DeleteProfile(id); err != nil {
-		return err
+		return 0, err
 	}
 	return l.sendNotification(id, sgp22.NotificationEventDelete)
 }
 
-func (l *LPA) sendNotification(id sgp22.ICCID, event sgp22.NotificationEvent) error {
-	ln, err := l.ListNotification(event)
+func (l *LPA) SendNotification(seq sgp22.SequenceNumber) error {
+	ns, err := l.RetrieveNotificationList(seq)
 	if err != nil {
 		return err
+	}
+	if len(ns) > 0 {
+		return l.HandleNotification(ns[0])
+	}
+	return nil
+}
+
+func (l *LPA) sendNotification(id sgp22.ICCID, event sgp22.NotificationEvent) (sgp22.SequenceNumber, error) {
+	ln, err := l.ListNotification(event)
+	if err != nil {
+		return 0, err
 	}
 	var latest sgp22.SequenceNumber
 	for _, n := range ln {
@@ -173,13 +184,13 @@ func (l *LPA) sendNotification(id sgp22.ICCID, event sgp22.NotificationEvent) er
 		slog.Info("Sending notification", "event", event, "sequence", latest)
 		ns, err := l.RetrieveNotificationList(latest)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		if len(ns) > 0 {
-			return l.HandleNotification(ns[0])
+			return latest, l.HandleNotification(ns[0])
 		}
 	}
-	return nil
+	return 0, nil
 }
 
 func (l *LPA) Download(ctx context.Context, activationCode *lpa.ActivationCode, handler lpa.DownloadHandler) error {

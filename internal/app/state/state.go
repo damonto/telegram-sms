@@ -57,7 +57,6 @@ func (m *StateManager) RegisterMessage(handler *th.BotHandler) {
 		state, ok := m.Get(message.Chat.ID)
 		if !ok {
 			slog.Debug("No state found", "chatID", message.Chat.ID, "message", message.Text)
-			return nil
 		}
 		return state.Handler.HandleMessage(ctx, message, state)
 	}, th.Any())
