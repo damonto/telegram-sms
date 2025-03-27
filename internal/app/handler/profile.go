@@ -89,13 +89,12 @@ func (h *ProfileHandler) sendActionMessage(ctx *th.Context, query telego.Callbac
 		util.EscapeText(name),
 		profile.ICCID,
 	)
-	message = util.EscapeText("What do you want to do with the profile? \n") + message
+	message = util.EscapeText("What do you want to do with this profile? \n") + message
 	_, err := h.ReplyCallbackQuery(ctx, query, message, func(message *telego.SendMessageParams) error {
 		message.WithReplyMarkup(
 			tu.Keyboard(buttons).
 				WithOneTimeKeyboard().
-				WithResizeKeyboard().
-				WithInputFieldPlaceholder("Select an action"),
+				WithResizeKeyboard(),
 		)
 		return nil
 	})
@@ -149,11 +148,9 @@ func (h *ProfileHandler) confirmDelete(ctx *th.Context, message telego.Message, 
 	_, err := h.ReplyMessage(
 		ctx,
 		message,
-		util.EscapeText(
-			fmt.Sprintf(
-				"Are you sure you want to delete the profile %s?",
-				util.If(value.Profile.ProfileNickname != "", value.Profile.ProfileNickname, value.Profile.ProfileName),
-			),
+		fmt.Sprintf(
+			"Are you sure you want to delete this profile *%s*?",
+			util.EscapeText(util.If(value.Profile.ProfileNickname != "", value.Profile.ProfileNickname, value.Profile.ProfileName)),
 		),
 		func(m *telego.SendMessageParams) error {
 			m.WithReplyMarkup(tu.Keyboard(
@@ -161,7 +158,7 @@ func (h *ProfileHandler) confirmDelete(ctx *th.Context, message telego.Message, 
 					tu.KeyboardButton("Yes"),
 					tu.KeyboardButton("No"),
 				),
-			).WithOneTimeKeyboard().WithResizeKeyboard().WithInputFieldPlaceholder("Confirm delete"))
+			).WithOneTimeKeyboard().WithResizeKeyboard())
 			return nil
 		},
 	)
@@ -186,7 +183,7 @@ func (h *ProfileHandler) enableProfile(ctx *th.Context, message telego.Message, 
 	_, err = h.ReplyMessage(
 		ctx,
 		message,
-		util.EscapeText("The profile has been enabled. It may take a few seconds for the profile to be activated. /profiles"),
+		util.EscapeText("The profile has been enabled. It may take a few seconds to activate. /profiles"),
 		nil,
 	)
 	return err
@@ -236,7 +233,7 @@ func (h *ProfileHandler) askNickname(ctx *th.Context, message telego.Message, _ 
 	_, err := h.ReplyMessage(
 		ctx,
 		message,
-		util.EscapeText("Okay, please enter the new nickname for the profile."),
+		util.EscapeText("Okay, please send me the new nickname."),
 		nil,
 	)
 	return err

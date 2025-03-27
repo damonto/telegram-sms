@@ -128,8 +128,8 @@ func subscribeMessaging(bot *telego.Bot, modems map[dbus.ObjectPath]*modem.Modem
 
 func send(bot *telego.Bot, modem *modem.Modem, messsage *modem.SMS) error {
 	template := `
-*\[%s\] \- %s*
-%s
+[ ] *\[%s\] \- %s*
+> %s
 `
 	operatorName, err := modem.OperatorName()
 	if err != nil {

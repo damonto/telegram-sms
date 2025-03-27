@@ -51,7 +51,7 @@ func (h *MSISDNHandler) HandleMessage(ctx *th.Context, message telego.Message, s
 	h.ReplyMessage(
 		ctx,
 		message,
-		util.EscapeText("I have updated the MSISDN on the SIM. If you don't see the changes, you may need to restart the ModemManager manually. /modem"),
+		util.EscapeText("I've updated the MSISDN on the SIM. If you don't see the changes, you may need to restart the ModemManager manually. /modem"),
 		nil,
 	)
 	return nil

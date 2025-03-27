@@ -64,7 +64,7 @@ func (h *DownloadHandler) Handle() th.Handler {
 			State:   DownloadAskActivationCode,
 			Value:   &DownloadValue{modem: m},
 		})
-		_, err := h.Reply(ctx, update, util.EscapeText("Please enter the activation code."), nil)
+		_, err := h.Reply(ctx, update, util.EscapeText("Please send me the activation code."), nil)
 		return err
 	}
 }
@@ -94,7 +94,7 @@ func (h *DownloadHandler) downloadProfile(ctx *th.Context, message telego.Messag
 	}
 	if ccRequired {
 		state.M.Current(message.From.ID, DownloadAskConfirmationCodeFirst)
-		_, err := h.ReplyMessage(ctx, message, util.EscapeText("Please enter the confirmation code."), nil)
+		_, err := h.ReplyMessage(ctx, message, util.EscapeText("Please send me the confirmation code."), nil)
 		return err
 	}
 	return h.download(ctx, message, s, value)
@@ -161,7 +161,7 @@ func (d *profileDownload) ConfirmationCode() chan string {
 		})
 		d.progressMessage = nil
 	}()
-	if _, err := d.h.ReplyMessage(d.ctx, d.message, util.EscapeText("Please enter the confirmation code."), nil); err != nil {
+	if _, err := d.h.ReplyMessage(d.ctx, d.message, util.EscapeText("Please send me the confirmation code."), nil); err != nil {
 		state.M.Exit(d.message.From.ID)
 		d.cancel()
 		return d.h.confirmationCode

@@ -39,7 +39,7 @@ func (r *router) registerCommands() {
 		{Command: "chip", Description: "Get the eUICC chip information"},
 		{Command: "ussd", Description: "Send a USSD command to the carrier"},
 		{Command: "send", Description: "Send an SMS to a phone number"},
-		{Command: "msisdn", Description: "Update the MSISDN on the SIM"},
+		{Command: "msisdn", Description: "Update the MSISDN(phone number) on the SIM"},
 		{Command: "profiles", Description: "List all profiles on the eUICC"},
 		{Command: "download", Description: "Download a profile into the eUICC"},
 	}
