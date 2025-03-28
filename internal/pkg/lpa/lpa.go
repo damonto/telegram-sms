@@ -70,13 +70,11 @@ func (l *LPA) tryCreateClient(opt *lpa.Option) error {
 	var err error
 	for _, opt.AID = range AIDs {
 		l.Client, err = lpa.New(opt)
-		if err != nil {
-			slog.Warn("Failed to create LPA client", "AID", fmt.Sprintf("%X", opt.AID), "error", err)
-			continue
-		} else {
+		if err == nil {
 			slog.Info("LPA client created", "AID", fmt.Sprintf("%X", opt.AID))
 			return nil
 		}
+		slog.Warn("Failed to create LPA client", "AID", fmt.Sprintf("%X", opt.AID), "error", err)
 	}
 	return errors.New("no supported ISD-R AID found or it's not an eUICC")
 }
