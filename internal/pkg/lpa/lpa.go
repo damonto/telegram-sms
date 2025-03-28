@@ -4,19 +4,16 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"log/slog"
-	"strings"
 	"sync"
-	"time"
 
 	"github.com/damonto/euicc-go/apdu"
 	"github.com/damonto/euicc-go/bertlv"
 	"github.com/damonto/euicc-go/bertlv/primitive"
-	"github.com/damonto/euicc-go/driver"
 	"github.com/damonto/euicc-go/driver/at"
 	"github.com/damonto/euicc-go/driver/mbim"
 	"github.com/damonto/euicc-go/driver/qmi"
-	sgp22http "github.com/damonto/euicc-go/http"
 	"github.com/damonto/euicc-go/lpa"
 	sgp22 "github.com/damonto/euicc-go/v2"
 	"github.com/damonto/telegram-sms/internal/pkg/config"
@@ -26,8 +23,7 @@ import (
 
 type LPA struct {
 	*lpa.Client
-	transmitter driver.Transmitter
-	mutex       sync.Mutex
+	mutex sync.Mutex
 }
 
 type Info struct {
@@ -45,10 +41,8 @@ type Product struct {
 	Brand        string
 }
 
-const AdminProtocol = "gsma/rsp/v2.2.0"
-
 var AIDs = [][]byte{
-	driver.GSMAISDRApplicationAID,
+	lpa.GSMAISDRApplicationAID,
 	{0xA0, 0x00, 0x00, 0x05, 0x59, 0x10, 0x10, 0xFF, 0xFF, 0xFF, 0xFF, 0x89, 0x00, 0x05, 0x05, 0x00}, // 5ber Ultra
 	{0xA0, 0x00, 0x00, 0x05, 0x59, 0x10, 0x10, 0x00, 0x00, 0x00, 0x89, 0x00, 0x00, 0x00, 0x03, 0x00}, // eSIM.me V2
 	{0xA0, 0x65, 0x73, 0x74, 0x6B, 0x6D, 0x65, 0xFF, 0xFF, 0xFF, 0xFF, 0x49, 0x53, 0x44, 0x2D, 0x52}, // ESTKme 2025
@@ -58,62 +52,57 @@ var AIDs = [][]byte{
 
 func New(m *modem.Modem) (*LPA, error) {
 	var l = new(LPA)
-	var err error
-	l.transmitter, err = l.createTransmitter(m)
+	ch, err := l.createChannel(m)
 	if err != nil {
 		return nil, err
 	}
-	l.Client = &lpa.Client{
-		HTTP: &sgp22http.Client{
-			Client:        driver.NewHTTPClient(30 * time.Second),
-			AdminProtocol: AdminProtocol,
-		},
-		APDU: l.transmitter,
+	opt := &lpa.Option{
+		Channel: ch,
+		MSS:     util.If(config.C.Slowdown, 120, 250),
+	}
+	if err := l.tryCreateClient(opt); err != nil {
+		return nil, err
 	}
 	return l, nil
 }
 
-func (l *LPA) createTransmitter(m *modem.Modem) (driver.Transmitter, error) {
+func (l *LPA) tryCreateClient(opt *lpa.Option) error {
+	var err error
+	for _, opt.AID = range AIDs {
+		l.Client, err = lpa.New(opt)
+		if err != nil {
+			slog.Warn("Failed to create LPA client", "AID", fmt.Sprintf("%X", opt.AID), "error", err)
+			continue
+		} else {
+			slog.Info("LPA client created", "AID", fmt.Sprintf("%X", opt.AID))
+			return nil
+		}
+	}
+	return errors.New("no supported ISD-R AID found or it's not an eUICC")
+}
+
+func (l *LPA) createChannel(m *modem.Modem) (apdu.SmartCardChannel, error) {
 	slot := uint8(util.If(m.PrimarySimSlot > 0, m.PrimarySimSlot, 1))
 	var err error
-	var channel apdu.SmartCardChannel
 	switch m.PrimaryPortType() {
 	case modem.ModemPortTypeQmi:
 		slog.Info("Using QMI driver", "port", m.PrimaryPort, "slot", slot)
-		channel, err = qmi.New(m.PrimaryPort, slot, true)
+		return qmi.New(m.PrimaryPort, slot, true)
 	case modem.ModemPortTypeMbim:
 		slog.Info("Using MBIM driver", "port", m.PrimaryPort, "slot", slot)
-		channel, err = mbim.New(m.PrimaryPort, slot, true)
+		return mbim.New(m.PrimaryPort, slot, true)
 	default:
 		var port *modem.ModemPort
 		if port, err = m.Port(modem.ModemPortTypeAt); err != nil {
 			return nil, err
 		}
 		slog.Info("Using AT driver", "port", port.Device, "slot", slot)
-		channel, err = at.New(port.Device)
+		return at.New(port.Device)
 	}
-	if err != nil {
-		return nil, err
-	}
-	return l.tryCreateTransmitter(channel)
-}
-
-func (l *LPA) tryCreateTransmitter(channel apdu.SmartCardChannel) (driver.Transmitter, error) {
-	var err error
-	for _, aid := range AIDs {
-		slog.Info("Trying", "AID", strings.ToUpper(hex.EncodeToString(aid)))
-		l.transmitter, err = driver.NewTransmitter(channel, aid, util.If(config.C.Slowdown, 120, 250))
-		if err == nil {
-			slog.Info("Using", "AID", strings.ToUpper(hex.EncodeToString(aid)))
-			return l.transmitter, nil
-		}
-		slog.Error("Failed to create transmitter", "AID", strings.ToUpper(hex.EncodeToString(aid)), "error", err)
-	}
-	return nil, errors.New("no supported ISD-R AID found or it's not an eUICC")
 }
 
 func (l *LPA) Close() error {
-	return l.transmitter.Close()
+	return l.Client.Close()
 }
 
 func (l *LPA) Info() (*Info, error) {
