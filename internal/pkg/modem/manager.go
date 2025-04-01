@@ -86,7 +86,7 @@ func (m *Manager) createModem(objectPath dbus.ObjectPath, data map[string]dbus.V
 	if numbers := data["OwnNumbers"].Value().([]string); len(numbers) > 0 {
 		modem.Number = numbers[0]
 	}
-	for _, port := range data["Ports"].Value().([][]interface{}) {
+	for _, port := range data["Ports"].Value().([][]any) {
 		modem.Ports = append(modem.Ports, ModemPort{
 			PortType: ModemPortType(port[1].(uint32)),
 			Device:   fmt.Sprintf("/dev/%s", port[0]),

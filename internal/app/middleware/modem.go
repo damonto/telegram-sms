@@ -109,7 +109,7 @@ func (m *ModemRequiredMiddleware) sendErrorModemNotFound(ctx *th.Context, update
 	if err != nil {
 		return err
 	}
-	return errors.New("no modem found")
+	return errors.New("no modems were found")
 }
 
 func (m *ModemRequiredMiddleware) ask(ctx *th.Context, update telego.Update, modems map[dbus.ObjectPath]*modem.Modem) error {
