@@ -57,8 +57,9 @@ func New(m *modem.Modem) (*LPA, error) {
 		return nil, err
 	}
 	opt := &lpa.Option{
-		Channel: ch,
-		MSS:     util.If(config.C.Slowdown, 120, 250),
+		Channel:              ch,
+		AdminProtocolVersion: "2.2.0",
+		MSS:                  util.If(config.C.Slowdown, 120, 250),
 	}
 	if err := l.tryCreateClient(opt); err != nil {
 		return nil, err
