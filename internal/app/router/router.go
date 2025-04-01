@@ -85,9 +85,6 @@ func (r *router) registerHandlers() {
 
 func (r *router) predicate(filters []string) th.Predicate {
 	return func(ctx context.Context, update telego.Update) bool {
-		if strings.HasPrefix(update.Message.Text, "/") {
-			return slices.Contains(filters, strings.Split(update.Message.Text, " ")[0])
-		}
-		return slices.Contains(filters, update.Message.Text)
+		return slices.Contains(filters, strings.Split(update.Message.Text, " ")[0])
 	}
 }
