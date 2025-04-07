@@ -9,7 +9,7 @@ require (
 	github.com/damonto/euicc-go/driver/qmi v0.0.5
 	github.com/godbus/dbus/v5 v5.1.0
 	github.com/mymmrac/telego v1.0.2
-	golang.org/x/sys v0.31.0
+	golang.org/x/sys v0.32.0
 )
 
 require (
