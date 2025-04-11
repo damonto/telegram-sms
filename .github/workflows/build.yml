@@ -46,7 +46,10 @@ jobs:
       - name: Install libmbim & libqmi
         run: |
           sudo apt-get update -y
-          sudo apt-get -qq --no-install-recommends install -y libmbim-glib-dev libqmi-glib-dev
+          sudo apt-get -qq --no-install-recommends install -y libmbim-glib-dev
+          # Remove this line if the package is available in the repository
+          wget https://launchpad.net/ubuntu/+archive/primary/+files/libqmi-glib-dev_1.35.6-1_amd64.deb
+          sudo dpkg -i libqmi-glib-dev_1.35.6-1_amd64.deb
 
       - name: Build for ${{ matrix.target.name }}
         run: |
