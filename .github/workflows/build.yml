@@ -43,22 +43,10 @@ jobs:
           go-version: 1.24
           cache: false
 
-      - name: Install libmbim
+      - name: Install libmbim & libqmi
         run: |
           sudo apt-get update -y
-          sudo apt-get -qq install -y libmbim-glib-dev
-
-      - name: Building libqmi
-        run: |
-          # Remove this step once libqmi 1.36 is available in the Ubuntu repository.
-          sudo apt-get update -y
-          sudo apt-get -qq install -y meson ninja-build pkg-config libglib2.0-dev libgudev-1.0-dev libqrtr-glib-dev
-          # git clone https://gitlab.freedesktop.org/mobile-broadband/libqmi.git
-          git clone https://github.com/linux-mobile-broadband/libqmi.git
-          cd libqmi
-          meson setup build --prefix=/usr --buildtype=release -Dmbim_qmux=false -Dfirmware_update=false -Dudev=false -Dman=false -Dgtk_doc=false -Dintrospection=false -Dbash_completion=false
-          sudo ninja -j$(nproc) -C build
-          sudo ninja -C build install
+          sudo apt-get -qq --no-install-recommends install -y libmbim-glib-dev libqmi-glib-dev
 
       - name: Build for ${{ matrix.target.name }}
         run: |

@@ -48,11 +48,9 @@ sudo ./telegram-sms --bot-token=YourTelegramToken --admin-id=YourTelegramChatID
 
 #### QMI
 
-Since the new version of `libqmi` has not been officially released, you will need to compile `libqmi` manually.
+`libqmi` requires you to have `libqmi` version **1.35.5** or later installed. If your package manager doesn't provide the latest version, you can build it from source. The following instructions are for building `libqmi` using `meson` and `ninja`. Make sure you have the necessary dependencies installed on your system.
 
 For detailed build instructions, refer to [libqmi's official documentation](https://modemmanager.org/docs/libqmi/building/building-meson/).
-
-If you already have `libqmi` version **1.35.5** or later installed, you can skip this step.
 
 ```bash
 # sudo pacman -S --needed meson ninja pkg-config bash-completion libgirepository help2man glib2 libgudev libmbim libqrtr-glib (Arch Linux)
