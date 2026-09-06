@@ -7,7 +7,7 @@ require (
 	github.com/damonto/wwan-go v0.0.0-20260830013653-32ddc42a16b0
 	github.com/go-playground/locales v0.14.1
 	github.com/go-playground/universal-translator v0.18.1
-	github.com/go-playground/validator/v10 v10.30.3
+	github.com/go-playground/validator/v10 v10.30.4
 	github.com/gorilla/websocket v1.5.3
 	github.com/labstack/echo/v5 v5.3.1
 	github.com/modelcontextprotocol/go-sdk v1.7.0
