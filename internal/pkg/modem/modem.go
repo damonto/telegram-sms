@@ -45,6 +45,8 @@ type Modem struct {
 	bearers        map[uint64]*Bearer
 	slotSIMs       map[uint32]*SIM
 	statusKnown    bool
+	simRevision    uint64
+	fallbackNumber string
 
 	Device              string
 	Manufacturer        string
@@ -73,6 +75,7 @@ type ModemSnapshot struct {
 	Slots          []*SIM
 	Number         string
 	StatusKnown    bool
+	SIMIdentity    SIMIdentity
 }
 
 func (s ModemSnapshot) AirplaneMode() bool {
@@ -83,19 +86,26 @@ func (s ModemSnapshot) Locked() bool {
 	return s.Status.SIM == wwanmodem.SIMStateLocked
 }
 
+// Snapshot returns a consistent copy of modem state, including the effective
+// phone number and the SIM identity required for subsequent fallback updates.
 func (m *Modem) Snapshot() ModemSnapshot {
 	if m == nil {
 		return ModemSnapshot{}
 	}
 	m.runtimeMu.RLock()
 	defer m.runtimeMu.RUnlock()
+	number := m.Number
+	if strings.TrimSpace(number) == "" {
+		number = m.fallbackNumber
+	}
 	return ModemSnapshot{
 		Status:         m.Status,
 		PrimarySIMSlot: m.PrimarySIMSlot,
 		SIM:            cloneSIM(m, m.SIM),
 		SIMSlots:       slices.Clone(m.SIMSlots),
 		Slots:          cloneSIMSlots(m),
-		Number:         m.Number,
+		Number:         number,
+		SIMIdentity:    m.simIdentityLocked(),
 		StatusKnown:    m.statusKnown || m.Status != (wwanmodem.Status{}),
 	}
 }
@@ -220,6 +230,7 @@ func (m *Modem) withReservedSIMSlot(ctx context.Context, run func() error) error
 	return run()
 }
 
+// Close stops the modem generation and invalidates outstanding number updates.
 func (m *Modem) Close() error {
 	if m == nil {
 		return nil
@@ -229,6 +240,10 @@ func (m *Modem) Close() error {
 	})
 	m.closeOnce.Do(func() {
 		close(m.done)
+		m.runtimeMu.Lock()
+		m.simRevision++
+		m.fallbackNumber = ""
+		m.runtimeMu.Unlock()
 		if m.watchCancel != nil {
 			m.watchCancel()
 		}

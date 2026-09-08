@@ -53,6 +53,7 @@ type coordinator struct {
 	registry            *mmodem.Registry
 	registrationGroups  *RegistrationGroups
 	managedVoLTE        managedVoLTEOps
+	onRegistration      func(*sessionState, imsgo.RegistrationInfo)
 
 	mu                sync.Mutex
 	closing           bool
@@ -68,22 +69,23 @@ type coordinator struct {
 }
 
 type sessionState struct {
-	id          uint64
-	modem       *mmodem.Modem
-	cancel      context.CancelFunc
-	done        <-chan struct{}
-	reconnect   chan struct{}
-	phase       sessionPhase
-	client      *imsgo.Client
-	ussd        *imsgo.USSDSession
-	calls       map[string]*voiceCallState
-	pendingDial *pendingVoiceDial
-	deviceKey   string
-	generation  uint64
-	profileID   string
-	connected   bool
-	connectedAt time.Time
-	websheet    *websheet.Session
+	id           uint64
+	modem        *mmodem.Modem
+	cancel       context.CancelFunc
+	done         <-chan struct{}
+	reconnect    chan struct{}
+	phase        sessionPhase
+	client       *imsgo.Client
+	ussd         *imsgo.USSDSession
+	calls        map[string]*voiceCallState
+	pendingDial  *pendingVoiceDial
+	deviceKey    string
+	generation   uint64
+	profileID    string
+	numberTarget mmodem.SIMIdentity
+	connected    bool
+	connectedAt  time.Time
+	websheet     *websheet.Session
 }
 
 const imsSessionCleanupTimeout = 30 * time.Second

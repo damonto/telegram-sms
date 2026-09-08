@@ -40,11 +40,6 @@ type currentModemRead struct {
 	ReloadObserved bool
 }
 
-type simIdentity struct {
-	slot       uint32
-	identifier string
-}
-
 func (t SIMTarget) valid() bool { return t.Slot != 0 || strings.TrimSpace(t.ICCID) != "" }
 
 // SwitchSIMSlot keeps the active-slot reservation through both the modem
@@ -113,21 +108,8 @@ func (r *Registry) EnsureSIMVisible(ctx context.Context, current *Modem, target 
 	return result.Modem, nil
 }
 
-func activeSIMIdentity(m *Modem) (uint32, string) {
-	identity := currentSIMIdentity(m)
-	return identity.slot, identity.identifier
-}
-
-func currentSIMIdentity(m *Modem) simIdentity {
-	if m == nil {
-		return simIdentity{}
-	}
-	snapshot := m.Snapshot()
-	sim := snapshot.SIM
-	if sim == nil {
-		return simIdentity{slot: snapshot.PrimarySIMSlot}
-	}
-	return simIdentity{slot: snapshot.PrimarySIMSlot, identifier: strings.TrimSpace(sim.Identifier)}
+func currentSIMIdentity(m *Modem) SIMIdentity {
+	return m.Snapshot().SIMIdentity
 }
 
 func (r *Registry) trackSIMIdentity(current *Modem) {
@@ -136,7 +118,7 @@ func (r *Registry) trackSIMIdentity(current *Modem) {
 	}
 	r.mu.Lock()
 	if r.simIdentities == nil {
-		r.simIdentities = make(map[*Modem]simIdentity)
+		r.simIdentities = make(map[*Modem]SIMIdentity)
 	}
 	r.simIdentities[current] = currentSIMIdentity(current)
 	r.mu.Unlock()
@@ -146,9 +128,6 @@ func (r *Registry) publishSIMChanged(current *Modem, previousSlot uint32, previo
 	if r == nil || current == nil {
 		return
 	}
-	providedPrevious := simIdentity{slot: previousSlot, identifier: strings.TrimSpace(previous)}
-	next := currentSIMIdentity(current)
-
 	r.mu.Lock()
 	path := r.keyForModemLocked(current)
 	if path == "" {
@@ -156,8 +135,14 @@ func (r *Registry) publishSIMChanged(current *Modem, previousSlot uint32, previo
 		return
 	}
 	if r.simIdentities == nil {
-		r.simIdentities = make(map[*Modem]simIdentity)
+		r.simIdentities = make(map[*Modem]SIMIdentity)
 	}
+	// Read under the registry lock so concurrent watcher notifications cannot
+	// overwrite a newer activation with an older snapshot.
+	next := currentSIMIdentity(current)
+	providedPrevious := next
+	providedPrevious.Slot = previousSlot
+	providedPrevious.ICCID = strings.TrimSpace(previous)
 	trackedPrevious, tracked := r.simIdentities[current]
 	if tracked {
 		providedPrevious = trackedPrevious
@@ -176,20 +161,20 @@ func (r *Registry) publishSIMChanged(current *Modem, previousSlot uint32, previo
 		"SIM profile changed",
 		"imei", current.EquipmentIdentifier,
 		"generation", current.Generation(),
-		"previous_slot", providedPrevious.slot,
-		"slot", next.slot,
-		"previous_iccid", providedPrevious.identifier,
-		"iccid", next.identifier,
+		"previous_slot", providedPrevious.Slot,
+		"slot", next.Slot,
+		"previous_iccid", providedPrevious.ICCID,
+		"iccid", next.ICCID,
 	)
 	r.publish(subscribers, ModemEvent{
 		Type:                  ModemEventSIMChanged,
 		Modem:                 current,
 		Path:                  path,
 		Generation:            current.Generation(),
-		PreviousSIMSlot:       providedPrevious.slot,
-		SIMSlot:               next.slot,
-		PreviousSIMIdentifier: providedPrevious.identifier,
-		SIMIdentifier:         next.identifier,
+		PreviousSIMSlot:       providedPrevious.Slot,
+		SIMSlot:               next.Slot,
+		PreviousSIMIdentifier: providedPrevious.ICCID,
+		SIMIdentifier:         next.ICCID,
 		Snapshot:              snapshot,
 	})
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	imsgo "github.com/damonto/ims-go"
 	pinternet "github.com/damonto/sigmo/internal/pkg/internet"
 	mmodem "github.com/damonto/sigmo/internal/pkg/modem"
 	"github.com/damonto/sigmo/internal/pkg/storage"
@@ -28,6 +29,8 @@ type Connectivity struct {
 
 	operationMu sync.Mutex
 	operations  map[string]*sync.Mutex
+	numberMu    sync.Mutex
+	numbers     map[string]*modemNumbers
 }
 
 type ConnectivityConfig struct {
@@ -39,6 +42,7 @@ type ConnectivityConfig struct {
 	Websheets          *websheet.Broker
 }
 
+// NewConnectivity wires Internet and IMS access with shared registration policy.
 func NewConnectivity(cfg ConnectivityConfig) *Connectivity {
 	registrationGroups := &RegistrationGroups{}
 	wifiCalling := newCoordinator(coordinatorConfig{
@@ -70,6 +74,12 @@ func NewConnectivity(cfg ConnectivityConfig) *Connectivity {
 	}
 	if cfg.Registry != nil {
 		connectivity.reloadModem = cfg.Registry.Reload
+	}
+	wifiCalling.onRegistration = func(session *sessionState, info imsgo.RegistrationInfo) {
+		connectivity.updateNumber(AccessWiFiCalling, session, info)
+	}
+	volte.onRegistration = func(session *sessionState, info imsgo.RegistrationInfo) {
+		connectivity.updateNumber(AccessVoLTE, session, info)
 	}
 	return connectivity
 }

@@ -702,9 +702,9 @@ func TestRuntimeSIMChangePublishesFromTrackedIdentity(t *testing.T) {
 		registry.publishSIMChanged(current, previousSlot, previousIdentifier)
 	}
 
-	previousSlot, previousIdentifier := activeSIMIdentity(current)
+	previousIdentity := currentSIMIdentity(current)
 	current.applyActiveSIMIdentity(1, next)
-	current.notifySIMChanged(previousSlot, previousIdentifier)
+	current.notifySIMChanged(previousIdentity)
 
 	if len(events) != 1 {
 		t.Fatalf("published events = %d, want 1", len(events))
@@ -731,9 +731,9 @@ func TestRuntimeSIMRemovalPublishesFromTrackedIdentity(t *testing.T) {
 		registry.publishSIMChanged(current, previousSlot, previousIdentifier)
 	}
 
-	previousSlot, previousIdentifier := activeSIMIdentity(current)
+	previousIdentity := currentSIMIdentity(current)
 	current.applySIMInfo(wwanmodem.SIMInfo{})
-	current.notifySIMChanged(previousSlot, previousIdentifier)
+	current.notifySIMChanged(previousIdentity)
 
 	if len(events) != 1 {
 		t.Fatalf("published events = %d, want 1", len(events))
@@ -744,6 +744,58 @@ func TestRuntimeSIMRemovalPublishesFromTrackedIdentity(t *testing.T) {
 	}
 	if event.PreviousSIMIdentifier != previous || event.SIMIdentifier != "" {
 		t.Fatalf("event SIM transition = %q -> %q, want %q -> empty", event.PreviousSIMIdentifier, event.SIMIdentifier, previous)
+	}
+}
+
+func TestRuntimeSIMRoundTripPublishesNewActivation(t *testing.T) {
+	tests := []struct {
+		name   string
+		change func(*Modem)
+	}{
+		{name: "remove and reinsert", change: func(m *Modem) {
+			m.applySIMInfo(wwanmodem.SIMInfo{Slot: 1, ICCID: "profile-a", State: wwanmodem.SIMStateAbsent})
+			m.applySIMInfo(wwanmodem.SIMInfo{Slot: 1, ICCID: "profile-a", State: wwanmodem.SIMStateReady})
+		}},
+		{name: "profile A to B to A", change: func(m *Modem) {
+			m.applyActiveSIMIdentity(1, "profile-b")
+			m.applyActiveSIMIdentity(1, "profile-a")
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			const path = "/sys/devices/modem-1"
+			m := simRefreshTestModem(path, 1, false)
+			m.applySIMInfo(wwanmodem.SIMInfo{Slot: 1, ICCID: "profile-a", State: wwanmodem.SIMStateReady})
+			previous := currentSIMIdentity(m)
+			registry := &Registry{modems: map[string]*Modem{path: m}}
+			registry.trackSIMIdentity(m)
+			var events []ModemEvent
+			registry.subs = []subscription{{fn: func(event ModemEvent) error {
+				events = append(events, event)
+				return nil
+			}}}
+			m.onSIMChange = func(slot uint32, iccid string) { registry.publishSIMChanged(m, slot, iccid) }
+
+			// A watcher can publish after both transitions have already occurred.
+			tt.change(m)
+			m.notifySIMChanged(previous)
+			if len(events) != 1 {
+				t.Fatalf("published events = %d, want 1 for the new activation", len(events))
+			}
+			if events[0].PreviousSIMIdentifier != "profile-a" || events[0].SIMIdentifier != "profile-a" {
+				t.Fatalf("SIM round-trip event = %+v", events[0])
+			}
+			if m.SetFallbackNumber(previous, "+15551234567") {
+				t.Fatal("accepted an observation from the previous activation")
+			}
+			if !m.SetFallbackNumber(currentSIMIdentity(m), "+15557654321") {
+				t.Fatal("rejected an observation from the new activation")
+			}
+			m.notifySIMChanged(previous)
+			if len(events) != 1 {
+				t.Fatal("duplicate notification restarted the same activation")
+			}
+		})
 	}
 }
 

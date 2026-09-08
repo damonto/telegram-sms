@@ -50,7 +50,7 @@ type Registry struct {
 	reloads      chan modemReloadRequest
 	// A physical reconnect resets the bounded CID-exhaustion recovery state.
 	cidRecoveryStates map[string]cidRecoveryState
-	simIdentities     map[*Modem]simIdentity
+	simIdentities     map[*Modem]SIMIdentity
 }
 
 type cidRecoveryState uint8
@@ -129,7 +129,7 @@ func NewRegistry() (*Registry, error) {
 		reloads:           make(chan modemReloadRequest, 8),
 		done:              make(chan struct{}),
 		cidRecoveryStates: make(map[string]cidRecoveryState),
-		simIdentities:     make(map[*Modem]simIdentity),
+		simIdentities:     make(map[*Modem]SIMIdentity),
 	}, nil
 }
 
@@ -259,7 +259,7 @@ func (r *Registry) Close() error {
 	modems := maps.Clone(r.modems)
 	r.modems = make(map[string]*Modem)
 	r.subs = nil
-	r.simIdentities = make(map[*Modem]simIdentity)
+	r.simIdentities = make(map[*Modem]SIMIdentity)
 	r.mu.Unlock()
 	var result error
 	for _, modem := range modems {

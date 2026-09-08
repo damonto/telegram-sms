@@ -124,6 +124,9 @@ func (c *coordinator) startEnabled(ctx context.Context, registry *mmodem.Registr
 }
 
 func (c *coordinator) startIfEnabled(ctx context.Context, modem *mmodem.Modem) {
+	if modem.Snapshot().Status.SIM == wwanmodem.SIMStateAbsent {
+		return
+	}
 	if c.access == AccessWiFiCalling {
 		settings, err := c.WiFiCallingSettings(ctx, modem)
 		if err != nil {
@@ -244,16 +247,17 @@ func (c *coordinator) start(ctx context.Context, modem *mmodem.Modem, profileID 
 	c.nextSessionID++
 	sessionID := c.nextSessionID
 	c.sessions[modemID] = &sessionState{
-		id:         sessionID,
-		modem:      modem,
-		cancel:     cancel,
-		done:       done,
-		reconnect:  make(chan struct{}, 1),
-		phase:      sessionPhaseConnecting,
-		deviceKey:  modem.Path(),
-		generation: modem.Generation(),
-		profileID:  profileID,
-		calls:      make(map[string]*voiceCallState),
+		id:           sessionID,
+		modem:        modem,
+		cancel:       cancel,
+		done:         done,
+		reconnect:    make(chan struct{}, 1),
+		phase:        sessionPhaseConnecting,
+		deviceKey:    modem.Path(),
+		generation:   modem.Generation(),
+		profileID:    profileID,
+		numberTarget: modem.Snapshot().SIMIdentity,
+		calls:        make(map[string]*voiceCallState),
 	}
 	c.mu.Unlock()
 	go func() {
@@ -789,6 +793,7 @@ func terminalInfo(imei string) imsgo.TerminalInfo {
 func (c *coordinator) watchClient(ctx context.Context, modem *mmodem.Modem, profileID string, sessionID uint64, client *imsgo.Client) {
 	events := client.Events()
 	defer events.Close()
+	c.syncRegistration(modem.EquipmentIdentifier, sessionID, client)
 	smsEvents := client.SMS().Events()
 	defer smsEvents.Close()
 	voiceEvents := client.Voice().Events()
@@ -796,6 +801,12 @@ func (c *coordinator) watchClient(ctx context.Context, modem *mmodem.Modem, prof
 	reconnect := c.reconnectChannel(modem.EquipmentIdentifier, sessionID, client)
 	for {
 		select {
+		case _, ok := <-events.RegistrationChanged:
+			if !ok {
+				c.markDisconnected(modem.EquipmentIdentifier, sessionID, client)
+				return
+			}
+			c.syncRegistration(modem.EquipmentIdentifier, sessionID, client)
 		case msg, ok := <-smsEvents.Incoming:
 			if !ok {
 				c.markDisconnected(modem.EquipmentIdentifier, sessionID, client)
@@ -875,6 +886,9 @@ func (c *coordinator) markConnected(modemID string, sessionID uint64, client *im
 		session.connectedAt = time.Now()
 		session.phase = sessionPhaseConnected
 		session.websheet = nil
+		if client != nil {
+			c.publishRegistrationLocked(session, client.Registration())
+		}
 	}
 }
 
@@ -882,6 +896,7 @@ func (c *coordinator) markClientReconnecting(modemID string, sessionID uint64, c
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if session := c.sessions[modemID]; session != nil && session.id == sessionID && session.client == client {
+		c.publishRegistrationLocked(session, client.Registration())
 		session.connected = false
 		session.connectedAt = time.Time{}
 		session.phase = sessionPhaseConnecting
@@ -892,6 +907,7 @@ func (c *coordinator) markConnecting(modemID string, sessionID uint64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if session := c.sessions[modemID]; session != nil && session.id == sessionID {
+		c.publishRegistrationLocked(session, imsgo.RegistrationInfo{})
 		session.client = nil
 		session.connected = false
 		session.connectedAt = time.Time{}
@@ -903,6 +919,7 @@ func (c *coordinator) markWaitingForUplink(modemID string, sessionID uint64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if session := c.sessions[modemID]; session != nil && session.id == sessionID {
+		c.publishRegistrationLocked(session, imsgo.RegistrationInfo{})
 		session.client = nil
 		session.connected = false
 		session.connectedAt = time.Time{}
@@ -917,6 +934,7 @@ func (c *coordinator) markDisconnected(modemID string, sessionID uint64, client 
 		c.mu.Unlock()
 		return
 	}
+	c.publishRegistrationLocked(session, imsgo.RegistrationInfo{})
 	session.client = nil
 	session.connected = false
 	session.connectedAt = time.Time{}
@@ -947,6 +965,7 @@ func (c *coordinator) requestReconnect(modemID string, client *imsgo.Client) {
 		return
 	}
 	ch := session.reconnect
+	c.publishRegistrationLocked(session, imsgo.RegistrationInfo{})
 	session.client = nil
 	session.connected = false
 	session.connectedAt = time.Time{}
@@ -1088,6 +1107,7 @@ func (c *coordinator) deleteSessionWebsheet(session *sessionState) {
 func (c *coordinator) detachSession(modemID string) (*sessionState, []VoiceCall, bool) {
 	c.mu.Lock()
 	session := c.sessions[modemID]
+	c.publishRegistrationLocked(session, imsgo.RegistrationInfo{})
 	delete(c.sessions, modemID)
 	events := c.disconnectedCallEvents(session)
 	// Register before unlocking so stopAll cannot miss this detached session.
@@ -1106,6 +1126,7 @@ func (c *coordinator) detachSessionByID(modemID string, sessionID uint64) (*sess
 		c.mu.Unlock()
 		return nil, nil, false
 	}
+	c.publishRegistrationLocked(session, imsgo.RegistrationInfo{})
 	delete(c.sessions, modemID)
 	events := c.disconnectedCallEvents(session)
 	tracked := !c.closing
@@ -1176,6 +1197,7 @@ func (c *coordinator) stopAllContext(ctx context.Context) ([]*mmodem.Modem, erro
 	events := make([][]VoiceCall, len(sessions))
 	modems := make([]*mmodem.Modem, 0, len(sessions))
 	for i, session := range sessions {
+		c.publishRegistrationLocked(session, imsgo.RegistrationInfo{})
 		events[i] = c.disconnectedCallEvents(session)
 		if session != nil && session.modem != nil {
 			modems = append(modems, session.modem)

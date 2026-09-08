@@ -23,9 +23,12 @@ func (m *Modem) applyStatus(status wwanmodem.Status) {
 	status.OperatorName = strings.TrimSpace(status.OperatorName)
 	status.OperatorID = strings.TrimSpace(status.OperatorID)
 	m.runtimeMu.Lock()
+	previous := m.simIdentityLocked()
 	m.Status = status
 	m.statusKnown = true
+	m.invalidateSIMIdentityLocked(previous)
 	m.runtimeMu.Unlock()
+	m.notifySIMChanged(previous)
 }
 
 func (m *Modem) applyPowerState(state wwanmodem.PowerState) {
@@ -51,6 +54,7 @@ func (m *Modem) applySIMInfo(info wwanmodem.SIMInfo) {
 		return
 	}
 	m.runtimeMu.Lock()
+	previousIdentity := m.simIdentityLocked()
 	// The process-owned QMI control client is created for slot 1, so some
 	// firmware reports that configured slot in SIMInfo even when another
 	// physical slot is active. SIMSlots is authoritative once discovered.
@@ -77,6 +81,7 @@ func (m *Modem) applySIMInfo(info wwanmodem.SIMInfo) {
 		m.Number = ""
 	}
 	m.Status.SIM = info.State
+	m.invalidateSIMIdentityLocked(previousIdentity)
 	if m.PrimarySIMSlot != 0 && !slices.Contains(m.SIMSlots, m.PrimarySIMSlot) {
 		m.SIMSlots = append(m.SIMSlots, m.PrimarySIMSlot)
 		slices.Sort(m.SIMSlots)
@@ -152,6 +157,7 @@ func (m *Modem) applyActiveSIMIdentity(slot uint8, iccid string) {
 
 	m.runtimeMu.Lock()
 	defer m.runtimeMu.Unlock()
+	previousIdentity := m.simIdentityLocked()
 
 	previousIdentifier := ""
 	if m.SIM != nil {
@@ -179,6 +185,7 @@ func (m *Modem) applyActiveSIMIdentity(slot uint8, iccid string) {
 	m.slotSIMs[index] = cached
 	m.PrimarySIMSlot = index
 	m.SIM = cloneSIM(m, cached)
+	m.invalidateSIMIdentityLocked(previousIdentity)
 	if !slices.Contains(m.SIMSlots, index) {
 		m.SIMSlots = append(m.SIMSlots, index)
 		slices.Sort(m.SIMSlots)
@@ -194,6 +201,7 @@ func (m *Modem) applySIMSlots(slots []wwanmodem.SIMSlot) {
 	}
 	m.runtimeMu.Lock()
 	defer m.runtimeMu.Unlock()
+	previousIdentity := m.simIdentityLocked()
 
 	previousIdentifier := ""
 	if m.SIM != nil {
@@ -218,6 +226,9 @@ func (m *Modem) applySIMSlots(slots []wwanmodem.SIMSlot) {
 		values = append(values, index)
 		if slot.Active {
 			active = index
+			if slot.State == wwanmodem.SIMStateAbsent {
+				m.Status.SIM = wwanmodem.SIMStateAbsent
+			}
 		}
 
 		if slot.Active && m.SIM != nil &&
@@ -254,6 +265,7 @@ func (m *Modem) applySIMSlots(slots []wwanmodem.SIMSlot) {
 		known[m.PrimarySIMSlot] = cloneSIM(m, m.SIM)
 	}
 	m.slotSIMs = known
+	m.invalidateSIMIdentityLocked(previousIdentity)
 }
 
 func (m *Modem) startRuntimeWatchers(parent context.Context, onFailure func(error), onSIMChange func(uint32, string)) {
@@ -315,7 +327,7 @@ func (m *Modem) watchSIM(ctx context.Context) {
 }
 
 func (m *Modem) applySIMRuntimeUpdate(ctx context.Context, info wwanmodem.SIMInfo) {
-	previousSlot, previousIdentifier := activeSIMIdentity(m)
+	previous := currentSIMIdentity(m)
 	slots, err := m.core.SIMSlots(ctx)
 	if err != nil {
 		slog.Debug("refresh physical SIM slots", "imei", m.EquipmentIdentifier, "error", err)
@@ -323,16 +335,15 @@ func (m *Modem) applySIMRuntimeUpdate(ctx context.Context, info wwanmodem.SIMInf
 		m.applySIMSlots(slots)
 	}
 	m.applySIMInfo(info)
-	m.notifySIMChanged(previousSlot, previousIdentifier)
+	m.notifySIMChanged(previous)
 }
 
-func (m *Modem) notifySIMChanged(previousSlot uint32, previousIdentifier string) {
-	nextSlot, nextIdentifier := activeSIMIdentity(m)
-	if nextSlot == previousSlot && nextIdentifier == strings.TrimSpace(previousIdentifier) {
+func (m *Modem) notifySIMChanged(previous SIMIdentity) {
+	if currentSIMIdentity(m) == previous {
 		return
 	}
 	if m.onSIMChange != nil {
-		m.onSIMChange(previousSlot, previousIdentifier)
+		m.onSIMChange(previous.Slot, previous.ICCID)
 	}
 }
 

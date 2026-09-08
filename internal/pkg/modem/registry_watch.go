@@ -306,7 +306,7 @@ func (r *Registry) applyDeviceEvent(ctx context.Context, event wwanmodem.DeviceE
 		delete(r.simIdentities, previous)
 	}
 	if r.simIdentities == nil {
-		r.simIdentities = make(map[*Modem]simIdentity)
+		r.simIdentities = make(map[*Modem]SIMIdentity)
 	}
 	r.simIdentities[replacement] = currentSIMIdentity(replacement)
 	snapshot := r.copyModemsLocked()
