@@ -47,10 +47,10 @@ func configureIMS(ctx context.Context, app *proApp) error {
 	runtime.SetMessageRoute(connectivity.MessageRoute())
 	runtime.SetUSSDRoute(connectivity.USSDRoute())
 	runtime.AddModemOverview(wifiCallingOverview(connectivity.WiFiCallingStatus))
-	runtime.AddRunner(connectivity.Run)
-	runtime.AddRunner(calls.Run)
+	runtime.AddRunner("IMS connectivity", connectivity.Run)
+	runtime.AddRunner("calls", calls.Run)
 	runtime.AddCleanup(media.Shutdown)
-	runtime.AddRunner(func(ctx context.Context) error {
+	runtime.AddRunner("call forwarding", func(ctx context.Context) error {
 		return forwardCalls(ctx, runtime.Relay, calls)
 	})
 	runtime.AddRoute(func(group *echo.Group, deps router.RegisterConfig) error {

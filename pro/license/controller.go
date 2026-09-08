@@ -30,11 +30,13 @@ const (
 	legacyIdentityStateKey = "device.identity"
 	legacyLeaseStateKey    = "lease"
 
-	maxResponseSize        = 1 << 20
-	metadataRequestTimeout = 15 * time.Second
-	maxLeaseRefreshDelay   = 30 * time.Minute
-	maxLeaseLifetime       = 6 * time.Hour
-	leaseRefreshRetryDelay = 5 * time.Minute
+	maxResponseSize                 = 1 << 20
+	metadataRequestTimeout          = 15 * time.Second
+	maxLeaseRefreshDelay            = 30 * time.Minute
+	maxLeaseLifetime                = 6 * time.Hour
+	startupRefreshRetryInitialDelay = time.Second
+	startupRefreshRetryMaxDelay     = 30 * time.Second
+	leaseRefreshRetryDelay          = 5 * time.Minute
 )
 
 var (
@@ -145,12 +147,44 @@ func authorizationHTTPClient(client *http.Client) *http.Client {
 	return &cloned
 }
 
+// Start retries temporary service failures until authorization is determined
+// or ctx is canceled. A nil error with Authorized false requires activation;
+// configuration, storage, and verification failures return an error instead.
 func (c *Controller) Start(ctx context.Context) error {
 	c.clearLease()
 	if c.currentSession() == nil {
 		return nil
 	}
-	return c.refresh(ctx)
+
+	// Keep the saved session and pending rotation across retries so a network
+	// outage cannot force an already paired device through activation again.
+	backoff := startupRefreshRetryInitialDelay
+	for {
+		err := c.refresh(ctx)
+		if err == nil {
+			return nil
+		}
+		if ctx.Err() != nil {
+			return errors.Join(err, ctx.Err())
+		}
+		if errors.Is(err, errExplicitUnauthorized) {
+			slog.Info("product activation required", "error", err)
+			return nil
+		}
+		retryDelay, retry := authorizationRetryDelay(err, backoff)
+		if !retry {
+			return err
+		}
+		slog.Warn("refresh product authorization at startup", "error", err, "retry_in", retryDelay)
+		timer := time.NewTimer(retryDelay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return errors.Join(err, ctx.Err())
+		case <-timer.C:
+		}
+		backoff = min(backoff*2, startupRefreshRetryMaxDelay)
+	}
 }
 
 func (c *Controller) Authorized() bool {
@@ -550,6 +584,7 @@ func (c *Controller) doJSON(ctx context.Context, method string, path string, bod
 			StatusCode: resp.StatusCode,
 			ErrorCode:  response.ErrorCode,
 			Message:    response.Message,
+			RetryAt:    parseRetryAfter(resp.Header.Get("Retry-After"), time.Now()),
 		}
 	}
 	if dst != nil {

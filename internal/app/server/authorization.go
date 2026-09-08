@@ -27,6 +27,8 @@ import (
 // from the public module back to pro/.
 type Authorization interface {
 	appupdate.LicenseProvider
+	// Start returns nil once Authorized can distinguish activation from normal
+	// startup. Operational failures must return an error, not require pairing.
 	Start(context.Context) error
 	Authorized() bool
 	RegisterActivationRoutes(*echo.Group)
@@ -45,6 +47,20 @@ type AuthorizationConfig struct {
 type AuthorizationFactory func(context.Context, AuthorizationConfig) (Authorization, error)
 
 const updateHealthConfirmationDelay = 5 * time.Second
+
+func startAuthorization(ctx context.Context, authorization Authorization) (bool, error) {
+	if authorization == nil {
+		return true, nil
+	}
+	err := authorization.Start(ctx)
+	if ctx.Err() != nil {
+		return false, fmt.Errorf("validate product authorization: %w", ctx.Err())
+	}
+	if err != nil {
+		return false, fmt.Errorf("validate product authorization: %w", err)
+	}
+	return authorization.Authorized(), nil
+}
 
 func runActivationServer(ctx context.Context, cfg Config, authorization Authorization) error {
 	executable, err := os.Executable()

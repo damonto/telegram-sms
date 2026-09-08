@@ -1,6 +1,7 @@
 package license
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
@@ -8,11 +9,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -321,13 +324,67 @@ func TestStartRefreshesSignedLease(t *testing.T) {
 	}
 }
 
+func TestStartRetriesTransientRefresh(t *testing.T) {
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	challengeValue := base64.RawURLEncoding.EncodeToString([]byte("one-time-challenge"))
+	session := validSession(t)
+	challengeAttempts := 0
+	var controller *Controller
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case "/v1/license-challenges":
+			challengeAttempts++
+			if challengeAttempts == 1 {
+				return nil, &net.OpError{Op: "dial", Net: "tcp", Err: syscall.ENETUNREACH}
+			}
+			return response(http.StatusCreated, challenge{Challenge: challengeValue, ExpiresAt: time.Now().Add(time.Minute)}), nil
+		case "/v1/license-leases":
+			var rotation leaseRotationRequest
+			decodeRequest(t, req, &rotation)
+			verifyRotationRequest(t, controller.identity.PublicKey, rotation)
+			lease := validLease(controller.identity.DeviceID, "Recovered User")
+			lease.SessionID = session.SessionID
+			lease.Generation = session.Generation + 1
+			return response(http.StatusCreated, signedProof(t, privateKey, lease)), nil
+		default:
+			return response(http.StatusNotFound, errorResponse{ErrorCode: "resource_not_found", Message: "resource not found"}), nil
+		}
+	})}
+	controller, err = newTestController(t, Config{
+		BaseURL: "https://license.example", LicensePublicKey: base64.RawStdEncoding.EncodeToString(publicKey),
+		Storage: openTestStorage(t), Client: client,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	installSession(t, controller, session)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	if err := controller.Start(ctx); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	if challengeAttempts != 2 {
+		t.Fatalf("challenge attempts = %d, want 2", challengeAttempts)
+	}
+	if !controller.Authorized() {
+		t.Fatal("Authorized() = false after transient refresh failure")
+	}
+}
+
 func TestStartRequiresOnlineRefresh(t *testing.T) {
 	publicKey, _, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	networkErr := errors.New("network unavailable")
 	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-		return nil, errors.New("network unavailable")
+		cancel()
+		return nil, networkErr
 	})}
 	controller, err := newTestController(t, Config{
 		BaseURL: "https://license.example", LicensePublicKey: base64.RawStdEncoding.EncodeToString(publicKey),
@@ -336,14 +393,22 @@ func TestStartRequiresOnlineRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	installSession(t, controller, validSession(t))
+	session := validSession(t)
+	installSession(t, controller, session)
 	stale := validLease(controller.identity.DeviceID, "Stale User")
 	controller.setLease(&stale, nil)
-	if err := controller.Start(t.Context()); err == nil {
-		t.Fatal("Start() error = nil, want transient network error")
+	if err := controller.Start(ctx); !errors.Is(err, networkErr) || !errors.Is(err, context.Canceled) {
+		t.Fatalf("Start() error = %v, want network error and cancellation", err)
 	}
 	if controller.Authorized() {
 		t.Fatal("Authorized() = true without a successful startup refresh")
+	}
+	var persisted storedSession
+	if err := controller.storage.Get(t.Context(), licenseStateScope, sessionStateKey, &persisted); err != nil {
+		t.Fatal(err)
+	}
+	if persisted.SessionID != session.SessionID || persisted.Generation != session.Generation || persisted.RefreshToken != session.RefreshToken {
+		t.Fatal("startup network failure changed the saved device session")
 	}
 }
 
@@ -352,7 +417,9 @@ func TestStartDoesNotGraceExplicitRevocation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	requests := 0
 	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		requests++
 		return response(http.StatusForbidden, errorResponse{ErrorCode: "license_entitlement_inactive", Message: "authorization revoked or expired"}), nil
 	})}
 	controller, err := newTestController(t, Config{
@@ -363,11 +430,14 @@ func TestStartDoesNotGraceExplicitRevocation(t *testing.T) {
 		t.Fatal(err)
 	}
 	installSession(t, controller, validSession(t))
-	if err := controller.Start(t.Context()); !errors.Is(err, errExplicitUnauthorized) {
+	if err := controller.Start(t.Context()); err != nil {
 		t.Fatalf("Start() error = %v", err)
 	}
 	if controller.Authorized() {
 		t.Fatal("Authorized() = true after explicit revocation")
+	}
+	if requests != 1 {
+		t.Fatalf("authorization requests = %d, want 1", requests)
 	}
 }
 
@@ -376,7 +446,11 @@ func TestStartDoesNotAuthorizeGenericForbidden(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	requests := 0
 	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		requests++
 		return response(http.StatusForbidden, errorResponse{
 			ErrorCode: "authorization_required",
 			Message:   "authorization required",
@@ -392,11 +466,14 @@ func TestStartDoesNotAuthorizeGenericForbidden(t *testing.T) {
 		t.Fatal(err)
 	}
 	installSession(t, controller, validSession(t))
-	if err := controller.Start(t.Context()); err == nil || errors.Is(err, errExplicitUnauthorized) {
-		t.Fatalf("Start() error = %v, want transient service error", err)
+	if err := controller.Start(ctx); err == nil || ctx.Err() != nil || errors.Is(err, errExplicitUnauthorized) || appupdate.ErrorCode(err) != "authorization_required" {
+		t.Fatalf("Start() error = %v, want permanent service error", err)
 	}
 	if controller.Authorized() {
 		t.Fatal("Authorized() = true after a generic upstream 403")
+	}
+	if requests != 1 {
+		t.Fatalf("authorization requests = %d, want 1", requests)
 	}
 }
 
@@ -410,6 +487,9 @@ func TestStartRetriesPersistedPendingRotation(t *testing.T) {
 	session := validSession(t)
 	firstChallenge := base64.RawURLEncoding.EncodeToString([]byte("first-challenge"))
 	secondChallenge := base64.RawURLEncoding.EncodeToString([]byte("second-challenge"))
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	lostResponseErr := errors.New("response lost after session rotation")
 	var firstRotation leaseRotationRequest
 	firstClient := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		switch req.URL.Path {
@@ -417,7 +497,8 @@ func TestStartRetriesPersistedPendingRotation(t *testing.T) {
 			return response(http.StatusCreated, challenge{Challenge: firstChallenge, ExpiresAt: time.Now().Add(time.Minute)}), nil
 		case "/v1/license-leases":
 			decodeRequest(t, req, &firstRotation)
-			return nil, errors.New("response lost after session rotation")
+			cancel()
+			return nil, lostResponseErr
 		default:
 			return response(http.StatusNotFound, errorResponse{ErrorCode: "resource_not_found", Message: "resource not found"}), nil
 		}
@@ -430,8 +511,8 @@ func TestStartRetriesPersistedPendingRotation(t *testing.T) {
 		t.Fatal(err)
 	}
 	installSession(t, first, session)
-	if err := first.Start(t.Context()); err == nil {
-		t.Fatal("first Start() error = nil, want lost response")
+	if err := first.Start(ctx); !errors.Is(err, lostResponseErr) || !errors.Is(err, context.Canceled) {
+		t.Fatalf("first Start() error = %v, want lost response and cancellation", err)
 	}
 	var pending storedSession
 	if err := db.Get(t.Context(), licenseStateScope, sessionStateKey, &pending); err != nil {

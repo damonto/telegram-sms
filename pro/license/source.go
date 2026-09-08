@@ -31,7 +31,7 @@ func (c *Controller) Latest(ctx context.Context, channel string, target string) 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return appupdate.Release{}, c.authenticatedResponseError(metadataCtx, resp, "get Pro release")
+		return appupdate.Release{}, c.authenticatedResponseError(resp, "get Pro release")
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize+1))
 	if err != nil {
@@ -110,12 +110,12 @@ func (c *Controller) Download(ctx context.Context, release appupdate.Release) (i
 	}
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
 		defer resp.Body.Close()
-		return nil, c.authenticatedResponseError(ctx, resp, "download Pro update")
+		return nil, c.authenticatedResponseError(resp, "download Pro update")
 	}
 	return resp.Body, nil
 }
 
-func (c *Controller) authenticatedResponseError(ctx context.Context, resp *http.Response, action string) error {
+func (c *Controller) authenticatedResponseError(resp *http.Response, action string) error {
 	err := readServiceResponseError(resp, action)
 	err = c.classifyAuthorizationError(err)
 	if errors.Is(err, errExplicitUnauthorized) {

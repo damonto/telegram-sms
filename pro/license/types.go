@@ -93,6 +93,7 @@ type serviceError struct {
 	StatusCode int
 	ErrorCode  string
 	Message    string
+	RetryAt    time.Time
 }
 
 func (e *serviceError) Error() string {

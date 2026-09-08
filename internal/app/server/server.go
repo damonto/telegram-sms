@@ -110,6 +110,17 @@ func Run(ctx context.Context, cfg Config) (runErr error) {
 	restart := func() {
 		cancelApp(ErrRestart)
 	}
+	startRunner := func(name string, runner Runner) {
+		runners.Go(func() error {
+			err := superviseRunner(ctx, name, runner)
+			if err != nil {
+				runnerFailuresMu.Lock()
+				runnerFailures = append(runnerFailures, err)
+				runnerFailuresMu.Unlock()
+			}
+			return err
+		})
+	}
 
 	resolvedDBPath, err := resolveDBPath(cfg.DBPath)
 	if err != nil {
@@ -143,26 +154,7 @@ func Run(ctx context.Context, cfg Config) (runErr error) {
 		if err != nil {
 			return fmt.Errorf("configure authorization: %w", err)
 		}
-		startupCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
-		err = authorization.Start(startupCtx)
-		cancel()
-		if err != nil {
-			slog.Warn("validate product authorization", "error", err)
-		}
-		if !authorization.Authorized() {
-			return runActivationServer(ctx, cfg, authorization)
-		}
 	}
-
-	webPush, err := webpush.New(ctx, db)
-	if err != nil {
-		return fmt.Errorf("configure web push: %w", err)
-	}
-	reminderScheduler, err := reminder.New(db, store, webPush)
-	if err != nil {
-		return fmt.Errorf("configure reminders: %w", err)
-	}
-	slog.Info("server starting", "version", cfg.Build.Version, "edition", cfg.Build.Edition, "channel", cfg.Build.Channel, "listen_address", cfg.ListenAddress, "db_path", resolvedDBPath)
 
 	registry, err := modem.NewRegistry()
 	if err != nil {
@@ -179,29 +171,6 @@ func Run(ctx context.Context, cfg Config) (runErr error) {
 		return fmt.Errorf("start modem registry: %w", err)
 	}
 
-	server := echo.New()
-	server.Logger = slog.Default()
-	server.Validator, err = validator.New()
-	if err != nil {
-		return fmt.Errorf("configure request validator: %w", err)
-	}
-	requestLogger := middleware.RequestLogger()
-	server.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		logged := requestLogger(next)
-		return func(c *echo.Context) error {
-			if cfg.Debug {
-				return logged(c)
-			}
-			return next(c)
-		}
-	})
-	server.Use(middleware.RequestID())
-	server.Use(middleware.Recover())
-	server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"*"},
-		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch, http.MethodHead, http.MethodOptions},
-		AllowHeaders: []string{"*"},
-	}))
 	networkPreferences, err := networkprefs.New(db)
 	if err != nil {
 		return fmt.Errorf("configure network preferences: %w", err)
@@ -244,6 +213,62 @@ func Run(ctx context.Context, cfg Config) (runErr error) {
 		slog.Error("recover internet connections", "error", err)
 	}
 	cancelStartup()
+	// Authorization may need the very connection these tasks restore. Keep
+	// them running during validation and reuse them after startup succeeds.
+	startRunner("modem enable", func(ctx context.Context) error {
+		return modemtask.RunEnableDisabled(ctx, registry, enableDisabledPolicy)
+	})
+	startRunner("always-on internet", func(ctx context.Context) error {
+		internetConnector.RunAlwaysOn(ctx, registry)
+		return nil
+	})
+	startRunner("network preferences restore", func(ctx context.Context) error {
+		return modemtask.Run(ctx, registry, networkPreferences.Restore)
+	})
+	startRunner("network registration restore", func(ctx context.Context) error {
+		return hnetwork.RunRegistrationRestore(ctx, registry, db)
+	})
+	authorized, err := startAuthorization(ctx, authorization)
+	if err != nil {
+		return err
+	}
+	if !authorized {
+		return runActivationServer(ctx, cfg, authorization)
+	}
+
+	webPush, err := webpush.New(ctx, db)
+	if err != nil {
+		return fmt.Errorf("configure web push: %w", err)
+	}
+	reminderScheduler, err := reminder.New(db, store, webPush)
+	if err != nil {
+		return fmt.Errorf("configure reminders: %w", err)
+	}
+	slog.Info("server starting", "version", cfg.Build.Version, "edition", cfg.Build.Edition, "channel", cfg.Build.Channel, "listen_address", cfg.ListenAddress, "db_path", resolvedDBPath)
+
+	server := echo.New()
+	server.Logger = slog.Default()
+	server.Validator, err = validator.New()
+	if err != nil {
+		return fmt.Errorf("configure request validator: %w", err)
+	}
+	requestLogger := middleware.RequestLogger()
+	server.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		logged := requestLogger(next)
+		return func(c *echo.Context) error {
+			if cfg.Debug {
+				return logged(c)
+			}
+			return next(c)
+		}
+	})
+	server.Use(middleware.RequestID())
+	server.Use(middleware.Recover())
+	server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch, http.MethodHead, http.MethodOptions},
+		AllowHeaders: []string{"*"},
+	}))
 	lpaClients, err := lpa.NewPool(ctx, store, registry)
 	if err != nil {
 		return fmt.Errorf("configure LPA client pool: %w", err)
@@ -378,18 +403,6 @@ func Run(ctx context.Context, cfg Config) (runErr error) {
 		return fmt.Errorf("configure router: %w", err)
 	}
 
-	startRunner := func(name string, runner Runner) {
-		runners.Go(func() error {
-			err := superviseRunner(ctx, name, runner)
-			if err != nil {
-				runnerFailuresMu.Lock()
-				runnerFailures = append(runnerFailures, err)
-				runnerFailuresMu.Unlock()
-			}
-			return err
-		})
-	}
-
 	startRunner("update", updateController.Run)
 
 	if authorization != nil {
@@ -397,26 +410,13 @@ func Run(ctx context.Context, cfg Config) (runErr error) {
 	}
 
 	startRunner("reminder", reminderScheduler.Run)
-	startRunner("modem enable", func(ctx context.Context) error {
-		return modemtask.RunEnableDisabled(ctx, registry, enableDisabledPolicy)
-	})
 	startRunner("sms storage defaults", func(ctx context.Context) error {
 		return modemtask.RunSMSStorageDefaults(ctx, registry, wwanmodem.MessageStorageDevice)
 	})
-	startRunner("always-on internet", func(ctx context.Context) error {
-		internetConnector.RunAlwaysOn(ctx, registry)
-		return nil
-	})
-	startRunner("network preferences restore", func(ctx context.Context) error {
-		return modemtask.Run(ctx, registry, networkPreferences.Restore)
-	})
-	startRunner("network registration restore", func(ctx context.Context) error {
-		return hnetwork.RunRegistrationRestore(ctx, registry, db)
-	})
 	startRunner("message relay", relay.Run)
 
-	for i, runner := range runtime.runners {
-		startRunner(fmt.Sprintf("extension %d", i+1), runner)
+	for _, runner := range runtime.runners {
+		startRunner(runner.name, runner.run)
 	}
 
 	startConfig := echo.StartConfig{
