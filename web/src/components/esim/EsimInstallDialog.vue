@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { toTypedSchema } from '@vee-validate/zod'
-import { ArrowRightLeft, CloudDownload, ScanQrCode } from 'lucide-vue-next'
-import { useForm } from 'vee-validate'
 import { computed, nextTick, ref, watch } from 'vue'
+import { useForm } from '@tanstack/vue-form'
+import { ArrowRightLeft, CloudDownload, ScanQrCode } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import * as z from 'zod'
+import { z } from 'zod'
 
+import ValidatedField from '@/components/ValidatedField.vue'
 import EsimSESelector from '@/components/esim/EsimSESelector.vue'
 import EsimPersistentDialogContent from '@/components/esim/EsimPersistentDialogContent.vue'
 import { Button } from '@/components/ui/button'
@@ -16,8 +16,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { validateOnInteraction } from '@/lib/form-validation'
 import type { SEItem } from '@/types/se'
 import {
   QrcodeStream,
@@ -25,13 +25,6 @@ import {
   type DetectedBarcode,
   type EmittedError,
 } from 'vue-qrcode-reader'
-
-type InstallFormValues = {
-  seId: string
-  smdp: string
-  activationCode: string
-  confirmationCode?: string
-}
 
 const props = withDefaults(
   defineProps<{
@@ -78,10 +71,10 @@ const resolveSEID = (seId?: string) => {
 }
 const compactEsimValue = (value: string) => value.replace(/\s+/g, '')
 
-const buildInstallSchemaDefinition = (requiresConfirmation: boolean) =>
+const buildInstallSchema = (requiresConfirmation: boolean) =>
   z.object({
     smdp: z
-      .string({ message: t('modemDetail.esim.validation.smdpRequired') })
+      .string({ error: t('modemDetail.esim.validation.smdpRequired') })
       .trim()
       .min(1, t('modemDetail.esim.validation.smdpRequired'))
       .transform((value) => compactEsimValue(value)),
@@ -91,7 +84,7 @@ const buildInstallSchemaDefinition = (requiresConfirmation: boolean) =>
       .transform((value) => compactEsimValue(value ?? '')),
     confirmationCode: requiresConfirmation
       ? z
-          .string({ message: t('modemDetail.validation.required') })
+          .string({ error: t('modemDetail.validation.required') })
           .trim()
           .min(1, t('modemDetail.validation.required'))
       : z
@@ -101,37 +94,49 @@ const buildInstallSchemaDefinition = (requiresConfirmation: boolean) =>
     seId: z.string().trim().min(1, t('modemDetail.validation.required')),
   })
 
-const installSchema = computed(() =>
-  toTypedSchema(buildInstallSchemaDefinition(confirmationRequired.value)),
-)
+const installSchema = computed(() => buildInstallSchema(confirmationRequired.value))
+const initialValues: z.input<ReturnType<typeof buildInstallSchema>> = {
+  seId: '',
+  smdp: '',
+  activationCode: '',
+  confirmationCode: '',
+}
 
-const { handleSubmit, resetForm, isSubmitting, values, setFieldValue } = useForm<InstallFormValues>({
-  validationSchema: installSchema,
-  initialValues: {
-    seId: '',
-    smdp: '',
-    activationCode: '',
-    confirmationCode: '',
+const form = useForm({
+  validationLogic: validateOnInteraction,
+  validators: {
+    // Read the current LPA requirement whenever validation runs.
+    onDynamic: ({ formApi }) => formApi.parseValuesWithSchema(installSchema.value),
   },
-  validateOnMount: false,
+  defaultValues: initialValues,
+  onSubmit: ({ value }): void => {
+    const values = installSchema.value.parse(value)
+    const seId = resolveSEID(values.seId)
+    if (!seId) return
+
+    emit('confirm', { ...values, seId })
+    open.value = false
+    // Reset after the dialog closes to avoid displaying empty fields briefly.
+    void nextTick(resetValues)
+  },
 })
 
+const InstallField = form.Field
+const isSubmitting = form.useSelector((state) => state.isSubmitting)
+const selectedSEID = form.useSelector((state) => state.values.seId)
+
 const hasSelectedSE = computed(() => {
-  const id = values.seId?.trim() ?? ''
+  const id = selectedSEID.value.trim()
   return id.length > 0 && seIDs.value.has(id)
 })
 
 const resetValues = () => {
   confirmationRequired.value = false
-  resetForm({
-    values: {
-      smdp: '',
-      activationCode: '',
-      confirmationCode: '',
-      seId: implicitSEID.value,
-    },
-    errors: {},
-    touched: {},
+  form.reset({
+    smdp: '',
+    activationCode: '',
+    confirmationCode: '',
+    seId: implicitSEID.value,
   })
 }
 
@@ -145,7 +150,7 @@ const closeDialog = () => {
 
 const selectSE = (seId: string) => {
   if (!seIDs.value.has(seId)) return
-  setFieldValue('seId', seId)
+  form.setFieldValue('seId', seId)
 }
 
 const scanOpen = ref(false)
@@ -179,20 +184,17 @@ const applyLpaPayload = (payload: {
   confirmationRequired: boolean
 }) => {
   confirmationRequired.value = payload.confirmationRequired
-  resetForm({
-    values: {
-      smdp: payload.smdp,
-      activationCode: payload.activationCode,
-      confirmationCode: '',
-      seId: resolveSEID(values.seId),
-    },
+  form.reset({
+    smdp: payload.smdp,
+    activationCode: payload.activationCode,
+    confirmationCode: '',
+    seId: resolveSEID(form.state.values.seId),
   })
 }
 
-const handleSmdpInput = (event: Event) => {
-  const target = event.target
-  if (!(target instanceof HTMLInputElement)) return
-  const value = compactEsimValue(target.value)
+const handleSmdpChange = (input: string | number) => {
+  form.setFieldValue('smdp', String(input))
+  const value = compactEsimValue(String(input))
   if (!value.toUpperCase().startsWith('LPA:1')) return
   const parsed = parseLpaCode(value)
   if (!parsed) return
@@ -231,23 +233,6 @@ const openScanDialog = () => {
   scanPaused.value = false
 }
 
-const onSubmit = handleSubmit((values) => {
-  const seId = resolveSEID(values.seId)
-  if (!seId) return
-
-  emit('confirm', {
-    smdp: compactEsimValue(values.smdp),
-    activationCode: compactEsimValue(values.activationCode),
-    confirmationCode: values.confirmationCode?.trim() ?? '',
-    seId,
-  })
-  open.value = false
-  // Reset form after dialog is closed
-  void nextTick(() => {
-    resetValues()
-  })
-})
-
 const applyDiscoverAddress = (address: string, seId = implicitSEID.value) => {
   const normalized = compactEsimValue(address)
   if (!normalized || isSubmitting.value) return
@@ -255,15 +240,13 @@ const applyDiscoverAddress = (address: string, seId = implicitSEID.value) => {
   if (!resolvedSEID) return
 
   confirmationRequired.value = false
-  resetForm({
-    values: {
-      smdp: normalized,
-      activationCode: '',
-      confirmationCode: '',
-      seId: resolvedSEID,
-    },
+  form.reset({
+    smdp: normalized,
+    activationCode: '',
+    confirmationCode: '',
+    seId: resolvedSEID,
   })
-  void onSubmit()
+  void form.handleSubmit()
 }
 
 defineExpose({ applyDiscoverAddress })
@@ -287,16 +270,9 @@ watch(
   () => props.ses.map((se) => se.id).join('\0'),
   () => {
     if (!open.value) return
-    const seId = resolveSEID(values.seId)
-    if (seId === values.seId) return
-    resetForm({
-      values: {
-        smdp: values.smdp,
-        activationCode: values.activationCode,
-        confirmationCode: values.confirmationCode,
-        seId,
-      },
-    })
+    const seId = resolveSEID(form.state.values.seId)
+    if (seId === form.state.values.seId) return
+    form.reset({ ...form.state.values, seId })
   },
 )
 
@@ -336,7 +312,7 @@ watch(scanOpen, (value) => {
             :aria-label="t('modemDetail.esim.discover')"
             :title="t('modemDetail.esim.discover')"
             :disabled="props.isDiscovering || !hasSelectedSE"
-            @click="emit('discover', resolveSEID(values.seId))"
+            @click="emit('discover', resolveSEID(selectedSEID))"
           >
             <CloudDownload class="size-4" />
           </Button>
@@ -346,63 +322,100 @@ watch(scanOpen, (value) => {
         </DialogDescription>
       </DialogHeader>
 
-      <form class="space-y-4" @submit="onSubmit">
-        <FormField v-if="props.ses.length > 1" name="seId">
-          <FormItem>
-            <FormLabel>eUICC</FormLabel>
-            <FormControl>
-              <EsimSESelector
-                :ses="props.ses"
-                :selected-se-id="values.seId ?? ''"
-                @update:selected-se-id="selectSE"
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        </FormField>
+      <form
+        class="space-y-4"
+        @submit.prevent="form.handleSubmit"
+      >
+        <InstallField
+          v-if="props.ses.length > 1"
+          v-slot="{ field }"
+          name="seId"
+        >
+          <ValidatedField
+            v-slot="{ controlAttrs }"
+            label="eUICC"
+            :meta="field.state.meta"
+          >
+            <EsimSESelector
+              v-bind="controlAttrs"
+              :ses="props.ses"
+              :selected-se-id="field.state.value"
+              @update:selected-se-id="selectSE"
+              @focusout="field.handleBlur"
+            />
+          </ValidatedField>
+        </InstallField>
 
-        <FormField v-slot="{ componentField }" name="smdp">
-          <FormItem>
-            <FormLabel>{{ t('modemDetail.esim.smdp') }}</FormLabel>
-            <FormControl>
-              <Input
-                type="text"
-                :placeholder="smdpPlaceholder"
-                v-bind="componentField"
-                @input="handleSmdpInput"
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        </FormField>
+        <InstallField
+          v-slot="{ field }"
+          name="smdp"
+        >
+          <ValidatedField
+            v-slot="{ controlAttrs }"
+            :label="t('modemDetail.esim.smdp')"
+            :meta="field.state.meta"
+          >
+            <Input
+              v-bind="controlAttrs"
+              :name="field.name"
+              type="text"
+              :placeholder="smdpPlaceholder"
+              :model-value="field.state.value"
+              @update:model-value="handleSmdpChange"
+              @blur="field.handleBlur"
+            />
+          </ValidatedField>
+        </InstallField>
 
-        <FormField v-slot="{ componentField }" name="activationCode">
-          <FormItem>
-            <FormLabel>{{ t('modemDetail.esim.activationCode') }}</FormLabel>
-            <FormControl>
-              <Input type="text" :placeholder="activationPlaceholder" v-bind="componentField" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        </FormField>
+        <InstallField
+          v-slot="{ field }"
+          name="activationCode"
+        >
+          <ValidatedField
+            v-slot="{ controlAttrs }"
+            :label="t('modemDetail.esim.activationCode')"
+            :meta="field.state.meta"
+          >
+            <Input
+              v-bind="controlAttrs"
+              :name="field.name"
+              type="text"
+              :placeholder="activationPlaceholder"
+              :model-value="field.state.value"
+              @update:model-value="(value) => field.handleChange(String(value))"
+              @blur="field.handleBlur"
+            />
+          </ValidatedField>
+        </InstallField>
 
-        <FormField v-slot="{ componentField }" name="confirmationCode">
-          <FormItem>
-            <FormLabel>{{ t('modemDetail.esim.confirmationCode') }}</FormLabel>
-            <FormControl>
-              <Input
-                type="text"
-                :placeholder="confirmationPlaceholder"
-                :required="confirmationRequired"
-                v-bind="componentField"
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        </FormField>
+        <InstallField
+          v-slot="{ field }"
+          name="confirmationCode"
+        >
+          <ValidatedField
+            v-slot="{ controlAttrs }"
+            :label="t('modemDetail.esim.confirmationCode')"
+            :meta="field.state.meta"
+          >
+            <Input
+              v-bind="controlAttrs"
+              :name="field.name"
+              type="text"
+              :placeholder="confirmationPlaceholder"
+              :required="confirmationRequired"
+              :model-value="field.state.value"
+              @update:model-value="(value) => field.handleChange(String(value))"
+              @blur="field.handleBlur"
+            />
+          </ValidatedField>
+        </InstallField>
 
         <div class="space-y-4">
-          <Button type="submit" class="w-full" :disabled="isSubmitting || !hasSelectedSE">
+          <Button
+            type="submit"
+            class="w-full"
+            :disabled="isSubmitting || !hasSelectedSE"
+          >
             {{ t('modemDetail.esim.installConfirm') }}
           </Button>
 
@@ -421,13 +434,18 @@ watch(scanOpen, (value) => {
             type="button"
             class="w-full border-primary text-primary hover:text-primary"
             :disabled="!hasSelectedSE"
-            @click="emit('transfer', resolveSEID(values.seId))"
+            @click="emit('transfer', resolveSEID(selectedSEID))"
           >
             <ArrowRightLeft class="size-3.5" />
             {{ t('modemDetail.esim.transferButton') }}
           </Button>
 
-          <Button variant="ghost" type="button" class="w-full" @click="closeDialog">
+          <Button
+            variant="ghost"
+            type="button"
+            class="w-full"
+            @click="closeDialog"
+          >
             {{ t('modemDetail.actions.cancel') }}
           </Button>
         </div>
@@ -455,15 +473,25 @@ watch(scanOpen, (value) => {
             @error="handleScanError"
           />
         </div>
-        <p v-if="scanError" class="text-sm text-destructive">
+        <p
+          v-if="scanError"
+          class="text-sm text-destructive"
+        >
           {{ scanError }}
         </p>
-        <p v-else class="text-sm text-muted-foreground">
+        <p
+          v-else
+          class="text-sm text-muted-foreground"
+        >
           {{ t('modemDetail.esim.scanDescription') }}
         </p>
       </div>
       <DialogFooter>
-        <Button variant="ghost" type="button" @click="scanOpen = false">
+        <Button
+          variant="ghost"
+          type="button"
+          @click="scanOpen = false"
+        >
           {{ t('modemDetail.actions.cancel') }}
         </Button>
       </DialogFooter>

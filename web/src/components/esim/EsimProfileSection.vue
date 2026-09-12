@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useForm } from '@tanstack/vue-form'
 import { EllipsisVertical } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import { useForm } from 'vee-validate'
-import { toTypedSchema } from '@vee-validate/zod'
-import * as z from 'zod'
+import { z } from 'zod'
 
 import {
   AlertDialog,
@@ -32,7 +31,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -41,8 +39,10 @@ import { useEsimApi } from '@/apis/esim'
 import { useReminderApi } from '@/apis/reminder'
 import ReminderDialog from '@/components/ReminderDialog.vue'
 import ReminderBadge from '@/components/ReminderBadge.vue'
+import ValidatedField from '@/components/ValidatedField.vue'
 import EsimProfileAvatar from '@/components/esim/EsimProfileAvatar.vue'
 import EsimProfileDetailsDialog from '@/components/esim/EsimProfileDetailsDialog.vue'
+import { validateOnInteraction } from '@/lib/form-validation'
 import type { EsimProfile } from '@/types/esim'
 import type { ReminderPayload } from '@/types/reminder'
 
@@ -115,8 +115,8 @@ const toggleProfile = ref<EsimProfile | null>(null)
 const toggleNextValue = ref(false)
 const toggleLoading = ref(false)
 
-const renameOpen = ref(false)
 const renameProfile = ref<EsimProfile | null>(null)
+const renameOpen = computed(() => renameProfile.value !== null)
 
 const detailsOpen = ref(false)
 const detailsProfile = ref<EsimProfile | null>(null)
@@ -133,7 +133,7 @@ const reminderDeleting = ref(false)
 const isWithinMaxBytes = (value: string, maxBytes: number) =>
   new TextEncoder().encode(value).length <= maxBytes
 
-const renameSchemaDefinition = z.object({
+const renameSchema = z.object({
   name: z
     .string()
     .trim()
@@ -141,20 +141,28 @@ const renameSchemaDefinition = z.object({
     .refine((value) => isWithinMaxBytes(value, 64), t('modemDetail.validation.maxBytes')),
 })
 
-type RenameFormValues = z.infer<typeof renameSchemaDefinition>
-
-const renameSchema = toTypedSchema(renameSchemaDefinition)
-
-const {
-  handleSubmit: handleRenameSubmit,
-  resetForm: resetRenameForm,
-  isSubmitting: renameSubmitting,
-} = useForm<RenameFormValues>({
-  validationSchema: renameSchema,
-  initialValues: {
+const renameForm = useForm({
+  validationLogic: validateOnInteraction,
+  validators: { onDynamic: renameSchema },
+  defaultValues: {
     name: '',
   },
+  onSubmit: async ({ value }): Promise<void> => {
+    const profile = renameProfile.value
+    if (!profile) return
+    const values = renameSchema.parse(value)
+    try {
+      await esimApi.updateEsimNickname(props.modemId, profile.seId, profile.iccid, values.name)
+      profile.name = values.name
+      closeRenameDialog()
+    } catch (err) {
+      console.error('[EsimProfileSection] Failed to update nickname:', err)
+    }
+  },
 })
+
+const RenameField = renameForm.Field
+const renameSubmitting = renameForm.useSelector((state) => state.isSubmitting)
 
 const openToggleDialog = (profile: EsimProfile, nextValue: boolean) => {
   toggleOpen.value = true
@@ -201,32 +209,20 @@ const confirmToggle = async () => {
 }
 
 const openRenameDialog = (profile: EsimProfile) => {
-  renameOpen.value = true
+  if (renameSubmitting.value) return
+  renameForm.reset({ name: profile.name })
   renameProfile.value = profile
-  resetRenameForm({ values: { name: profile.name } })
 }
 
 const closeRenameDialog = () => {
-  renameOpen.value = false
   renameProfile.value = null
-  resetRenameForm({ values: { name: '' } })
+  renameForm.reset({ name: '' })
 }
 
-const confirmRename = handleRenameSubmit(async (values) => {
-  if (!renameProfile.value) return
-  try {
-    await esimApi.updateEsimNickname(
-      props.modemId,
-      renameProfile.value.seId,
-      renameProfile.value.iccid,
-      values.name,
-    )
-    renameProfile.value.name = values.name
-    closeRenameDialog()
-  } catch (err) {
-    console.error('[EsimProfileSection] Failed to update nickname:', err)
-  }
-})
+const handleRenameOpenChange = (open: boolean) => {
+  if (open || renameSubmitting.value) return
+  closeRenameDialog()
+}
 
 const openDeleteDialog = (profile: EsimProfile) => {
   if (profile.enabled) return
@@ -365,12 +361,6 @@ const deletePrompt = computed(() =>
   t('modemDetail.confirm.delete', { name: deleteProfile.value?.name ?? '' }),
 )
 
-watch(renameOpen, (value) => {
-  if (value) return
-  renameProfile.value = null
-  resetRenameForm({ values: { name: '' } })
-})
-
 watch(detailsOpen, (value) => {
   if (value) return
   detailsProfile.value = null
@@ -383,12 +373,18 @@ watch(detailsOpen, (value) => {
       <h2 class="text-sm font-semibold text-muted-foreground">
         {{ t('modemDetail.esim.listTitle') }}
       </h2>
-      <Badge variant="outline" class="text-[10px] uppercase tracking-[0.2em]">
+      <Badge
+        variant="outline"
+        class="text-[10px] uppercase tracking-[0.2em]"
+      >
         {{ isLoading ? '...' : profileCount }}
       </Badge>
     </div>
 
-    <div v-if="isLoading" class="space-y-3">
+    <div
+      v-if="isLoading"
+      class="space-y-3"
+    >
       <div
         v-for="i in 3"
         :key="`esim-profile-skeleton-${i}`"
@@ -412,13 +408,26 @@ watch(detailsOpen, (value) => {
       {{ t('modemDetail.esim.noProfiles') }}
     </div>
 
-    <div v-else class="space-y-4">
-      <div v-for="group in profileGroups" :key="group.id" class="space-y-2">
-        <div v-if="hasMultipleSEs" class="flex min-w-0 items-center justify-between gap-3 px-1">
+    <div
+      v-else
+      class="space-y-4"
+    >
+      <div
+        v-for="group in profileGroups"
+        :key="group.id"
+        class="space-y-2"
+      >
+        <div
+          v-if="hasMultipleSEs"
+          class="flex min-w-0 items-center justify-between gap-3 px-1"
+        >
           <p class="min-w-0 truncate text-xs font-semibold text-muted-foreground">
             {{ group.label }}: {{ group.eid || 'N/A' }}
           </p>
-          <Badge variant="outline" class="shrink-0 text-[10px]">
+          <Badge
+            variant="outline"
+            class="shrink-0 text-[10px]"
+          >
             {{ group.profiles.length }}
           </Badge>
         </div>
@@ -453,11 +462,19 @@ watch(detailsOpen, (value) => {
 
               <DropdownMenu @update:open="(open) => handleProfileActionsOpenChange(profile, open)">
                 <DropdownMenuTrigger as-child>
-                  <Button variant="ghost" size="icon" type="button" aria-label="Profile actions">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    aria-label="Profile actions"
+                  >
                     <EllipsisVertical class="size-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" class="w-56">
+                <DropdownMenuContent
+                  align="end"
+                  class="w-56"
+                >
                   <DropdownMenuItem @click="openReminderDialog(profile)">
                     {{ t('modemDetail.reminder.title') }}
                   </DropdownMenuItem>
@@ -536,8 +553,14 @@ watch(detailsOpen, (value) => {
               </DropdownMenu>
             </div>
           </div>
-          <div v-if="profile.reminder" class="mt-3 border-t border-border/60 pt-2">
-            <ReminderBadge :reminder="profile.reminder" :profile-name="profile.name" />
+          <div
+            v-if="profile.reminder"
+            class="mt-3 border-t border-border/60 pt-2"
+          >
+            <ReminderBadge
+              :reminder="profile.reminder"
+              :profile-name="profile.name"
+            />
           </div>
         </div>
       </div>
@@ -565,11 +588,21 @@ watch(detailsOpen, (value) => {
         </AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>
-        <AlertDialogCancel @click="closeToggleDialog" :disabled="toggleLoading">
+        <AlertDialogCancel
+          @click="closeToggleDialog"
+          :disabled="toggleLoading"
+        >
           {{ t('modemDetail.actions.cancel') }}
         </AlertDialogCancel>
-        <Button type="button" @click="confirmToggle" :disabled="toggleLoading">
-          <span v-if="toggleLoading" class="inline-flex items-center gap-2">
+        <Button
+          type="button"
+          @click="confirmToggle"
+          :disabled="toggleLoading"
+        >
+          <span
+            v-if="toggleLoading"
+            class="inline-flex items-center gap-2"
+          >
             <Spinner class="size-4" />
             {{ t('modemDetail.actions.confirm') }}
           </span>
@@ -579,32 +612,56 @@ watch(detailsOpen, (value) => {
     </AlertDialogContent>
   </AlertDialog>
 
-  <Dialog v-model:open="renameOpen">
-    <DialogContent class="sm:max-w-sm">
+  <Dialog
+    :open="renameOpen"
+    @update:open="handleRenameOpenChange"
+  >
+    <DialogContent
+      class="sm:max-w-sm"
+      :show-close-button="!renameSubmitting"
+    >
       <DialogHeader>
         <DialogTitle>{{ t('modemDetail.actions.rename') }}</DialogTitle>
         <DialogDescription class="sr-only">
           {{ t('modemDetail.esim.nickname') }}
         </DialogDescription>
       </DialogHeader>
-      <form class="space-y-4" @submit="confirmRename">
-        <FormField v-slot="{ componentField }" name="name" :validateOnBlur="false">
-          <FormItem>
-            <FormLabel>{{ t('modemDetail.esim.nickname') }}</FormLabel>
-            <FormControl>
-              <Input
-                type="text"
-                :placeholder="t('modemDetail.esim.nickname')"
-                v-bind="componentField"
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        </FormField>
+      <form
+        class="space-y-4"
+        @submit.prevent="renameForm.handleSubmit"
+      >
+        <RenameField
+          v-slot="{ field }"
+          name="name"
+        >
+          <ValidatedField
+            v-slot="{ controlAttrs }"
+            :label="t('modemDetail.esim.nickname')"
+            :meta="field.state.meta"
+          >
+            <Input
+              v-bind="controlAttrs"
+              :name="field.name"
+              type="text"
+              :placeholder="t('modemDetail.esim.nickname')"
+              :model-value="field.state.value"
+              :disabled="renameSubmitting"
+              @update:model-value="(value) => field.handleChange(String(value))"
+              @blur="field.handleBlur"
+            />
+          </ValidatedField>
+        </RenameField>
 
         <DialogFooter class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Button type="submit" class="order-1 w-full sm:order-2" :disabled="renameSubmitting">
-            <span v-if="renameSubmitting" class="inline-flex items-center gap-2">
+          <Button
+            type="submit"
+            class="order-1 w-full sm:order-2"
+            :disabled="renameSubmitting"
+          >
+            <span
+              v-if="renameSubmitting"
+              class="inline-flex items-center gap-2"
+            >
               <Spinner class="size-4" />
               {{ t('modemDetail.actions.update') }}
             </span>
@@ -624,7 +681,10 @@ watch(detailsOpen, (value) => {
     </DialogContent>
   </Dialog>
 
-  <EsimProfileDetailsDialog v-model:open="detailsOpen" :profile="detailsProfile" />
+  <EsimProfileDetailsDialog
+    v-model:open="detailsOpen"
+    :profile="detailsProfile"
+  />
 
   <AlertDialog v-model:open="deleteOpen">
     <AlertDialogContent>
@@ -635,7 +695,10 @@ watch(detailsOpen, (value) => {
         </AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>
-        <AlertDialogCancel @click="closeDeleteDialog" :disabled="deleteLoading">
+        <AlertDialogCancel
+          @click="closeDeleteDialog"
+          :disabled="deleteLoading"
+        >
           {{ t('modemDetail.actions.cancel') }}
         </AlertDialogCancel>
         <Button
@@ -644,7 +707,10 @@ watch(detailsOpen, (value) => {
           @click="confirmDelete"
           :disabled="deleteLoading"
         >
-          <span v-if="deleteLoading" class="inline-flex items-center gap-2">
+          <span
+            v-if="deleteLoading"
+            class="inline-flex items-center gap-2"
+          >
             <Spinner class="size-4" />
             {{ t('modemDetail.actions.confirm') }}
           </span>

@@ -2,12 +2,14 @@ import { mount } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('reka-ui', () => ({
+vi.mock('reka-ui', async () => ({
+  ...(await vi.importActual<typeof import('reka-ui')>('reka-ui')),
   AlertDialogContent: defineComponent({
     props: {
       disableOutsidePointerEvents: {
         type: Boolean,
-        required: false,
+        // Reka preserves undefined so its modal child can apply the default.
+        default: undefined,
       },
     },
     inheritAttrs: false,
@@ -17,9 +19,7 @@ vi.mock('reka-ui', () => ({
           'section',
           {
             'data-reka': 'content',
-            'data-disable-outside-pointer-events': String(
-              props.disableOutsidePointerEvents,
-            ),
+            'data-disable-outside-pointer-events': String(props.disableOutsidePointerEvents),
             ...attrs,
           },
           slots.default?.(),
@@ -36,7 +36,6 @@ vi.mock('reka-ui', () => ({
       return () => h('div', { 'data-reka': 'portal' }, slots.default?.())
     },
   }),
-  useForwardPropsEmits: (props: object) => props,
 }))
 
 import AlertDialogContent from '../AlertDialogContent.vue'
@@ -50,9 +49,7 @@ describe('AlertDialogContent', () => {
     })
 
     expect(
-      wrapper
-        .find('[data-reka="content"]')
-        .attributes('data-disable-outside-pointer-events'),
+      wrapper.find('[data-reka="content"]').attributes('data-disable-outside-pointer-events'),
     ).toBe('undefined')
   })
 
@@ -67,9 +64,7 @@ describe('AlertDialogContent', () => {
     })
 
     expect(
-      wrapper
-        .find('[data-reka="content"]')
-        .attributes('data-disable-outside-pointer-events'),
+      wrapper.find('[data-reka="content"]').attributes('data-disable-outside-pointer-events'),
     ).toBe('false')
   })
 })

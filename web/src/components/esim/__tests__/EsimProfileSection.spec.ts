@@ -1,8 +1,12 @@
-import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import EsimProfileSection from '@/components/esim/EsimProfileSection.vue'
 import type { EsimProfile } from '@/types/esim'
+
+enableAutoUnmount(afterEach)
+
+const updateEsimNickname = vi.hoisted(() => vi.fn())
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -13,7 +17,7 @@ vi.mock('vue-i18n', () => ({
 vi.mock('@/apis/esim', () => ({
   useEsimApi: () => ({
     enableEsim: vi.fn(),
-    updateEsimNickname: vi.fn(),
+    updateEsimNickname,
     deleteEsim: vi.fn(),
   }),
 }))
@@ -72,7 +76,7 @@ const stubs = {
     template:
       '<button v-bind="$attrs" :type="type || \'button\'" :disabled="disabled"><slot /></button>',
   },
-  Dialog: { template: '<div><slot /></div>' },
+  Dialog: { props: ['open'], template: '<div v-if="open"><slot /></div>' },
   DialogContent: { template: '<div><slot /></div>' },
   DialogDescription: { template: '<p><slot /></p>' },
   DialogFooter: { template: '<div><slot /></div>' },
@@ -96,12 +100,6 @@ const stubs = {
     template:
       '<section v-if="open" data-testid="profile-details"><span>{{ profile?.serviceProviderName }}</span><span>{{ profile?.profileName }}</span><span>{{ profile?.profileOwner?.mcc }}</span></section>',
   },
-  FormControl: { template: '<div><slot /></div>' },
-  FormField: { template: '<div><slot :component-field="{}" /></div>' },
-  FormItem: { template: '<div><slot /></div>' },
-  FormLabel: { template: '<label><slot /></label>' },
-  FormMessage: { template: '<span />' },
-  Input: { template: '<input />' },
   Skeleton: { template: '<span />' },
   Spinner: { template: '<span v-bind="$attrs" />' },
   Switch: {
@@ -112,8 +110,9 @@ const stubs = {
   },
 }
 
-const mountSection = (props: Record<string, unknown> = {}) =>
+const mountSection = (props: Record<string, unknown> = {}, realDialog = false) =>
   mount(EsimProfileSection, {
+    attachTo: realDialog ? document.body : undefined,
     props: {
       profiles: profiles.map((profile) => ({ ...profile })),
       modemId: 'modem-1',
@@ -122,12 +121,25 @@ const mountSection = (props: Record<string, unknown> = {}) =>
       ...props,
     },
     global: {
-      stubs,
+      stubs: {
+        ...stubs,
+        ...(realDialog
+          ? {
+              Dialog: false,
+              DialogContent: false,
+              DialogHeader: false,
+              DialogTitle: false,
+              DialogDescription: false,
+              DialogFooter: false,
+              DialogPortal: { template: '<div><slot /></div>' },
+            }
+          : {}),
+      },
     },
   })
 
-const buttonWithText = (wrapper: ReturnType<typeof mountSection>, text: string) => {
-  const button = wrapper.findAll('button').find((item) => item.text().includes(text))
+const buttonWithText = (wrapper: ReturnType<typeof mountSection>, text: string, index = 0) => {
+  const button = wrapper.findAll('button').filter((item) => item.text().includes(text))[index]
   if (!button) {
     throw new Error(`button containing ${text} not found`)
   }
@@ -135,6 +147,165 @@ const buttonWithText = (wrapper: ReturnType<typeof mountSection>, text: string) 
 }
 
 describe('EsimProfileSection', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  beforeEach(() => {
+    updateEsimNickname.mockReset()
+    updateEsimNickname.mockResolvedValue({ data: { value: undefined } })
+  })
+
+  it.each([
+    { name: '   ', error: 'modemDetail.validation.required' },
+    { name: 'a'.repeat(65), error: 'modemDetail.validation.maxBytes' },
+    { name: '中'.repeat(22), error: 'modemDetail.validation.maxBytes' },
+  ])('rejects an invalid nickname: $name', async ({ name, error }) => {
+    const wrapper = mountSection()
+    await buttonWithText(wrapper, 'actions.rename').trigger('click')
+    await flushPromises()
+
+    await wrapper.get('input[name="name"]').setValue(name)
+    await wrapper.get('form').trigger('submit')
+
+    await vi.waitFor(() => {
+      expect(wrapper.text()).toContain(error)
+    })
+    expect(updateEsimNickname).not.toHaveBeenCalled()
+  })
+
+  it('submits a trimmed nickname at the UTF-8 byte limit', async () => {
+    const wrapper = mountSection()
+    const nickname = '中'.repeat(21) + 'a'
+    await buttonWithText(wrapper, 'actions.rename').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get<HTMLInputElement>('input[name="name"]').element.value).toBe('Active')
+    await wrapper.get('input[name="name"]').setValue(' ' + nickname + ' ')
+    await wrapper.get('form').trigger('submit')
+
+    await vi.waitFor(() => {
+      expect(updateEsimNickname).toHaveBeenCalledExactlyOnceWith(
+        'modem-1',
+        'default',
+        'iccid-active',
+        nickname,
+      )
+    })
+  })
+
+  it('keeps the rename target and dialog open while the request is pending', async () => {
+    let completeRequest: (() => void) | undefined
+    const request = new Promise<{ data: { value: undefined } }>((resolve) => {
+      completeRequest = () => resolve({ data: { value: undefined } })
+    })
+    updateEsimNickname.mockReturnValueOnce(request)
+    const items = profiles.map((profile) => ({ ...profile }))
+    const wrapper = mountSection({ profiles: items }, true)
+    await buttonWithText(wrapper, 'actions.rename').trigger('click')
+    await flushPromises()
+
+    await wrapper.get('input[name="name"]').setValue('New name')
+    await wrapper.get('form').trigger('submit')
+    await vi.waitFor(() => {
+      expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+    })
+    expect(wrapper.get('input[name="name"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-slot="dialog-close"]').exists()).toBe(false)
+    expect(
+      wrapper.get('[role="dialog"] button[type="button"]').attributes('disabled'),
+    ).toBeDefined()
+
+    await wrapper.get('[role="dialog"]').trigger('keydown', { key: 'Escape' })
+    await flushPromises()
+    expect(wrapper.find('input[name="name"]').exists()).toBe(true)
+
+    wrapper
+      .get('[data-slot="dialog-overlay"]')
+      .element.dispatchEvent(
+        new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'mouse' }),
+      )
+    await flushPromises()
+    expect(wrapper.find('input[name="name"]').exists()).toBe(true)
+
+    await buttonWithText(wrapper, 'actions.rename', 1).trigger('click')
+    expect(wrapper.get<HTMLInputElement>('input[name="name"]').element.value).toBe('New name')
+
+    completeRequest?.()
+    await flushPromises()
+    expect(wrapper.find('input[name="name"]').exists()).toBe(false)
+    expect(items.map((profile) => profile.name)).toEqual(['New name', 'Inactive'])
+    expect(updateEsimNickname).toHaveBeenCalledExactlyOnceWith(
+      'modem-1',
+      'default',
+      'iccid-active',
+      'New name',
+    )
+
+    await buttonWithText(wrapper, 'actions.rename', 1).trigger('click')
+    await flushPromises()
+    expect(wrapper.get<HTMLInputElement>('input[name="name"]').element.value).toBe('Inactive')
+    await wrapper.get('[data-slot="dialog-close"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('input[name="name"]').exists()).toBe(false)
+  })
+
+  it('allows retrying a rename after the request fails', async () => {
+    const error = new Error('network unavailable')
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    updateEsimNickname.mockRejectedValueOnce(error)
+    const wrapper = mountSection({}, true)
+    await buttonWithText(wrapper, 'actions.rename').trigger('click')
+    await flushPromises()
+    await wrapper.get('input[name="name"]').setValue('New name')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(log).toHaveBeenCalledWith('[EsimProfileSection] Failed to update nickname:', error)
+    expect(wrapper.get('input[name="name"]').attributes('disabled')).toBeUndefined()
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+    expect(wrapper.find('[data-slot="dialog-close"]').exists()).toBe(true)
+
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(updateEsimNickname).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('input[name="name"]').exists()).toBe(false)
+  })
+
+  it.each(['escape', 'outside', 'close'])(
+    'dismisses and resets an idle rename via %s',
+    async (action) => {
+      const wrapper = mountSection({}, true)
+      await buttonWithText(wrapper, 'actions.rename').trigger('click')
+      await flushPromises()
+      await wrapper.get('input[name="name"]').setValue('')
+      await wrapper.get('input[name="name"]').trigger('blur')
+      await vi.waitFor(() => {
+        expect(wrapper.text()).toContain('modemDetail.validation.required')
+      })
+
+      if (action === 'escape') {
+        await wrapper.get('[role="dialog"]').trigger('keydown', { key: 'Escape' })
+      } else if (action === 'outside') {
+        wrapper
+          .get('[data-slot="dialog-overlay"]')
+          .element.dispatchEvent(
+            new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'mouse' }),
+          )
+      } else {
+        await wrapper.get('[data-slot="dialog-close"]').trigger('click')
+      }
+      await vi.waitFor(() => {
+        expect(wrapper.find('input[name="name"]').exists()).toBe(false)
+      })
+
+      await buttonWithText(wrapper, 'actions.rename').trigger('click')
+      await flushPromises()
+      expect(wrapper.get<HTMLInputElement>('input[name="name"]').element.value).toBe('Active')
+      expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    },
+  )
+
   it('shows quick actions only for the active profile', () => {
     const wrapper = mountSection()
 

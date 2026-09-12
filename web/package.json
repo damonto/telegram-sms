@@ -22,7 +22,7 @@
   "dependencies": {
     "@lucide/vue": "^1.37.0",
     "@tailwindcss/vite": "^4.3.3",
-    "@vee-validate/zod": "^4.15.1",
+    "@tanstack/vue-form": "^1.33.5",
     "@vueuse/core": "^14.4.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -33,14 +33,13 @@
     "reka-ui": "^2.10.4",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
-    "vee-validate": "^4.15.1",
     "vue": "^3.5.41",
     "vue-i18n": "^11.4.8",
     "vue-input-otp": "^0.4.0",
     "vue-qrcode-reader": "^5.7.3",
     "vue-router": "^5.2.0",
     "vue-sonner": "^2.0.9",
-    "zod": "3.25.76"
+    "zod": "^4.6.2"
   },
   "devDependencies": {
     "@prettier/plugin-oxc": "^0.2.2",

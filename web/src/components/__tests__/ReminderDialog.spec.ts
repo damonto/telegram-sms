@@ -53,6 +53,31 @@ const mountDialog = (
   })
 
 describe('ReminderDialog', () => {
+  it.each([
+    { id: 'reminder-time', value: '2026-07-18T10:30', error: 'timeRequired' },
+    { id: 'reminder-content', value: 'Renew the plan', error: 'contentRequired' },
+  ])('validates $id on blur and clears the error on change', async ({ id, value, error }) => {
+    const wrapper = mountDialog()
+    const input = wrapper.get('#' + id)
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+
+    await input.trigger('blur')
+    await vi.waitFor(() => {
+      expect(input.attributes('aria-invalid')).toBe('true')
+    })
+    expect(input.attributes('aria-describedby')).toBe(id + '-error')
+    expect(wrapper.get('#' + id + '-error').text()).toBe('modemDetail.reminder.validation.' + error)
+
+    await input.setValue(value)
+    await vi.waitFor(() => {
+      expect(input.attributes('aria-invalid')).toBe('false')
+    })
+    expect(input.attributes('aria-describedby')).toBeUndefined()
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.emitted('save')).toBeUndefined()
+    wrapper.unmount()
+  })
+
   it('keeps the mobile header left aligned and constrains the datetime input', () => {
     const wrapper = mountDialog()
     const header = wrapper
@@ -99,7 +124,7 @@ describe('ReminderDialog', () => {
     await wrapper.get('#reminder-repeat').setValue('7')
     await wrapper.get('#reminder-content').setValue(' Renew the plan ')
     await flushPromises()
-    await (wrapper.vm as unknown as { save: () => Promise<void> }).save()
+    await wrapper.get('form').trigger('submit')
     await flushPromises()
 
     expect(wrapper.emitted('save')?.[0]?.[0]).toEqual({
@@ -131,18 +156,35 @@ describe('ReminderDialog', () => {
     expect(wrapper.emitted('clear')).toHaveLength(1)
   })
 
-  it('rejects repeat values above the product limit', async () => {
+  it.each(['0', '-1', '1.5', '3651'])('rejects an invalid repeat interval %s', async (repeat) => {
     const wrapper = mountDialog()
 
     await wrapper.get('#reminder-time').setValue('2099-07-18T10:30')
-    await wrapper.get('#reminder-repeat').setValue('3651')
+    await wrapper.get('#reminder-repeat').setValue(repeat)
     await wrapper.get('#reminder-content').setValue('Renew the plan')
     await flushPromises()
-    await (wrapper.vm as unknown as { save: () => Promise<void> }).save()
-    await flushPromises()
+    await wrapper.get('form').trigger('submit')
 
+    await vi.waitFor(() => {
+      expect(wrapper.text()).toContain('modemDetail.reminder.validation.repeat')
+    })
     expect(wrapper.emitted('save')).toBeUndefined()
-    expect(wrapper.text()).toContain('modemDetail.reminder.validation.repeat')
+  })
+
+  it('submits a one-time reminder when the repeat interval is empty', async () => {
+    const wrapper = mountDialog()
+
+    await wrapper.get('#reminder-time').setValue('2099-07-18T10:30')
+    await wrapper.get('#reminder-content').setValue(' Renew the plan ')
+    await wrapper.get('form').trigger('submit')
+
+    await vi.waitFor(() => {
+      expect(wrapper.emitted('save')?.[0]?.[0]).toEqual({
+        scheduledAt: new Date(2099, 6, 18, 10, 30).toISOString(),
+        repeatDays: null,
+        content: 'Renew the plan',
+      })
+    })
   })
 
   it('renders the repeat unit inside the input group with English pluralization', async () => {

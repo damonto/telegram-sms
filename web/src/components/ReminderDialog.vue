@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { Bell, CalendarClock, Save, Trash2 } from 'lucide-vue-next'
 import { computed, ref, useTemplateRef, watch } from 'vue'
-import { useForm } from 'vee-validate'
-import { toTypedSchema } from '@vee-validate/zod'
+import { useForm } from '@tanstack/vue-form'
+import { Bell, CalendarClock, Save, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import * as z from 'zod'
+import { z } from 'zod'
 
-import { dateTimeLocalToISOString, formatDateTimeLocal } from '@/lib/datetime'
+import ValidatedField from '@/components/ValidatedField.vue'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -32,9 +31,10 @@ import {
   InputGroupInput,
   InputGroupText,
 } from '@/components/ui/input-group'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Spinner } from '@/components/ui/spinner'
+import { dateTimeLocalToISOString, formatDateTimeLocal } from '@/lib/datetime'
+import { validateOnInteraction } from '@/lib/form-validation'
 import type { Reminder, ReminderPayload } from '@/types/reminder'
 
 const props = withDefaults(
@@ -61,22 +61,16 @@ const open = defineModel<boolean>('open', { required: true })
 const { t } = useI18n()
 const maxRepeatDays = 3650
 
-const schema = toTypedSchema(
-  z.object({
-    scheduledAt: z.string().min(1, t('modemDetail.reminder.validation.timeRequired')),
-    repeatDays: z.union([z.string(), z.number()]).refine((value) => {
-      const text = String(value)
-      return text === '' || (/^[1-9]\d*$/.test(text) && Number(text) <= maxRepeatDays)
-    }, t('modemDetail.reminder.validation.repeat')),
-    content: z.string().trim().min(1, t('modemDetail.reminder.validation.contentRequired')),
-  }),
-)
+const schema = z.object({
+  scheduledAt: z.string().min(1, t('modemDetail.reminder.validation.timeRequired')),
+  repeatDays: z.union([z.string(), z.number()]).refine((value) => {
+    const text = String(value)
+    return text === '' || (/^[1-9]\d*$/.test(text) && Number(text) <= maxRepeatDays)
+  }, t('modemDetail.reminder.validation.repeat')),
+  content: z.string().trim().min(1, t('modemDetail.reminder.validation.contentRequired')),
+})
 
-type FormValues = {
-  scheduledAt: string
-  repeatDays: string | number
-  content: string
-}
+type FormValues = z.input<typeof schema>
 
 const formValues = (reminder?: Reminder | null): FormValues => ({
   scheduledAt: reminder ? formatDateTimeLocal(reminder.nextAt) : '',
@@ -84,14 +78,26 @@ const formValues = (reminder?: Reminder | null): FormValues => ({
   content: reminder?.content ?? '',
 })
 
-const { defineField, errors, handleSubmit, resetForm } = useForm<FormValues>({
-  validationSchema: schema,
-  initialValues: formValues(props.reminder),
+const form = useForm({
+  validationLogic: validateOnInteraction,
+  validators: { onDynamic: schema },
+  defaultValues: formValues(props.reminder),
+  onSubmit: ({ value }) => {
+    const values = schema.parse(value)
+    const scheduled = dateTimeLocalToISOString(values.scheduledAt)
+    if (!scheduled) return
+    const repeatText = String(values.repeatDays).trim()
+    const repeat = repeatText === '' ? null : Number(repeatText)
+    emit('save', {
+      scheduledAt: scheduled,
+      repeatDays: repeat,
+      content: values.content,
+    })
+  },
 })
 
-const [scheduledAt] = defineField('scheduledAt')
-const [repeatDays] = defineField('repeatDays')
-const [content] = defineField('content')
+const ReminderField = form.Field
+const repeatDays = form.useSelector((state) => state.values.repeatDays)
 
 const clearOpen = ref(false)
 const focusTarget = useTemplateRef<HTMLElement>('focusTarget')
@@ -108,18 +114,6 @@ const dialogOpen = computed({
   },
 })
 
-const save = handleSubmit((values) => {
-  const scheduled = dateTimeLocalToISOString(values.scheduledAt)
-  if (!scheduled) return
-  const repeatText = String(values.repeatDays).trim()
-  const repeat = repeatText === '' ? null : Number(repeatText)
-  emit('save', {
-    scheduledAt: scheduled,
-    repeatDays: repeat,
-    content: values.content.trim(),
-  })
-})
-
 const confirmClear = () => {
   clearOpen.value = false
   emit('clear')
@@ -134,7 +128,7 @@ watch(
   () => [open.value, props.reminder] as const,
   ([isOpen]) => {
     if (!isOpen) return
-    resetForm({ values: formValues(props.reminder) })
+    form.reset(formValues(props.reminder))
   },
   { deep: true },
 )
@@ -148,7 +142,11 @@ watch(
       @open-auto-focus="handleOpenAutoFocus"
     >
       <DialogHeader class="text-left">
-        <div ref="focusTarget" tabindex="-1" class="space-y-2 outline-none">
+        <div
+          ref="focusTarget"
+          tabindex="-1"
+          class="space-y-2 outline-none"
+        >
           <DialogTitle class="flex items-center gap-2">
             <Bell class="size-4 text-primary" />
             {{ t('modemDetail.reminder.title') }}
@@ -159,68 +157,101 @@ watch(
         </div>
       </DialogHeader>
 
-      <form class="space-y-4" @submit.prevent="save">
-        <div class="space-y-2">
-          <Label for="reminder-time">{{ t('modemDetail.reminder.time') }}</Label>
-          <InputGroup data-testid="reminder-time-group" class="overflow-hidden">
-            <InputGroupInput
-              id="reminder-time"
-              v-model="scheduledAt"
-              type="datetime-local"
-              step="60"
-              :placeholder="t('modemDetail.reminder.timePlaceholder')"
-              class="appearance-none [&::-webkit-calendar-picker-indicator]:opacity-0"
-              :disabled="busy"
-              :aria-invalid="Boolean(errors.scheduledAt)"
-            />
-            <InputGroupAddon align="inline-end" aria-hidden="true">
-              <CalendarClock class="size-4" />
-            </InputGroupAddon>
-          </InputGroup>
-          <p v-if="errors.scheduledAt" class="text-xs text-destructive">
-            {{ errors.scheduledAt }}
-          </p>
-        </div>
+      <form
+        class="space-y-4 **:data-[slot=field-error]:text-xs"
+        @submit.prevent="form.handleSubmit"
+      >
+        <ReminderField
+          v-slot="{ field }"
+          name="scheduledAt"
+        >
+          <ValidatedField
+            id="reminder-time"
+            v-slot="{ controlAttrs }"
+            :label="t('modemDetail.reminder.time')"
+            :meta="field.state.meta"
+          >
+            <InputGroup
+              data-testid="reminder-time-group"
+              class="overflow-hidden"
+            >
+              <InputGroupInput
+                v-bind="controlAttrs"
+                :name="field.name"
+                :model-value="field.state.value"
+                type="datetime-local"
+                step="60"
+                :placeholder="t('modemDetail.reminder.timePlaceholder')"
+                class="appearance-none [&::-webkit-calendar-picker-indicator]:opacity-0"
+                :disabled="busy"
+                @update:model-value="(value: string | number) => field.handleChange(String(value))"
+                @blur="field.handleBlur"
+              />
+              <InputGroupAddon
+                align="inline-end"
+                aria-hidden="true"
+              >
+                <CalendarClock class="size-4" />
+              </InputGroupAddon>
+            </InputGroup>
+          </ValidatedField>
+        </ReminderField>
 
-        <div class="space-y-2">
-          <Label for="reminder-repeat">{{ t('modemDetail.reminder.repeat') }}</Label>
-          <InputGroup>
-            <InputGroupInput
-              id="reminder-repeat"
-              v-model="repeatDays"
-              type="number"
-              min="1"
-              :max="maxRepeatDays"
-              step="1"
-              inputmode="numeric"
-              :placeholder="t('modemDetail.reminder.repeatPlaceholder')"
-              :disabled="busy"
-              :aria-invalid="Boolean(errors.repeatDays)"
-            />
-            <InputGroupAddon align="inline-end">
-              <InputGroupText data-testid="reminder-repeat-unit">
-                {{ repeatDayUnit }}
-              </InputGroupText>
-            </InputGroupAddon>
-          </InputGroup>
-          <p v-if="errors.repeatDays" class="text-xs text-destructive">
-            {{ errors.repeatDays }}
-          </p>
-        </div>
+        <ReminderField
+          v-slot="{ field }"
+          name="repeatDays"
+        >
+          <ValidatedField
+            id="reminder-repeat"
+            v-slot="{ controlAttrs }"
+            :label="t('modemDetail.reminder.repeat')"
+            :meta="field.state.meta"
+          >
+            <InputGroup>
+              <InputGroupInput
+                v-bind="controlAttrs"
+                :name="field.name"
+                :model-value="field.state.value"
+                type="number"
+                min="1"
+                :max="maxRepeatDays"
+                step="1"
+                inputmode="numeric"
+                :placeholder="t('modemDetail.reminder.repeatPlaceholder')"
+                :disabled="busy"
+                @update:model-value="field.handleChange"
+                @blur="field.handleBlur"
+              />
+              <InputGroupAddon align="inline-end">
+                <InputGroupText data-testid="reminder-repeat-unit">
+                  {{ repeatDayUnit }}
+                </InputGroupText>
+              </InputGroupAddon>
+            </InputGroup>
+          </ValidatedField>
+        </ReminderField>
 
-        <div class="space-y-2">
-          <Label for="reminder-content">{{ t('modemDetail.reminder.content') }}</Label>
-          <Textarea
+        <ReminderField
+          v-slot="{ field }"
+          name="content"
+        >
+          <ValidatedField
             id="reminder-content"
-            v-model="content"
-            :placeholder="t('modemDetail.reminder.contentPlaceholder')"
-            :disabled="busy"
-            :aria-invalid="Boolean(errors.content)"
-          />
-          <p v-if="errors.content" class="text-xs text-destructive">
-            {{ errors.content }}
-          </p>
-        </div>
+            v-slot="{ controlAttrs }"
+            :label="t('modemDetail.reminder.content')"
+            :meta="field.state.meta"
+          >
+            <Textarea
+              v-bind="controlAttrs"
+              :name="field.name"
+              :model-value="field.state.value"
+              :placeholder="t('modemDetail.reminder.contentPlaceholder')"
+              :disabled="busy"
+              @update:model-value="(value) => field.handleChange(String(value))"
+              @blur="field.handleBlur"
+            />
+          </ValidatedField>
+        </ReminderField>
 
         <DialogFooter class="gap-2 sm:justify-between">
           <Button
@@ -236,12 +267,26 @@ watch(
           </Button>
           <span v-else />
           <div class="flex gap-2">
-            <Button type="button" variant="outline" :disabled="busy" @click="open = false">
+            <Button
+              type="button"
+              variant="outline"
+              :disabled="busy"
+              @click="open = false"
+            >
               {{ t('modemDetail.actions.cancel') }}
             </Button>
-            <Button type="submit" :disabled="busy">
-              <Spinner v-if="props.saving" class="size-4" />
-              <Save v-else class="size-4" />
+            <Button
+              type="submit"
+              :disabled="busy"
+            >
+              <Spinner
+                v-if="props.saving"
+                class="size-4"
+              />
+              <Save
+                v-else
+                class="size-4"
+              />
               {{ t('modemDetail.reminder.save') }}
             </Button>
           </div>
